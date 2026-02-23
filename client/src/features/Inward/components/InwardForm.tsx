@@ -148,18 +148,6 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
           UnitSymbol: u.UnitSymbol ?? u.unitSymbol ?? u.symbol ?? undefined,
         }));
 
-        // Ensure default units exist (KG, NO, LTR)
-        const required = ['KG', 'NO.', 'LTR'];
-        const existingNames = normalizedUnits.map((u: any) =>
-          (u.UnitName || '').toString().trim().toUpperCase()
-        );
-        let nextTempId = -1;
-        required.forEach(req => {
-          if (!existingNames.includes(req)) {
-            normalizedUnits.push({ UnitID: nextTempId--, UnitName: req, UnitSymbol: undefined });
-          }
-        });
-
         // Debug: log units for verification
         // eslint-disable-next-line no-console
         console.debug('InwardForm: unitsData ->', unitsData);
@@ -425,10 +413,6 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
             ...item,
             inwardDate: isoDate,
           };
-          // Filter out temporary negative IDs used when database is empty
-          if (processedItem.unitId && processedItem.unitId <= 0) {
-            delete (processedItem as any).unitId;
-          }
           return processedItem;
         });
 
@@ -498,10 +482,10 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
               onClick={() => handleTabChange('RM')}
               disabled={(!!initialData || items.length > 0) && activeTab !== 'RM'}
               className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 ${activeTab === 'RM'
-                  ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
-                  : !!initialData || items.length > 0
-                    ? 'text-[var(--text-disabled)] cursor-not-allowed opacity-50'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
+                : !!initialData || items.length > 0
+                  ? 'text-[var(--text-disabled)] cursor-not-allowed opacity-50'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                 }`}
               title={
                 (!!initialData || items.length > 0) && activeTab !== 'RM'
@@ -516,10 +500,10 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
               onClick={() => handleTabChange('PM')}
               disabled={(!!initialData || items.length > 0) && activeTab !== 'PM'}
               className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 ${activeTab === 'PM'
-                  ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
-                  : !!initialData || items.length > 0
-                    ? 'text-[var(--text-disabled)] cursor-not-allowed opacity-50'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
+                : !!initialData || items.length > 0
+                  ? 'text-[var(--text-disabled)] cursor-not-allowed opacity-50'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                 }`}
               title={
                 (!!initialData || items.length > 0) && activeTab !== 'PM'
@@ -739,8 +723,8 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
                     <tr
                       key={idx}
                       className={`transition-colors duration-150 ${editingItemIndex === idx
-                          ? 'bg-[var(--primary-light)] border-l-4 border-l-[var(--primary)]'
-                          : 'hover:bg-[var(--surface-hover)]'
+                        ? 'bg-[var(--primary-light)] border-l-4 border-l-[var(--primary)]'
+                        : 'hover:bg-[var(--surface-hover)]'
                         }`}
                     >
                       <td className="px-4 py-3 text-[var(--text-primary)] font-medium whitespace-nowrap">
