@@ -35,10 +35,14 @@ export class SplitOrdersService {
     logger.info(`Cancelling original order ${originalOrderId}`);
     const cancellationRemark = 'Order cancled by Split Order.';
 
-    await this.ordersService.updateOrder(originalOrderId, {
-      status: 'Cancelled',
-      notes: (originalOrder.remarks ? originalOrder.remarks + '\n' : '') + cancellationRemark,
-    });
+    await this.ordersService.updateOrder(
+      originalOrderId,
+      {
+        status: 'Cancelled',
+        notes: (originalOrder.remarks ? originalOrder.remarks + '\n' : '') + cancellationRemark,
+      },
+      true
+    );
 
     // Update account remarks for the original order so it shows up in Cancelled Orders Report
     await db
