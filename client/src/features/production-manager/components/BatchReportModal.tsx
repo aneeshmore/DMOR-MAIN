@@ -228,7 +228,15 @@ export default function BatchReportModal({
     if (reportType === 'batch-chart') {
       // Batch Chart Report
       doc.text(`Batch No : ${batch.batchNo} / ${batch.masterProductName || ''}`, 14, 25);
-      doc.text(`Date : ${new Date(batch.scheduledDate).toLocaleDateString()}`, 115, 25);
+      doc.text(
+        `Date : ${new Date(batch.scheduledDate).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit',
+        })}`,
+        115,
+        25
+      );
       doc.text(`Supervisor : Mr. ${batch.supervisorName || 'N/A'}`, 14, 32);
       doc.text(`Labours : ${batch.labourNames || 'N/A'}`, 14, 38);
       doc.text(`Actual Density : `, 115, 32);
@@ -257,7 +265,15 @@ export default function BatchReportModal({
       doc.text(`Batch No : ${batch.batchNo} / ${batch.masterProductName || ''}`, 14, 25, { maxWidth: 85 });
       doc.text(`Supervisor : Mr. ${batch.supervisorName || 'N/A'}`, 14, 32);
       doc.text(`Labours : ${batch.labourNames || 'N/A'}`, 14, 38);
-      doc.text(`Date : ${new Date(batch.scheduledDate).toLocaleDateString()}`, 14, 44);
+      doc.text(
+        `Date : ${new Date(batch.scheduledDate).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit',
+        })}`,
+        14,
+        44
+      );
 
       const duration = calculateDuration(batch.startedAt, batch.completedAt);
       doc.text(`Total Time : ${duration}`, 14, 50);
@@ -760,7 +776,11 @@ export default function BatchReportModal({
               <div>
                 <p>
                   <span className="font-semibold">Date:</span>{' '}
-                  {new Date(batchData.scheduledDate).toLocaleDateString()}
+                  {new Date(batchData.scheduledDate).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: '2-digit',
+                  })}
                 </p>
                 {reportType === 'batch-chart' ? (
                   <>
