@@ -141,6 +141,7 @@ export function CancelledOrdersDataTable({ data, title, icon }: CancelledOrdersD
       },
       {
         accessorKey: 'location',
+        meta: { fitContent: true },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Location" />,
         cell: ({ row }) => (
           <span className="text-[var(--text-secondary)]">{row.original.location || '-'}</span>
@@ -209,7 +210,11 @@ export function CancelledOrdersDataTable({ data, title, icon }: CancelledOrdersD
         getRowCanExpand={() => true}
         renderSubComponent={({ row }) => <ExpandedOrderDetails orderId={row.original.orderId} />}
         persistenceKey="cancelled-orders-table"
-        theme={{ container: 'border-none shadow-none rounded-t-none' }}
+        theme={{
+          container: 'border-none shadow-none rounded-t-none',
+          headerCell: '!px-1 [&:nth-child(4)]:!pr-0',
+          cell: '!px-1 py-4 [&:nth-child(4)]:!pr-0',
+        }}
       />
     </div>
   );
