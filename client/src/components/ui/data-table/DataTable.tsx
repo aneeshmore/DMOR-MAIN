@@ -70,6 +70,7 @@ const getCommonPinningStyles = (column: Column<any>): React.CSSProperties => {
   const isPinned = column.getIsPinned();
   const isLastLeft = isPinned === 'left' && column.getIsLastColumn('left');
   const isFirstRight = isPinned === 'right' && column.getIsFirstColumn('right');
+  const fitContent = Boolean((column.columnDef as any)?.meta?.fitContent);
 
   return {
     boxShadow: isLastLeft
@@ -81,7 +82,7 @@ const getCommonPinningStyles = (column: Column<any>): React.CSSProperties => {
     right: isPinned === 'right' ? `${column.getAfter('right')}px` : undefined,
     opacity: isPinned ? 0.95 : 1, // Slight transparency for glass effect or 1 for solid
     position: isPinned ? 'sticky' : 'relative',
-    width: column.getSize(),
+    width: fitContent ? undefined : column.getSize(),
     zIndex: isPinned ? 1 : 0,
     backgroundColor: isPinned ? 'var(--surface)' : undefined,
   };

@@ -147,6 +147,7 @@ export const SplitOrdersTable: React.FC<SplitOrdersTableProps> = ({
       {
         header: 'Location',
         accessorKey: 'location',
+        meta: { fitContent: true },
         cell: info => (
           <span className="text-[var(--text-primary)]">{decodeHtml(info.getValue() as string) || '-'}</span>
         ),
@@ -205,6 +206,7 @@ export const SplitOrdersTable: React.FC<SplitOrdersTableProps> = ({
       {
         header: 'Payment Cleared',
         id: 'paymentCleared',
+        meta: { fitContent: true },
         cell: info => {
           const meta = info.table.options.meta as any;
           return (
@@ -319,7 +321,11 @@ export const SplitOrdersTable: React.FC<SplitOrdersTableProps> = ({
         enableVirtualization={false}
         getRowCanExpand={() => true}
         renderSubComponent={({ row }) => <ExpandedOrderDetails orderId={row.original.orderId} />}
-        theme={{ container: 'border-none shadow-none rounded-t-none' }}
+        theme={{
+          container: 'border-none shadow-none rounded-t-none',
+          headerCell: '!px-1 [&:nth-child(4)]:!pr-0 [&:nth-child(9)]:!pr-0.5',
+          cell: '!px-1 py-4 [&:nth-child(4)]:!pr-0 [&:nth-child(9)]:!pr-0.5',
+        }}
         meta={{
           editedData,
           handleInputChange,

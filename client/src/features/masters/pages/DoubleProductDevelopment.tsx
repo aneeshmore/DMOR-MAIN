@@ -88,6 +88,7 @@ const DoubleProductDevelopment = () => {
   // Form State
   const [selectedMasterProductId, setSelectedMasterProductId] = useState<number | ''>('');
   const [linkedHardenerId, setLinkedHardenerId] = useState<number | null>(null);
+  const [viscosity, setViscosity] = useState<string>('');
 
   // Ratios
   const [ratioBase, setRatioBase] = useState<string>('');
@@ -202,7 +203,7 @@ const DoubleProductDevelopment = () => {
   // Helper to fetch recipe items
   const fetchRecipeItems = async (
     mpId: number
-  ): Promise<{ materials: RawMaterialItem[]; mixingRatioPart?: number } | null> => {
+  ): Promise<{ materials: RawMaterialItem[]; mixingRatioPart?: number; viscosity?: string } | null> => {
     try {
       // 1. Try saved development record
       const devRes = await productDevelopmentApi.getByMasterProductId(mpId);
@@ -234,6 +235,10 @@ const DoubleProductDevelopment = () => {
           mixingRatioPart: devRes.data.mixingRatioPart
             ? Number(devRes.data.mixingRatioPart)
             : undefined,
+          viscosity:
+            devRes.data.viscosity !== null && devRes.data.viscosity !== undefined
+              ? String(devRes.data.viscosity)
+              : '',
         };
       }
 
@@ -282,6 +287,7 @@ const DoubleProductDevelopment = () => {
     // Load Base Recipe
     const baseData = await fetchRecipeItems(value);
     setBaseItems(baseData?.materials || []);
+    setViscosity(baseData?.viscosity || '');
     if (baseData?.mixingRatioPart) {
       setRatioBase(String(baseData.mixingRatioPart));
     } else {
@@ -722,6 +728,7 @@ const DoubleProductDevelopment = () => {
       const baseResponse = await productDevelopmentApi.create({
         masterProductId: selectedMasterProductId,
         density: calculateDensity(baseItems),
+        viscosity: parseFloat(viscosity) || 0,
         hours: calculateProductionCost(baseItems),
         perPercent: 0,
         mixingRatioPart: parseFloat(ratioBase) || 0,
@@ -1141,8 +1148,8 @@ const DoubleProductDevelopment = () => {
                     value={
                       isHardener
                         ? (
-                          100 - calculateListTotalPercentage(baseItemsForCalculation || [])
-                        ).toFixed(3)
+                            100 - calculateListTotalPercentage(baseItemsForCalculation || [])
+                          ).toFixed(3)
                         : calculateListTotalPercentage(items).toFixed(3)
                     }
                     step="0.01"
@@ -1151,10 +1158,11 @@ const DoubleProductDevelopment = () => {
                   />
                 </td>
                 <td
-                  className={`px-4 py-3 font-bold ${calculateTotalPercentage(items).toFixed(3) === '100.000'
+                  className={`px-4 py-3 font-bold ${
+                    calculateTotalPercentage(items).toFixed(3) === '100.000'
                       ? 'text-[var(--success)] bg-green-50'
                       : 'text-[var(--danger)] bg-red-50'
-                    }`}
+                  }`}
                 >
                   {calculateTotalPercentage(items).toFixed(3)}%
                 </td>
@@ -1310,7 +1318,7 @@ const DoubleProductDevelopment = () => {
 
       <div className="card p-6 space-y-6">
         {/* Top Controls: Product Select & Ratio */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
           <div>
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
               Base Master Product <span className="text-[var(--danger)]">*</span>
@@ -1402,6 +1410,20 @@ const DoubleProductDevelopment = () => {
               />
             </div>
           </div>
+
+          <Input
+            label="Viscosity"
+            value={viscosity}
+            onChange={e => setViscosity(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+              }
+            }}
+            placeholder="Viscosity"
+            type="number"
+            step="0.01"
+          />
         </div>
 
         <hr className="border-[var(--border)]" />
@@ -1454,7 +1476,7 @@ const DoubleProductDevelopment = () => {
               hardenerItems,
               true,
               masterProducts.find(p => p.masterProductId === linkedHardenerId)?.masterProductName ||
-              '',
+                '',
               true,
               baseItems
             )}

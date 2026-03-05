@@ -493,10 +493,11 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                   {items.map((item, idx) => (
                     <tr
                       key={idx}
-                      className={`transition-colors duration-150 ${editingItemIndex === idx
-                        ? 'bg-[var(--primary-light)] border-l-4 border-l-[var(--primary)]'
-                        : 'hover:bg-[var(--surface-hover)]'
-                        }`}
+                      className={`transition-colors duration-150 ${
+                        editingItemIndex === idx
+                          ? 'bg-[var(--primary-light)] border-l-4 border-l-[var(--primary)]'
+                          : 'hover:bg-[var(--surface-hover)]'
+                      }`}
                     >
                       <td className="px-4 py-3 text-[var(--text-primary)] font-medium whitespace-nowrap">
                         {getProductName(item)}
