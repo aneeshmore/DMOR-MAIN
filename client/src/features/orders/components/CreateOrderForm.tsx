@@ -29,7 +29,7 @@ import { inventoryApi } from '@/features/inventory/api/inventoryApi';
 import { Customer } from '@/features/masters/types';
 import { Employee } from '@/features/employees/types';
 import { Product } from '@/features/inventory/types';
-import { OrderWithDetails } from '../types';
+import { Order, OrderWithDetails } from '../types';
 import { quotationApi, QuotationRecord } from '@/features/quotations/api/quotationApi';
 import { tncApi } from '@/features/tnc/api/tncApi';
 import { Tnc } from '@/features/tnc/types';
@@ -77,7 +77,7 @@ interface OrderDetailLine {
 }
 
 interface CreateOrderFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (order?: Order | OrderWithDetails) => void;
   viewMode?: 'orders' | 'quotations';
   editingOrder?: OrderWithDetails | null;
   onCancelEdit?: () => void;
@@ -890,7 +890,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
       setSubmitting(false);
       setShowConfirmation(false);
 
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(result);
 
       // If updating, maybe we want to close edit mode?
       if (editingOrder && onCancelEdit) {
