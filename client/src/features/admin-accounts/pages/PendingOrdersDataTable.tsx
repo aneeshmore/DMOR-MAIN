@@ -70,7 +70,7 @@ const EditableCell = memo(function EditableCell({
       type="text"
       defaultValue={value}
       onChange={handleChange}
-      className="w-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[var(--primary-200)] focus:border-[var(--primary)] outline-none transition-all placeholder:text-[var(--text-secondary)]"
+      className="w-full text-center border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[var(--primary-200)] focus:border-[var(--primary)] outline-none transition-all placeholder:text-[var(--text-secondary)]"
       placeholder={placeholder}
       onClick={handleClick}
       onFocus={handleFocus}
@@ -214,7 +214,9 @@ export function PendingOrdersDataTable({
         accessorKey: 'area',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Area" />,
         cell: ({ row }) => (
-          <span className="text-[var(--text-secondary)]">{decodeHtml(row.original.area) || '-'}</span>
+          <span className="text-[var(--text-secondary)]">
+            {decodeHtml(row.original.area) || '-'}
+          </span>
         ),
       },
       {
@@ -222,7 +224,9 @@ export function PendingOrdersDataTable({
         meta: { fitContent: true },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Location" />,
         cell: ({ row }) => (
-          <span className="text-[var(--text-secondary)]">{decodeHtml(row.original.location) || '-'}</span>
+          <span className="text-[var(--text-secondary)]">
+            {decodeHtml(row.original.location) || '-'}
+          </span>
         ),
       },
       {
@@ -262,7 +266,7 @@ export function PendingOrdersDataTable({
       {
         id: 'billNo',
         header: 'Bill No',
-        size: 200,
+        size: 95,
         cell: function BillNoCell({ row, table }) {
           const tableEditedData = (table.options.meta as any)?.editedData || {};
           const tableOnInputChange = (table.options.meta as any)?.onInputChange;
@@ -308,7 +312,7 @@ export function PendingOrdersDataTable({
       {
         id: 'remarks',
         header: 'Remark',
-        size: 250,
+        size: 150,
         cell: function RemarksCell({ row, table }) {
           const tableEditedData = (table.options.meta as any)?.editedData || {};
           const tableOnInputChange = (table.options.meta as any)?.onInputChange;
@@ -349,7 +353,9 @@ export function PendingOrdersDataTable({
                       !tableEditedData[row.original.orderId]?.paymentCleared
                     }
                     className="inline-flex items-center gap-1 px-3 py-1 text-[var(--success)] bg-[var(--background)] hover:bg-[#ecfdf5] border border-[var(--success)]/20 rounded-lg transition-colors font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={row.original.status === 'Verified' ? 'Send to Production' : 'Accept Payment'}
+                    title={
+                      row.original.status === 'Verified' ? 'Send to Production' : 'Accept Payment'
+                    }
                   >
                     <Check className="w-3 h-3" />
                     {row.original.status === 'Verified' ? 'Send to Prod' : 'Accept'}
@@ -418,8 +424,8 @@ export function PendingOrdersDataTable({
         persistenceKey="pending-orders-table"
         theme={{
           container: 'border-none shadow-none rounded-t-none',
-          headerCell: '!px-1 [&:nth-child(4)]:!pr-0 [&:nth-child(9)]:!pr-0.5',
-          cell: '!px-1 py-4 [&:nth-child(4)]:!pr-0 [&:nth-child(9)]:!pr-0.5',
+          headerCell: 'text-center !px-1 [&:nth-child(4)]:!pr-0 [&:nth-child(9)]:!pr-0.5',
+          cell: 'text-center !px-1 py-4 [&:nth-child(4)]:!pr-0 [&:nth-child(9)]:!pr-0.5',
         }}
         meta={{
           editedData,

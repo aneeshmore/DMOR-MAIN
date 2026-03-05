@@ -229,21 +229,24 @@ export default function BatchReportModal({
 
     if (reportType === 'batch-chart') {
       // Batch Chart Report
-      doc.text(`Batch No : ${batch.batchNo} / ${batch.masterProductName || ''}`, 14, 25);
+      const batchNoText = `Batch No : ${batch.batchNo}/`;
+      const productNameX = 14 + doc.getTextWidth(batchNoText) + 1;
+      doc.text(batchNoText, 14, 25);
+      doc.text((batch.masterProductName || '').trimStart(), productNameX, 25);
       doc.text(
         `Date : ${new Date(batch.scheduledDate).toLocaleDateString('en-GB', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
         })}`,
-        115,
+        130,
         25
       );
       doc.text(`Supervisor : Mr. ${batch.supervisorName || 'N/A'}`, 14, 32);
       doc.text(`Labours : ${batch.labourNames || 'N/A'}`, 14, 38);
-      const qualityLabelX = 115;
-      const qualityColonX = 150;
-      const qualityLineX = 154;
+      const qualityLabelX = 130;
+      const qualityColonX = 165;
+      const qualityLineX = 169;
       doc.text('Actual Density', qualityLabelX, 32);
       doc.text(':', qualityColonX, 32);
       doc.text('___________', qualityLineX, 32);
@@ -279,8 +282,11 @@ export default function BatchReportModal({
       tablesStartY = 70;
     } else {
       // Completion Chart Report Header Info
-      doc.text(`Batch No : ${batch.batchNo} / ${batch.masterProductName || ''}`, 14, 25, {
-        maxWidth: 85,
+      const batchNoText = `Batch No : ${batch.batchNo}/`;
+      const productNameX = 14 + doc.getTextWidth(batchNoText) + 1;
+      doc.text(batchNoText, 14, 25);
+      doc.text((batch.masterProductName || '').trimStart(), productNameX, 25, {
+        maxWidth: 85 - (productNameX - 14),
       });
       doc.text(`Supervisor : Mr. ${batch.supervisorName || 'N/A'}`, 14, 32);
       doc.text(`Labours : ${batch.labourNames || 'N/A'}`, 14, 38);
@@ -824,7 +830,7 @@ export default function BatchReportModal({
             </div>
 
             {/* Batch Info */}
-            <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+            <div className="grid grid-cols-2 gap-12 mb-6 text-sm">
               <div>
                 <p>
                   <span className="font-semibold">Batch No:</span> {batchData.batchNo}
