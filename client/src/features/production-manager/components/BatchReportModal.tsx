@@ -210,59 +210,108 @@ export default function BatchReportModal({
     if (!batchData) return;
 
     const doc = new jsPDF();
-    const normalBodyTextColor = 10;
     const batch = batchData;
+    const normalBodyTextColor = 10;
+    const scheduledDateText = new Date(batch.scheduledDate).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    const productNameText = (batch.masterProductName || 'N/A').trimStart();
 
-    // Full Page Border
     doc.setLineWidth(0.5);
     doc.rect(5, 5, 200, 287);
 
-    // Header
     doc.setFontSize(16);
-    const companyHeaderName = companyInfo?.companyName || 'MOREX TECHNOLOGIES';
-    doc.text(companyHeaderName.toUpperCase(), 105, 15, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    const companyHeaderName = companyInfo?.companyName || 'DMOR PAINTS';
+    doc.text(companyHeaderName, 105, 15, { align: 'center' });
     doc.line(14, 18, 196, 18);
 
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
 
-    let tablesStartY = 70; // Default start Y for main tables
+    const leftX = 14;
+    const rightX = 108;
+    const lineGap = 6;
+    let infoY = 26;
+    let tablesStartY = 70;
+    const drawBoldLabelWithNormalValue = (
+      label: string,
+      value: string | number,
+      x: number,
+      y: number
+    ) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(label, x, y);
+      const labelWidth = doc.getTextWidth(label);
+      doc.setFont('helvetica', 'normal');
+      doc.text(` ${value}`, x + labelWidth, y);
+    };
 
     if (reportType === 'batch-chart') {
-      // Batch Chart Report
-      const batchNoText = `Batch No : ${batch.batchNo}/`;
-      const productNameX = 14 + doc.getTextWidth(batchNoText) + 1;
-      doc.text(batchNoText, 14, 25);
-      doc.text((batch.masterProductName || '').trimStart(), productNameX, 25);
-      doc.text(
-        `Date : ${new Date(batch.scheduledDate).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        })}`,
-        130,
-        25
+      drawBoldLabelWithNormalValue('Batch No:', batch.batchNo, leftX, infoY);
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue('Product Name:', productNameText, leftX, infoY);
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue(
+        'Supervisor:',
+        `Mr. ${batch.supervisorName || 'N/A'}`,
+        leftX,
+        infoY
       );
-      doc.text(`Supervisor : Mr. ${batch.supervisorName || 'N/A'}`, 14, 32);
-      doc.text(`Labours : ${batch.labourNames || 'N/A'}`, 14, 38);
-      const qualityLabelX = 130;
-      const qualityColonX = 165;
-      const qualityLineX = 169;
-      doc.text('Actual Density', qualityLabelX, 32);
-      doc.text(':', qualityColonX, 32);
-      doc.text('___________', qualityLineX, 32);
-      doc.text('Product Viscosity', qualityLabelX, 38);
-      doc.text(':', qualityColonX, 38);
-      doc.text('___________', qualityLineX, 38);
-      doc.text('Mill Based Viscosity', qualityLabelX, 44);
-      doc.text(':', qualityColonX, 44);
-      doc.text('___________', qualityLineX, 44);
-      doc.text('Standard Viscosity', qualityLabelX, 50);
-      doc.text(':', qualityColonX, 50);
-      doc.text(batch.viscosity ? Number(batch.viscosity).toFixed(3) : '-', qualityLineX, 50);
-      doc.text('Hegman Gauge', qualityLabelX, 58);
-      doc.text(':', qualityColonX, 58);
-      let hegmamCircleX = qualityLineX + 4;
-      const hegmamCircleY = 55.5;
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue('Labours:', batch.labourNames || 'N/A', leftX, infoY);
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue(
+        'Standard Density:',
+        batch.density ? Number(batch.density).toFixed(3) : '-',
+        leftX,
+        infoY
+      );
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue('Water %:', batch.waterPercentage || '0.00', leftX, infoY);
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue('Production Qty:', batch.plannedQuantity, leftX, infoY);
+
+      const qualityLabelX = rightX;
+      const qualityColonX = rightX + 44;
+      const qualityValueX = qualityColonX + 4;
+      let qualityY = 26;
+
+      drawBoldLabelWithNormalValue('Date:', scheduledDateText, qualityLabelX, qualityY);
+      qualityY += lineGap;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Actual Density', qualityLabelX, qualityY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(':', qualityColonX, qualityY);
+      doc.text('___________', qualityValueX, qualityY);
+      qualityY += lineGap;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Product Viscosity', qualityLabelX, qualityY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(':', qualityColonX, qualityY);
+      doc.text('___________', qualityValueX, qualityY);
+      qualityY += lineGap;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Mill Based Viscosity', qualityLabelX, qualityY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(':', qualityColonX, qualityY);
+      doc.text('___________', qualityValueX, qualityY);
+      qualityY += lineGap;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Standard Viscosity', qualityLabelX, qualityY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(':', qualityColonX, qualityY);
+      doc.text(batch.viscosity ? Number(batch.viscosity).toFixed(3) : '-', qualityValueX, qualityY);
+      qualityY += lineGap;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Hegman Gauge', qualityLabelX, qualityY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(':', qualityColonX, qualityY);
+
+      let hegmamCircleX = qualityValueX + 4;
+      const hegmamCircleY = qualityY - 1.5;
       for (let i = 6; i <= 8; i++) {
         doc.setLineWidth(0.1);
         doc.circle(hegmamCircleX, hegmamCircleY, 2);
@@ -271,42 +320,26 @@ export default function BatchReportModal({
         hegmamCircleX += 8;
       }
       doc.setFontSize(10);
-
-      doc.text(
-        `Standard Density : ${batch.density ? Number(batch.density).toFixed(3) : '-'}`,
-        14,
-        44
-      );
-      doc.text(`Water % : ${batch.waterPercentage || '0.00'}`, 14, 50);
-      doc.text(`Production Qty : ${batch.plannedQuantity}`, 14, 56);
-      tablesStartY = 70;
+      tablesStartY = 72;
     } else {
-      // Completion Chart Report Header Info
-      const batchNoText = `Batch No : ${batch.batchNo}/`;
-      const productNameX = 14 + doc.getTextWidth(batchNoText) + 1;
-      doc.text(batchNoText, 14, 25);
-      doc.text((batch.masterProductName || '').trimStart(), productNameX, 25, {
-        maxWidth: 85 - (productNameX - 14),
-      });
-      doc.text(`Supervisor : Mr. ${batch.supervisorName || 'N/A'}`, 14, 32);
-      doc.text(`Labours : ${batch.labourNames || 'N/A'}`, 14, 38);
-      doc.text(
-        `Date : ${new Date(batch.scheduledDate).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        })}`,
-        14,
-        44
+      drawBoldLabelWithNormalValue('Batch No:', batch.batchNo, leftX, infoY);
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue('Product Name:', productNameText, leftX, infoY);
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue(
+        'Supervisor:',
+        `Mr. ${batch.supervisorName || 'N/A'}`,
+        leftX,
+        infoY
       );
-
+      infoY += lineGap;
+      drawBoldLabelWithNormalValue('Labours:', batch.labourNames || 'N/A', leftX, infoY);
       const duration = calculateDuration(batch.startedAt, batch.completedAt);
-      doc.text(`Total Time : ${duration}`, 14, 50);
-
+      drawBoldLabelWithNormalValue('Date:', scheduledDateText, rightX, 26);
+      drawBoldLabelWithNormalValue('Total Time:', duration, rightX, 32);
       tablesStartY = 70;
     }
 
-    // Calculate quality and variance values (Needed for both report types in the new layout)
     const stdDensity = batch.fgDensity
       ? parseFloat(batch.fgDensity)
       : batch.density
@@ -319,38 +352,28 @@ export default function BatchReportModal({
     const actViscosity = batch.actualViscosity ? parseFloat(batch.actualViscosity) : 0;
     const viscosityVariance = actViscosity - stdViscosity;
 
-    // Calculate total weight and variance
-    // Standard = Sum of required quantities of raw materials
     const stdTotalWeight = rawMaterialsOnly.reduce(
       (sum: number, m: any) => sum + (m.requiredQuantity || 0),
       0
     );
 
-    // Actual = Total LTR * Actual Density
-    // Better way: use the orders array directly as it's available in scope
-    const totalLtrForActWeight = orders.reduce((s: number, o: any) => {
-      const actualQty = parseFloat(o.batchProduct?.producedUnits || '0');
-      const capacityLtr = parseFloat(o.packagingCapacity || '0');
-      return s + actualQty * capacityLtr;
-    }, 0);
-
-    const actTotalWeight = totalLtrForActWeight * actDensity;
-    const totalWeightVariance = actTotalWeight - stdTotalWeight;
-
-    // Raw Materials Table (Only raw materials, no packaging)
-    // Separate regular materials from additional materials
     const regularMaterials = rawMaterialsOnly.filter(
-      (m: any) => !m.isAdditional && !m.batchMaterial?.isAdditional
+      (m: any) =>
+        !m.isAdditional &&
+        !m.batchMaterial?.isAdditional &&
+        parseFloat(m.requiredQuantity || '0') > 0
     );
     const additionalMaterials = rawMaterialsOnly.filter(
-      (m: any) => m.isAdditional || m.batchMaterial?.isAdditional
+      (m: any) =>
+        m.isAdditional ||
+        m.batchMaterial?.isAdditional ||
+        parseFloat(m.requiredQuantity || '0') <= 0
     );
 
-    // Regular materials data (with sequence)
     const regularBomData = regularMaterials.map((m: any, idx: number) => [
       m.sequence || idx + 1,
       m.materialName,
-      m.waitingTime ? `${m.waitingTime}m` : '', // Blank instead of -
+      m.waitingTime ? `${m.waitingTime}m` : '',
       m.requiredQuantity.toFixed(3),
       reportType === 'completion-chart'
         ? m.batchMaterial?.actualQuantity
@@ -359,11 +382,10 @@ export default function BatchReportModal({
         : '',
     ]);
 
-    // Additional materials data (shown at bottom, sequence continues)
     const additionalBomData = additionalMaterials.map((m: any, idx: number) => [
-      regularMaterials.length + idx + 1, // Continue sequence after regular materials
+      regularMaterials.length + idx + 1,
       m.materialName,
-      '', // Blank - no wait time for additional
+      '',
       m.requiredQuantity.toFixed(3),
       reportType === 'completion-chart'
         ? m.batchMaterial?.actualQuantity
@@ -372,28 +394,12 @@ export default function BatchReportModal({
         : '',
     ]);
 
-    // Combined BOM data: regular materials first, then additional at bottom
     const bomData = [...regularBomData, ...additionalBomData];
-
-    // Track which rows are additional for bold styling
     const additionalStartIndex = regularMaterials.length;
 
-    // Packaging Materials Data
-    const packagingData = packagingMaterials.map((p: any) => [
-      p.materialName,
-      p.requiredQuantity.toString(),
-    ]);
-
-    // Prepare Product Data (Right Side) - Show SKUs with production data
-    // For completed batches, use orders directly (they have actual production data with product names)
-    // For scheduled/in-progress batches, use relatedSkus to show all possible SKUs
     let productData: (string | number)[][] = [];
 
-    if (
-      (reportType === 'completion-chart' || batchData.status === 'Completed') &&
-      orders.length > 0
-    ) {
-      // For completed batches, use orders directly - this has the actual SKU data
+    if (batchData.status === 'Completed' && orders.length > 0) {
       productData = orders.map((o: any) => {
         const productName = o.product?.productName || 'Unknown';
         const capacityLtr = parseFloat(o.packagingCapacity || '0');
@@ -410,86 +416,131 @@ export default function BatchReportModal({
           productName,
           plannedQty > 0 ? plannedQty.toString() : '0',
           actualQty > 0 ? actualQty.toString() : '',
-          '',
+          ltr > 0 ? ltr.toFixed(3) : '',
           kg > 0 ? kg.toFixed(3) : '',
         ];
       });
     } else {
-      // For non-completed batches, use relatedSkus with order lookup
       const ordersByProductId = new Map<string, any>();
       orders.forEach((o: any) => {
         const productId = o.batchProduct?.productId || o.product?.productId;
-        if (productId) {
-          ordersByProductId.set(String(productId), o);
-        }
+        if (productId) ordersByProductId.set(String(productId), o);
       });
 
-      // Use ALL SKUs from relatedSkus, with qty = 0 if no order
-      console.log('PDF: relatedSkus', relatedSkus);
-      console.log('PDF: ordersByProductId', Array.from(ordersByProductId.entries()));
+      const skusToShow =
+        relatedSkus.length > 0
+          ? relatedSkus
+          : orders.map((o: any) => ({
+              productId: o.product?.productId,
+              productName: o.product?.productName || 'Unknown',
+            }));
 
-      productData = relatedSkus.map((sku: any) => {
+      productData = skusToShow.map((sku: any) => {
         const order = ordersByProductId.get(String(sku.productId));
-        const productName = sku.productName || 'Unknown';
-        const plannedQty = parseFloat(order?.batchProduct?.plannedUnits || '0');
-        const actualQty = parseFloat(order?.batchProduct?.producedUnits || '0');
-
         const capacityLtr = parseFloat(order?.packagingCapacity || '0');
         const fillingDensity =
           parseFloat(order?.product?.fillingDensity || '0') || parseFloat(batch.fgDensity || '0');
 
+        const plannedQty = parseFloat(order?.batchProduct?.plannedUnits || '0');
+        const actualQty = parseFloat(order?.batchProduct?.producedUnits || '0');
         const effQty = actualQty > 0 ? actualQty : plannedQty;
         const ltr = effQty * capacityLtr;
         const kg = ltr * fillingDensity;
 
         return [
-          productName,
+          sku.productName || 'Unknown',
           plannedQty > 0 ? plannedQty.toString() : '0',
           actualQty > 0 ? actualQty.toString() : '',
-          '',
+          ltr > 0 ? ltr.toFixed(3) : '',
           kg > 0 ? kg.toFixed(3) : '',
         ];
       });
-
-      // Fallback: if no relatedSkus, use orders
-      if (relatedSkus.length === 0 && orders.length > 0) {
-        productData = orders.map((o: any) => {
-          const capacityLtr = parseFloat(o.packagingCapacity || '0');
-          const fillingDensity =
-            parseFloat(o.product?.fillingDensity || '0') || parseFloat(batch.fgDensity || '0');
-          const plannedQty = parseFloat(o.batchProduct?.plannedUnits || '0');
-          const actualQty = parseFloat(o.batchProduct?.producedUnits || '0');
-
-          const effQty = actualQty > 0 ? actualQty : plannedQty;
-          const ltr = effQty * capacityLtr;
-          const kg = ltr * fillingDensity;
-
-          return [
-            o.product?.productName || 'Unknown',
-            plannedQty > 0 ? plannedQty.toString() : '0',
-            actualQty > 0 ? actualQty.toString() : '',
-            '',
-            kg > 0 ? kg.toFixed(3) : '',
-          ];
-        });
-      }
     }
 
-    // No padding - show only actual SKUs
-    // But keep BOM padding for empty check rows
-    while (bomData.length < Math.max(bomData.length, 5)) {
-      bomData.push(['', '', '', '', '']);
-    }
-
-    // Calculate totals for Product Table
-    console.log('PDF: productData', productData);
-    const totalLtr = productData.reduce((sum, row) => sum + (parseFloat(row[3] as string) || 0), 0);
+    const totalLtr = orders.reduce((s: number, o: any) => {
+      const actualQty = parseFloat(o.batchProduct?.producedUnits || '0');
+      const capacityLtr = parseFloat(o.packagingCapacity || '0');
+      return s + actualQty * capacityLtr;
+    }, 0);
     const totalKg = productData.reduce((sum, row) => sum + (parseFloat(row[4] as string) || 0), 0);
-    console.log('PDF: calculated totalKg', totalKg);
+
+    if (reportType === 'completion-chart') {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Quality & Variance Analysis', leftX, tablesStartY - 2);
+
+      autoTable(doc, {
+        startY: tablesStartY,
+        margin: { left: leftX, right: 14 },
+        head: [['Parameter', 'Input', 'Output', 'Variance']],
+        body: [
+          [
+            'Standard Density',
+            stdDensity.toFixed(2),
+            actDensity.toFixed(2),
+            densityVariance.toFixed(2),
+          ],
+          [
+            'Viscosity',
+            stdViscosity > 0 ? stdViscosity.toString() : '-',
+            actViscosity > 0 ? actViscosity.toString() : '-',
+            viscosityVariance.toFixed(2),
+          ],
+          [
+            'Total Weight (Kg)',
+            stdTotalWeight.toFixed(2),
+            screenTotalKg > 0 ? screenTotalKg.toFixed(3) : '-',
+            (screenTotalKg - stdTotalWeight).toFixed(2),
+          ],
+        ],
+        theme: 'grid',
+        styles: {
+          fontSize: 8,
+          cellPadding: 1.5,
+          minCellHeight: 6,
+          lineColor: 0,
+          lineWidth: 0.2,
+          fillColor: [255, 255, 255],
+        },
+        headStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255] },
+        bodyStyles: { fillColor: [255, 255, 255] },
+        columnStyles: {
+          0: { halign: 'left' },
+          1: { halign: 'right' },
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+        },
+        didParseCell: data => {
+          if (data.section === 'body' && data.cell.styles.fontStyle !== 'bold') {
+            data.cell.styles.textColor = normalBodyTextColor;
+          }
+        },
+      });
+
+      tablesStartY = (doc as any).lastAutoTable.finalY + 6;
+    }
 
     const sideBySideStartPage = doc.internal.pages.length;
+    const sideTableWidth = 88;
+    const rightTableX = 108;
+    const leftTableColumnStyles = {
+      0: { cellWidth: 10, halign: 'center' as const },
+      1: { cellWidth: 40, halign: 'left' as const, overflow: 'linebreak' as const },
+      2: { cellWidth: 12, halign: 'center' as const },
+      3: { cellWidth: 14, halign: 'right' as const },
+      4: {
+        cellWidth: 12,
+        halign: (reportType === 'batch-chart' ? 'center' : 'right') as 'center' | 'right',
+      },
+    };
+    const rightTableColumnStyles = {
+      0: { cellWidth: 33, halign: 'left' as const, overflow: 'linebreak' as const },
+      1: { cellWidth: 14, halign: 'right' as const },
+      2: { cellWidth: 15, halign: 'right' as const },
+      3: { cellWidth: 12, halign: 'right' as const },
+      4: { cellWidth: 14, halign: 'right' as const },
+    };
 
-    // Draw Material Table (Left Side)
     autoTable(doc, {
       startY: tablesStartY,
       head: [
@@ -500,14 +551,15 @@ export default function BatchReportModal({
       body: bomData,
       foot: [
         [
+          '',
+          { content: 'Total', styles: { halign: 'right', fontStyle: 'bold', textColor: 0 } },
           {
-            content: 'Total',
-            colSpan: 3,
-            styles: { halign: 'right', fontStyle: 'bold', textColor: 0 },
+            content: `${totalWait}m`,
+            styles: { fontStyle: 'bold', textColor: 0, halign: 'center' },
           },
           {
             content: totalPlannedRawMaterials.toFixed(3),
-            styles: { fontStyle: 'bold', textColor: 0 },
+            styles: { fontStyle: 'bold', textColor: 0, halign: 'right' },
           },
           '',
         ],
@@ -521,25 +573,19 @@ export default function BatchReportModal({
         lineWidth: 0.2,
         fillColor: [255, 255, 255],
       },
-      headStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255] },
+      headStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255], valign: 'middle' },
       bodyStyles: { fillColor: [255, 255, 255] },
-      margin: { left: 14, right: 108 }, // Increased right margin for wider gap
-      tableWidth: 84, // Slightly narrower
+      footStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255], valign: 'middle' },
+      margin: { left: leftX, right: 94 },
+      tableWidth: sideTableWidth,
       pageBreak: 'avoid',
-      columnStyles: {
-        0: { cellWidth: 8 },
-        1: { cellWidth: 39 },
-        2: { cellWidth: 10, halign: 'center' },
-        3: { cellWidth: 15, halign: 'right' },
-        4: { cellWidth: 12, halign: 'right' },
-      },
+      columnStyles: leftTableColumnStyles,
       didParseCell: data => {
         if (data.section === 'body') {
           const rowIndex = data.row.index;
           if (rowIndex >= additionalStartIndex && additionalStartIndex < bomData.length) {
             data.cell.styles.fontStyle = 'bold';
           }
-
           if (data.cell.styles.fontStyle !== 'bold') {
             data.cell.styles.textColor = normalBodyTextColor;
           }
@@ -550,36 +596,30 @@ export default function BatchReportModal({
     const leftTableFinalY = (doc as any).lastAutoTable.finalY;
     const leftTableFinalPage = doc.internal.pages.length;
 
-    // Reset to starting page for Right Column
     doc.setPage(sideBySideStartPage);
 
-    // RIGHT Column: Table Stack (Parameters -> Shades -> Packaging)
-    const rightMargin = 14;
-    const rightTableX = 108; // Increased from 105 for wider gap
-    const rightTableWidth = 88; // Slightly narrower
-
-    // 1. Parameters Table
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Quality & Variance Analysis', rightTableX, tablesStartY - 2);
-
+    let rightStackY = tablesStartY;
     autoTable(doc, {
-      startY: tablesStartY,
-      margin: { left: rightTableX, right: rightMargin },
-      head: [['Parameter', 'Input', 'Output', 'Var']],
-      body: [
-        ['Density', stdDensity.toFixed(2), actDensity.toFixed(2), densityVariance.toFixed(2)],
+      startY: rightStackY,
+      margin: { left: rightTableX, right: 14 },
+      head: [['Shade', 'QTY', 'ACT QTY', 'LTR', 'KG']],
+      body: productData,
+      foot: [
         [
-          'Viscosity',
-          stdViscosity > 0 ? stdViscosity.toString() : '-',
-          actViscosity > 0 ? actViscosity.toString() : '-',
-          viscosityVariance !== 0 ? viscosityVariance.toFixed(2) : '-',
-        ],
-        [
-          'Weight (Kg)',
-          stdTotalWeight.toFixed(2),
-          totalKg > 0 ? totalKg.toFixed(3) : '-', // Use totalKg from Shades table
-          (totalKg - stdTotalWeight).toFixed(2), // Update variance based on new totalKg
+          { content: 'Total', styles: { halign: 'left', fontStyle: 'bold', textColor: 0 } },
+          {
+            content: totalPackages.toString(),
+            styles: { halign: 'right', fontStyle: 'bold', textColor: 0 },
+          },
+          '',
+          {
+            content: totalLtr > 0 ? totalLtr.toFixed(3) : '',
+            styles: { halign: 'right', fontStyle: 'bold', textColor: 0 },
+          },
+          {
+            content: totalKg > 0 ? totalKg.toFixed(3) : '',
+            styles: { halign: 'right', fontStyle: 'bold', textColor: 0 },
+          },
         ],
       ],
       theme: 'grid',
@@ -591,55 +631,11 @@ export default function BatchReportModal({
         lineWidth: 0.2,
         fillColor: [255, 255, 255],
       },
-      headStyles: { textColor: 0, fontStyle: 'bold', fontSize: 7, fillColor: [255, 255, 255] },
+      headStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255], valign: 'middle' },
       bodyStyles: { fillColor: [255, 255, 255] },
-      columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: 20, halign: 'right' },
-        2: { cellWidth: 20, halign: 'right' },
-        3: { cellWidth: 20, halign: 'right' },
-      },
-      tableWidth: rightTableWidth,
-      didParseCell: data => {
-        if (data.section === 'body' && data.cell.styles.fontStyle !== 'bold') {
-          data.cell.styles.textColor = normalBodyTextColor;
-        }
-      },
-    });
-
-    let rightStackY = (doc as any).lastAutoTable.finalY + 8;
-
-    // 2. Shades Table
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Shades', rightTableX, rightStackY - 2);
-
-    autoTable(doc, {
-      startY: rightStackY,
-      margin: { left: rightTableX, right: rightMargin },
-      head: [['Packing', 'QTY', 'Filled', 'LTR', 'KG']],
-      body: productData,
-      foot: [['Total', totalPackages.toString(), '', '', totalKg > 0 ? totalKg.toFixed(3) : '']],
-      theme: 'grid',
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-        minCellHeight: 6,
-        lineColor: 0,
-        lineWidth: 0.2,
-        fillColor: [255, 255, 255],
-      },
-      headStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255] },
-      bodyStyles: { fillColor: [255, 255, 255] },
-      footStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255] },
-      columnStyles: {
-        0: { cellWidth: 31 },
-        1: { cellWidth: 15, halign: 'center' },
-        2: { cellWidth: 12 },
-        3: { cellWidth: 15 },
-        4: { cellWidth: 15, halign: 'right' },
-      },
-      tableWidth: rightTableWidth,
+      footStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255], valign: 'middle' },
+      columnStyles: rightTableColumnStyles,
+      tableWidth: sideTableWidth,
       pageBreak: 'avoid',
       didParseCell: data => {
         if (data.section === 'body' && data.cell.styles.fontStyle !== 'bold') {
@@ -647,53 +643,12 @@ export default function BatchReportModal({
         }
       },
     });
-
-    rightStackY = (doc as any).lastAutoTable.finalY + 8;
-
-    // 3. Packaging Table (Only if raw materials contains packaging)
-    if (packagingData.length > 0) {
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Packaging Materials', rightTableX, rightStackY - 2);
-
-      autoTable(doc, {
-        startY: rightStackY,
-        margin: { left: rightTableX, right: rightMargin },
-        head: [['Material', 'QTY']],
-        body: packagingData,
-        theme: 'grid',
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-          minCellHeight: 6,
-          lineColor: 0,
-          lineWidth: 0.2,
-          fillColor: [255, 255, 255],
-        },
-        headStyles: { textColor: 0, fontStyle: 'bold', fillColor: [255, 255, 255] },
-        bodyStyles: { fillColor: [255, 255, 255] },
-        columnStyles: {
-          0: { cellWidth: 63 },
-          1: { cellWidth: 25, halign: 'right' },
-        },
-        tableWidth: rightTableWidth,
-        pageBreak: 'avoid',
-        didParseCell: data => {
-          if (data.section === 'body' && data.cell.styles.fontStyle !== 'bold') {
-            data.cell.styles.textColor = normalBodyTextColor;
-          }
-        },
-      });
-      rightStackY = (doc as any).lastAutoTable.finalY;
-    }
+    rightStackY = (doc as any).lastAutoTable.finalY;
 
     const rightTableFinalPage = doc.internal.pages.length;
-
-    // Determine max page reached
     const maxPage = Math.max(leftTableFinalPage, rightTableFinalPage);
     doc.setPage(maxPage);
 
-    // Calculate finalYTotal based on which column is longer on the MAX page
     let finalYTotal;
     if (leftTableFinalPage > rightTableFinalPage) {
       finalYTotal = leftTableFinalY + 10;
@@ -703,33 +658,17 @@ export default function BatchReportModal({
       finalYTotal = Math.max(leftTableFinalY, rightStackY) + 10;
     }
 
-    // Additional Materials - Now Merged into main table logic with bolditalic
-    // if (additionalMaterials.length > 0) { ... } -> Removed
-
-    // Production Summary Table (SKU-level with APP QTY)
     if (relatedSkus.length > 0) {
-      // Build orders map for quick lookup
-      const ordersMapPdf = new Map<string, any>();
-      orders.forEach((o: any) => {
-        const productId = o.batchProduct?.productId || o.product?.productId;
-        if (productId) ordersMapPdf.set(String(productId), o);
-      });
-
-      // Prepare production summary data
       const prodSummaryData = relatedSkus.map((sku: any) => {
-        const order = ordersMapPdf.get(String(sku.productId));
-        const productName = sku.productName || 'Unknown';
         const appQty = parseFloat(sku.availableQuantity || '0');
-        const batchQty = parseFloat(order?.batchProduct?.plannedUnits || '0');
-
         return [
-          productName,
+          sku.productName || 'Unknown',
           appQty > 0 ? appQty.toFixed(2) : '0.00',
           '',
-          '', // DISPATCH QTY - empty
-          '', // TOTAL - empty
-          '', // ACTUAL QTY - empty
-          '', // DIFFERENCE - empty
+          '',
+          '',
+          '',
+          '',
         ];
       });
 
@@ -765,9 +704,9 @@ export default function BatchReportModal({
           6: { cellWidth: 23, halign: 'center' },
         },
         margin: { left: 14, right: 14, top: 20, bottom: 30 },
-        showHead: 'everyPage', // Repeat header on every page
-        pageBreak: 'auto', // Automatic page breaks
-        rowPageBreak: 'avoid', // Try to avoid breaking rows across pages
+        showHead: 'everyPage',
+        pageBreak: 'auto',
+        rowPageBreak: 'avoid',
         didParseCell: data => {
           if (data.section === 'body' && data.cell.styles.fontStyle !== 'bold') {
             data.cell.styles.textColor = normalBodyTextColor;
@@ -779,21 +718,17 @@ export default function BatchReportModal({
     }
 
     const finalYFooter = finalYTotal;
-
-    // Separator line
     doc.setLineWidth(0.2);
     doc.line(14, finalYFooter + 10, 196, finalYFooter + 10);
 
-    // Footer
-    doc.text('Production Remark :', 14, finalYFooter + 15);
+    doc.text('Production Remark:', 14, finalYFooter + 15);
     if (reportType === 'completion-chart' && batch.productionRemarks) {
       doc.text(batch.productionRemarks, 14, finalYFooter + 22);
     }
 
-    doc.text('Labours Sign :-', 40, finalYFooter + 40);
-    doc.text(batch.labourNames || '', 40, finalYFooter + 46);
-
-    doc.text('Superviser Sign :-', 150, finalYFooter + 40);
+    doc.text('Labours Sign:', 14, finalYFooter + 40);
+    doc.text(batch.labourNames || '', 14, finalYFooter + 46);
+    doc.text('Supervisor Sign:', 150, finalYFooter + 40);
     doc.text(`Mr. ${batch.supervisorName || ''}`, 150, finalYFooter + 46);
 
     const fileName =
@@ -802,11 +737,9 @@ export default function BatchReportModal({
         : `Completion_${batch.batchNo}.pdf`;
 
     addPdfFooter(doc);
-
     doc.save(fileName);
     showToast.success('PDF Downloaded!');
   };
-
   if (!isOpen) return null;
 
   return (

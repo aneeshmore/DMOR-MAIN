@@ -26,6 +26,7 @@ interface EditableCellProps {
   value: string;
   placeholder: string;
   onInputChange: (id: number, field: string, value: any) => void;
+  inputClassName?: string;
 }
 
 const EditableCell = memo(function EditableCell({
@@ -34,6 +35,7 @@ const EditableCell = memo(function EditableCell({
   value,
   placeholder,
   onInputChange,
+  inputClassName = '',
 }: EditableCellProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const lastExternalValue = React.useRef(value);
@@ -64,13 +66,14 @@ const EditableCell = memo(function EditableCell({
     e.stopPropagation();
   }, []);
 
+  // Editable Input FIX (prevents column stretching)
   return (
     <input
       ref={inputRef}
       type="text"
       defaultValue={value}
       onChange={handleChange}
-      className="w-full text-center border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[var(--primary-200)] focus:border-[var(--primary)] outline-none transition-all placeholder:text-[var(--text-secondary)]"
+      className={`min-w-[12px] text-center border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[var(--primary-200)] focus:border-[var(--primary)] outline-none transition-all placeholder:text-[var(--text-secondary)] ${inputClassName}`}
       placeholder={placeholder}
       onClick={handleClick}
       onFocus={handleFocus}
@@ -191,58 +194,65 @@ export function PendingOrdersDataTable({
         accessorKey: 'orderId',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Order No" />,
         cell: ({ row }) => (
-          <span className="font-medium text-xs text-[var(--text-primary)]">
+          <span className="font-medium text-xs text-[var(--text-primary)] whitespace-nowrap">
             {row.original.orderNumber ||
               formatDisplayOrderId(row.original.orderId, row.original.orderCreatedDate)}
           </span>
         ),
-        size: 100,
       },
+
       {
         accessorKey: 'customerName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Company" />,
         cell: ({ row }) => (
           <span
-            className="text-[var(--primary)] font-medium truncate block max-w-[150px]"
+            className="text-[var(--primary)] font-medium truncate block max-w-[140px] whitespace-nowrap"
             title={decodeHtml(row.original.customerName)}
           >
             {decodeHtml(row.original.customerName)}
           </span>
         ),
       },
+
       {
         accessorKey: 'area',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Area" />,
+        size: 80,
         cell: ({ row }) => (
-          <span className="text-[var(--text-secondary)]">
+          <span className="text-[var(--text-secondary)] truncate block max-w-[80px] whitespace-nowrap">
             {decodeHtml(row.original.area) || '-'}
           </span>
         ),
       },
+
       {
         accessorKey: 'location',
-        meta: { fitContent: true },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Location" />,
+        size: 30,
         cell: ({ row }) => (
-          <span className="text-[var(--text-secondary)]">
+          <span className="w-full text-center text-[var(--text-secondary)] truncate block max-w-[70px] whitespace-nowrap">
             {decodeHtml(row.original.location) || '-'}
           </span>
         ),
       },
+
       {
         accessorKey: 'salesPersonName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Sales Person" />,
+        size: 80,
         cell: ({ row }) => (
-          <span className="text-[var(--text-secondary)]">
+          <span className="text-[var(--text-secondary)] whitespace-nowrap">
             {decodeHtml(row.original.salesPersonName) || 'N/A'}
           </span>
         ),
       },
+
       {
         accessorKey: 'orderCreatedDate',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
+        size: 20,
         cell: ({ row }) => (
-          <span className="text-[var(--text-primary)]">
+          <span className="text-[var(--text-primary)]  whitespace-nowrap">
             {new Date(row.original.orderCreatedDate).toLocaleString('en-GB', {
               day: '2-digit',
               month: '2-digit',
@@ -254,22 +264,28 @@ export function PendingOrdersDataTable({
           </span>
         ),
       },
+
       {
         id: 'timeSpan',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Time Span" />,
+        size: 50,
+        minSize: 50,
+        maxSize: 50,
         cell: ({ row }) => (
-          <span className="text-xs text-[var(--text-secondary)]">
+          <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap">
             {formatTimeSpan(row.original.orderCreatedDate)}
           </span>
         ),
       },
+
       {
         id: 'billNo',
         header: 'Bill No',
-        size: 95,
+        size: 60,
         cell: function BillNoCell({ row, table }) {
           const tableEditedData = (table.options.meta as any)?.editedData || {};
           const tableOnInputChange = (table.options.meta as any)?.onInputChange;
+
           return (
             <EditableCell
               orderId={row.original.orderId}
@@ -277,17 +293,21 @@ export function PendingOrdersDataTable({
               value={tableEditedData[row.original.orderId]?.billNo || ''}
               placeholder="Bill No"
               onInputChange={tableOnInputChange}
+              inputClassName="w-13"
             />
           );
         },
       },
+
       {
         id: 'paymentCleared',
-        meta: { fitContent: true },
+        size: 30,
+        maxSize: 50,
         header: 'Payment',
         cell: function PaymentCell({ row, table }) {
           const tableEditedData = (table.options.meta as any)?.editedData || {};
           const tableOnInputChange = (table.options.meta as any)?.onInputChange;
+
           return (
             <button
               onClick={e => {
@@ -309,28 +329,34 @@ export function PendingOrdersDataTable({
           );
         },
       },
+
       {
         id: 'remarks',
         header: 'Remark',
-        size: 150,
+        size: 80,
+        maxSize: 100,
         cell: function RemarksCell({ row, table }) {
           const tableEditedData = (table.options.meta as any)?.editedData || {};
           const tableOnInputChange = (table.options.meta as any)?.onInputChange;
+
           return (
-            <EditableCell
-              orderId={row.original.orderId}
-              field="remarks"
-              value={tableEditedData[row.original.orderId]?.remarks || ''}
-              placeholder="Remark..."
-              onInputChange={tableOnInputChange}
-            />
+            <div className="w-[100px] mx-auto">
+              <EditableCell
+                orderId={row.original.orderId}
+                field="remarks"
+                value={tableEditedData[row.original.orderId]?.remarks || ''}
+                placeholder="Remark..."
+                onInputChange={tableOnInputChange}
+                inputClassName="w-25"
+              />
+            </div>
           );
         },
       },
+
       {
         id: 'actions',
         header: 'Actions',
-        size: 180,
         cell: function ActionsCell({ row, table }) {
           const tableEditedData = (table.options.meta as any)?.editedData || {};
           const tableOnAccept = (table.options.meta as any)?.onAccept;
@@ -340,7 +366,7 @@ export function PendingOrdersDataTable({
           const tableIsHoldTable = (table.options.meta as any)?.isHoldTable;
 
           return (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 whitespace-nowrap">
               {!tableIsHoldTable ? (
                 <>
                   <button
@@ -352,21 +378,18 @@ export function PendingOrdersDataTable({
                       !tableEditedData[row.original.orderId]?.billNo ||
                       !tableEditedData[row.original.orderId]?.paymentCleared
                     }
-                    className="inline-flex items-center gap-1 px-3 py-1 text-[var(--success)] bg-[var(--background)] hover:bg-[#ecfdf5] border border-[var(--success)]/20 rounded-lg transition-colors font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      row.original.status === 'Verified' ? 'Send to Production' : 'Accept Payment'
-                    }
+                    className="inline-flex items-center gap-1 px-3 py-1 text-[var(--success)] bg-[var(--background)] hover:bg-[#ecfdf5] border border-[var(--success)]/20 rounded-lg transition-colors font-medium text-xs disabled:opacity-50"
                   >
                     <Check className="w-3 h-3" />
                     {row.original.status === 'Verified' ? 'Send to Prod' : 'Accept'}
                   </button>
+
                   <button
                     onClick={e => {
                       e.stopPropagation();
                       tableOnHold(row.original.orderId);
                     }}
                     className="inline-flex items-center gap-1 px-3 py-1 text-[var(--warning)] bg-[var(--background)] hover:bg-[#fffbeb] border border-[var(--warning)]/20 rounded-lg transition-colors font-bold text-xs uppercase"
-                    title="Put On Hold"
                   >
                     <PauseCircle className="w-3 h-3" />
                     Hold
@@ -380,18 +403,17 @@ export function PendingOrdersDataTable({
                       if (tableOnResume) tableOnResume(row.original.orderId);
                     }}
                     className="inline-flex items-center gap-1 px-3 py-1 text-[var(--primary)] bg-[var(--background)] hover:bg-[var(--primary-50)] border border-[var(--primary)]/20 rounded-lg transition-colors font-medium text-xs"
-                    title="Resume Order"
                   >
                     <RotateCcw className="w-3 h-3" />
                     Resume
                   </button>
+
                   <button
                     onClick={e => {
                       e.stopPropagation();
                       if (tableOnReject) tableOnReject(row.original.orderId);
                     }}
                     className="inline-flex items-center gap-1 px-3 py-1 text-[var(--error)] bg-[var(--background)] hover:bg-[#fef2f2] border border-[var(--error)]/20 rounded-lg transition-colors font-medium text-xs"
-                    title="Reject Order"
                   >
                     <Ban className="w-3 h-3" />
                     Reject

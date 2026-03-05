@@ -55,8 +55,15 @@ const CreateOrderPage: React.FC = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const handleSuccess = () => {
-    fetchOrders();
+  const handleSuccess = async (updatedOrder?: Order) => {
+    if (updatedOrder?.orderId) {
+      setOrders(prev =>
+        prev.map(order =>
+          order.orderId === updatedOrder.orderId ? { ...order, ...updatedOrder } : order
+        )
+      );
+    }
+    await fetchOrders();
     setEditingOrder(null);
   };
 
@@ -233,7 +240,12 @@ const CreateOrderPage: React.FC = () => {
               <Eye size={14} className="mr-1.5" />
               View
             </Button>
-            {(order.status === 'Accepted' || order.status === 'Confirmed' || order.status === 'Delivered' || order.status === 'Dispatched' || order.status === 'Verified' || order.status === 'Ready for Dispatch') && (
+            {(order.status === 'Accepted' ||
+              order.status === 'Confirmed' ||
+              order.status === 'Delivered' ||
+              order.status === 'Dispatched' ||
+              order.status === 'Verified' ||
+              order.status === 'Ready for Dispatch') && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -293,7 +305,11 @@ const CreateOrderPage: React.FC = () => {
 
       // Map Order to QuotationData structure for the Invoice generator
       const invoiceData: QuotationData = {
-        quotationNo: fullOrder.billNo || order.billNo || order.orderNumber || formatDisplayOrderId(order.orderId, order.orderDate),
+        quotationNo:
+          fullOrder.billNo ||
+          order.billNo ||
+          order.orderNumber ||
+          formatDisplayOrderId(order.orderId, order.orderDate),
         date: format(new Date(order.orderDate), 'dd-MMM-yy'),
         paymentTerms: fullOrder.paymentMethod || 'Bank Transfer',
         buyerRef: `ORD-${order.orderId}`,
@@ -323,7 +339,7 @@ const CreateOrderPage: React.FC = () => {
           id: index + 1,
           description: item.productName || `Product ID: ${item.productId}`,
           // Note: In CreateOrderForm, productNames are fetched. Here we might need to rely on what's available or fetch product names.
-          // However, fullOrder.orderDetails usually contains basic info. 
+          // However, fullOrder.orderDetails usually contains basic info.
           // Let's try to use what we have.
           hsn: '',
           dueOn: '',
@@ -332,10 +348,10 @@ const CreateOrderPage: React.FC = () => {
           per: 'no.',
           discount: item.discount || 0,
           cgstRate: 9,
-          sgstRate: 9
+          sgstRate: 9,
         })),
 
-        status: 'Generated'
+        status: 'Generated',
       };
 
       // We might want to fetch product names properly if they are just IDs.
@@ -355,13 +371,19 @@ const CreateOrderPage: React.FC = () => {
         {/* Header with Mode Toggle */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <PageHeader
-            title={editingOrder ? 'Edit Order' : (viewMode === 'orders' ? 'Create New Order' : 'Create Quotation')}
+            title={
+              editingOrder
+                ? 'Edit Order'
+                : viewMode === 'orders'
+                  ? 'Create New Order'
+                  : 'Create Quotation'
+            }
             description={
               editingOrder
                 ? `Editing Order ${editingOrder.orderNumber || formatDisplayOrderId(editingOrder.orderId, editingOrder.orderDate)}`
-                : (viewMode === 'orders'
+                : viewMode === 'orders'
                   ? 'Fill in the order details and confirm to create a new order'
-                  : 'Create quotations for customer approval before placing orders')
+                  : 'Create quotations for customer approval before placing orders'
             }
           />
 
@@ -454,10 +476,10 @@ const CreateOrderPage: React.FC = () => {
                           : selectedOrder.status === 'Ready for Dispatch'
                             ? 'bg-blue-100 text-blue-800 border-blue-200'
                             : selectedOrder.status === 'In Production' ||
-                              selectedOrder.status === 'Scheduled for Production'
+                                selectedOrder.status === 'Scheduled for Production'
                               ? 'bg-purple-100 text-purple-800 border-purple-200'
                               : selectedOrder.status === 'Confirmed' ||
-                                selectedOrder.status === 'Accepted'
+                                  selectedOrder.status === 'Accepted'
                                 ? 'bg-teal-100 text-teal-800 border-teal-200'
                                 : selectedOrder.status === 'Pending'
                                   ? 'bg-orange-100 text-orange-800 border-orange-200'
@@ -485,9 +507,7 @@ const CreateOrderPage: React.FC = () => {
                   </div>
                   <div className="col-span-2">
                     <span className="text-[var(--text-secondary)]">Delivery Address:</span>
-                    <span className="ml-2 font-medium">
-                      {selectedOrder.deliveryAddress || '-'}
-                    </span>
+                    <span className="ml-2 font-medium">{selectedOrder.deliveryAddress || '-'}</span>
                   </div>
                 </div>
               </div>
@@ -514,7 +534,9 @@ const CreateOrderPage: React.FC = () => {
                         return (
                           <tr key={item.orderDetailId} className="border-t border-[var(--border)]">
                             <td className="p-3">{idx + 1}</td>
-                            <td className="p-3 font-medium">{item.productName || `Product ID: ${item.productId}`}</td>
+                            <td className="p-3 font-medium">
+                              {item.productName || `Product ID: ${item.productId}`}
+                            </td>
                             <td className="p-3 text-right">{item.quantity}</td>
                             <td className="p-3 text-right">₹{unitPrice.toFixed(2)}</td>
                             <td className="p-3 text-right">{item.discount || 0}%</td>
