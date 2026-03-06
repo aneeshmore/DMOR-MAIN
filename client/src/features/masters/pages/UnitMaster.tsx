@@ -147,8 +147,10 @@ export default function UnitMaster() {
   ];
 
   const isDefaultUnit = (unit: Unit): boolean => {
-    return unit.UnitID === -1 || unit.UnitID === -2 || unit.UnitID === -3;
+    return unit.UnitID < 0;
   };
+
+  const DEFAULT_UNIT_NAMES = ['KG', 'NO', 'LTR'];
 
   useEffect(() => {
     loadUnits();
@@ -281,29 +283,30 @@ export default function UnitMaster() {
       id: 'actions',
       header: 'Actions',
       cell: ({ row }) => {
-        const isDefault = isDefaultUnit(row.original);
+        const unit = row.original;
+
+        // Hide actions for default units
+        if (DEFAULT_UNIT_NAMES.includes(unit.UnitName.toUpperCase())) {
+          return null;
+        }
+
         return (
           <div className="flex items-center justify-end gap-2">
-            {!isDefault && (
-              <>
-                <button
-                  onClick={() => handleEdit(row.original)}
-                  className="p-2 rounded-lg hover:bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors border border-transparent hover:border-[var(--border)] focus-ring"
-                  title="Edit"
-                  aria-label="Edit"
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button
-                  onClick={() => handleDelete(row.original.UnitID)}
-                  className="p-2 rounded-lg hover:bg-red-50 text-[var(--text-secondary)] hover:text-[var(--danger)] transition-colors border border-transparent hover:border-red-200 focus-ring"
-                  title="Delete"
-                  aria-label="Delete"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => handleEdit(unit)}
+              className="p-2 rounded-lg hover:bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors border border-transparent hover:border-[var(--border)] focus-ring"
+              title="Edit"
+            >
+              <Edit2 size={16} />
+            </button>
+
+            <button
+              onClick={() => handleDelete(unit.UnitID)}
+              className="p-2 rounded-lg hover:bg-red-50 text-[var(--text-secondary)] hover:text-[var(--danger)] transition-colors border border-transparent hover:border-red-200 focus-ring"
+              title="Delete"
+            >
+              <Trash2 size={16} />
+            </button>
           </div>
         );
       },
