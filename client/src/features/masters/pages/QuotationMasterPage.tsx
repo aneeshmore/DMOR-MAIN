@@ -27,7 +27,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { downloadQuotationPDF } from '@/features/quotations/utils/pdfGenerator';
 import { decodeHtml } from '@/utils/stringUtils';
 
-
 interface Product {
   productId?: number;
   ProductID?: number;
@@ -55,14 +54,14 @@ const QuotationMasterPage: React.FC = () => {
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<QuotationRecord | null>(null);
 
-
-
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectRemark, setRejectRemark] = useState('');
   const [rejectingId, setRejectingId] = useState<number | null>(null);
 
   const [actionLoading, setActionLoading] = useState(false);
-  const [currentFilter, setCurrentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'converted'>('all');
+  const [currentFilter, setCurrentFilter] = useState<
+    'all' | 'pending' | 'approved' | 'rejected' | 'converted'
+  >('all');
 
   // Stats
   const stats = useMemo(() => {
@@ -96,7 +95,8 @@ const QuotationMasterPage: React.FC = () => {
 
       // Check for density to calculate volume (L) from weight (Kg)
       const densityVal = product.TotalDensity;
-      const density = typeof densityVal === 'string' ? parseFloat(densityVal) || 0 : densityVal || 0;
+      const density =
+        typeof densityVal === 'string' ? parseFloat(densityVal) || 0 : densityVal || 0;
 
       if (density > 0) {
         // Volume = Weight / Density
@@ -214,16 +214,19 @@ const QuotationMasterPage: React.FC = () => {
   }, []);
 
   // Handle Edit - Navigate to Editor Page
-  const handleEdit = useCallback((quotation: QuotationRecord) => {
-    navigate('/quotation-print', {
-      state: {
-        importedData: quotation.content,
-        quotationId: quotation.quotationId,
-        editMode: true, // Signal that we are editing an existing quotation
-        status: quotation.status
-      }
-    });
-  }, [navigate]);
+  const handleEdit = useCallback(
+    (quotation: QuotationRecord) => {
+      navigate('/quotation-print', {
+        state: {
+          importedData: quotation.content,
+          quotationId: quotation.quotationId,
+          editMode: true, // Signal that we are editing an existing quotation
+          status: quotation.status,
+        },
+      });
+    },
+    [navigate]
+  );
 
   // Table Columns
   const columns: ColumnDef<QuotationRecord>[] = useMemo(
@@ -263,7 +266,10 @@ const QuotationMasterPage: React.FC = () => {
         header: 'Customer',
         enableColumnFilter: true,
         cell: ({ row }) => (
-          <div className="font-medium max-w-[200px] truncate" title={decodeHtml(row.original.buyerName)}>
+          <div
+            className="font-medium max-w-[200px] truncate"
+            title={decodeHtml(row.original.buyerName)}
+          >
             {decodeHtml(row.original.buyerName) || '-'}
           </div>
         ),
@@ -273,7 +279,10 @@ const QuotationMasterPage: React.FC = () => {
         header: 'Sales Person',
         enableColumnFilter: true,
         cell: ({ row }) => (
-          <div className="text-[var(--text-secondary)] truncate max-w-[150px]" title={row.original.salesPersonName}>
+          <div
+            className="text-[var(--text-secondary)] truncate max-w-[150px]"
+            title={row.original.salesPersonName}
+          >
             {row.original.salesPersonName || '-'}
           </div>
         ),
@@ -414,24 +423,34 @@ const QuotationMasterPage: React.FC = () => {
               )}
 
               {/* Edit for Approved - Only for Admin or Creator */}
-              {isApproved && (isAdmin || quotation.createdBy === user?.EmployeeID) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEdit(quotation)}
-                  title="Edit Quotation"
-                  className="text-orange-600 hover:bg-orange-50 justify-start h-7"
-                >
-                  <Edit size={14} className="mr-1.5" />
-                  Edit
-                </Button>
-              )}
+              {isApproved ||
+                (isRejected && (isAdmin || quotation.createdBy === user?.EmployeeID) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(quotation)}
+                    title="Edit Quotation"
+                    className="text-orange-600 hover:bg-orange-50 justify-start h-7"
+                  >
+                    <Edit size={14} className="mr-1.5" />
+                    Edit
+                  </Button>
+                ))}
             </div>
           );
         },
       },
     ],
-    [isAdmin, actionLoading, handleView, handleApprove, openRejectModal, handleDownload, handleEdit, quotations]
+    [
+      isAdmin,
+      actionLoading,
+      handleView,
+      handleApprove,
+      openRejectModal,
+      handleDownload,
+      handleEdit,
+      quotations,
+    ]
   );
 
   return (
@@ -445,10 +464,11 @@ const QuotationMasterPage: React.FC = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div
-          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${currentFilter === 'all'
-            ? 'bg-blue-50 border-blue-300 shadow-md'
-            : 'bg-[var(--surface)] border-[var(--border)]'
-            }`}
+          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${
+            currentFilter === 'all'
+              ? 'bg-blue-50 border-blue-300 shadow-md'
+              : 'bg-[var(--surface)] border-[var(--border)]'
+          }`}
           onClick={() => setCurrentFilter('all')}
         >
           <div className="flex items-center gap-3">
@@ -463,10 +483,11 @@ const QuotationMasterPage: React.FC = () => {
         </div>
 
         <div
-          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${currentFilter === 'pending'
-            ? 'bg-orange-50 border-orange-300 shadow-md'
-            : 'bg-[var(--surface)] border-orange-200'
-            }`}
+          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${
+            currentFilter === 'pending'
+              ? 'bg-orange-50 border-orange-300 shadow-md'
+              : 'bg-[var(--surface)] border-orange-200'
+          }`}
           onClick={() => setCurrentFilter('pending')}
         >
           <div className="flex items-center gap-3">
@@ -481,10 +502,11 @@ const QuotationMasterPage: React.FC = () => {
         </div>
 
         <div
-          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${currentFilter === 'approved'
-            ? 'bg-green-50 border-green-300 shadow-md'
-            : 'bg-[var(--surface)] border-green-200'
-            }`}
+          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${
+            currentFilter === 'approved'
+              ? 'bg-green-50 border-green-300 shadow-md'
+              : 'bg-[var(--surface)] border-green-200'
+          }`}
           onClick={() => setCurrentFilter('approved')}
         >
           <div className="flex items-center gap-3">
@@ -499,10 +521,11 @@ const QuotationMasterPage: React.FC = () => {
         </div>
 
         <div
-          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${currentFilter === 'rejected'
-            ? 'bg-red-50 border-red-300 shadow-md'
-            : 'bg-[var(--surface)] border-red-200'
-            }`}
+          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${
+            currentFilter === 'rejected'
+              ? 'bg-red-50 border-red-300 shadow-md'
+              : 'bg-[var(--surface)] border-red-200'
+          }`}
           onClick={() => setCurrentFilter('rejected')}
         >
           <div className="flex items-center gap-3">
@@ -517,10 +540,11 @@ const QuotationMasterPage: React.FC = () => {
         </div>
 
         <div
-          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${currentFilter === 'converted'
-            ? 'bg-purple-50 border-purple-300 shadow-md'
-            : 'bg-[var(--surface)] border-purple-200'
-            }`}
+          className={`p-4 rounded-lg border hover:shadow-md transition-all cursor-pointer ${
+            currentFilter === 'converted'
+              ? 'bg-purple-50 border-purple-300 shadow-md'
+              : 'bg-[var(--surface)] border-purple-200'
+          }`}
           onClick={() => setCurrentFilter('converted')}
         >
           <div className="flex items-center gap-3">
@@ -639,7 +663,9 @@ const QuotationMasterPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-[var(--text-secondary)]">Name:</span>
-                  <span className="ml-2 font-medium">{decodeHtml(selectedQuotation.buyerName)}</span>
+                  <span className="ml-2 font-medium">
+                    {decodeHtml(selectedQuotation.buyerName)}
+                  </span>
                 </div>
                 <div>
                   <span className="text-[var(--text-secondary)]">GSTIN:</span>
@@ -652,7 +678,7 @@ const QuotationMasterPage: React.FC = () => {
                   <span className="ml-2 font-medium">
                     {decodeHtml(
                       selectedQuotation.content?.customerAddress ||
-                      selectedQuotation.content?.buyerAddress
+                        selectedQuotation.content?.buyerAddress
                     ) || '-'}
                   </span>
                 </div>
@@ -701,7 +727,9 @@ const QuotationMasterPage: React.FC = () => {
                           <td className="p-3 font-medium">{decodeHtml(item.description)}</td>
                           <td className="p-3 text-right">{item.quantity}</td>
                           <td className="p-3 text-right text-[var(--text-secondary)]">
-                            {packageCapacity > 0 ? `${parseFloat(packageCapacity.toFixed(2))}L` : '-'}
+                            {packageCapacity > 0
+                              ? `${parseFloat(packageCapacity.toFixed(2))}L`
+                              : '-'}
                           </td>
                           <td className="p-3 text-right">₹{item.rate?.toFixed(2)}</td>
                           <td className="p-3 text-right">{item.discount || 0}%</td>
@@ -747,7 +775,9 @@ const QuotationMasterPage: React.FC = () => {
             {selectedQuotation.status === 'Rejected' && selectedQuotation.rejectionRemark && (
               <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
                 <h4 className="font-semibold text-red-800 mb-2">Rejection Reason</h4>
-                <p className="text-sm text-red-700">{decodeHtml(selectedQuotation.rejectionRemark)}</p>
+                <p className="text-sm text-red-700">
+                  {decodeHtml(selectedQuotation.rejectionRemark)}
+                </p>
               </div>
             )}
 
@@ -793,8 +823,6 @@ const QuotationMasterPage: React.FC = () => {
           </div>
         )}
       </Modal>
-
-
 
       {/* Reject Modal */}
       <Modal

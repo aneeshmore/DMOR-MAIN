@@ -56,6 +56,17 @@ export const updateOrderSchema = z.object({
   deliveryAddress: z.string().nullable().optional(),
   remarks: z.string().nullable().optional(),
   expectedDeliveryDate: z.string().datetime().or(z.date()).nullable().optional(), // Production manager field
+  orderDetails: z
+    .array(
+      z.object({
+        productId: z.coerce.number().int().positive(),
+        quantity: z.coerce.number().positive(),
+        unitPrice: z.coerce.number().nonnegative(),
+        discount: z.coerce.number().min(0).max(100).optional().default(0),
+      })
+    )
+    .min(1)
+    .optional(),
 });
 
 export const updateOrderDetailSchema = z.object({
