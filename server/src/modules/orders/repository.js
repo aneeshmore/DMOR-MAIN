@@ -262,6 +262,10 @@ export class OrdersRepository {
     await db.delete(orderDetails).where(eq(orderDetails.orderDetailId, orderDetailId));
   }
 
+  async deleteOrderDetailsByOrderId(orderId) {
+    await db.delete(orderDetails).where(eq(orderDetails.orderId, orderId));
+  }
+
   async getOrderStats() {
     const stats = await db
       .select({

@@ -331,15 +331,52 @@ export class OrdersService {
       );
     }
 
-    // Map priority field name if present
+    // Map API fields to DB columns
     const mappedData = { ...updateData };
     if (mappedData.priority) {
       mappedData.priorityLevel = mappedData.priority;
       delete mappedData.priority;
     }
+    if (Object.prototype.hasOwnProperty.call(mappedData, 'remarks')) {
+      mappedData.notes = mappedData.remarks;
+      delete mappedData.remarks;
+    }
 
-    const updated = await this.repository.update(orderId, mappedData);
-    return new OrderDTO(updated);
+    const { orderDetails: detailsData, ...orderLevelData } = mappedData;
+
+    // If line items are being edited, recompute totals and persist details.
+    if (Array.isArray(detailsData)) {
+      const totalAmount = detailsData.reduce((sum, item) => {
+        const subtotal = parseFloat(item.quantity) * parseFloat(item.unitPrice);
+        const discount = item.discount || 0;
+        const discountAmount = (subtotal * discount) / 100;
+        return sum + (subtotal - discountAmount);
+      }, 0);
+      orderLevelData.totalAmount = totalAmount;
+    }
+
+    await this.repository.update(orderId, orderLevelData);
+
+    if (Array.isArray(detailsData)) {
+      const weightInfo = await this.calculateOrderWeight(detailsData);
+      await this.repository.deleteOrderDetailsByOrderId(orderId);
+
+      for (const item of detailsData) {
+        await this.repository.createOrderDetail({
+          orderId,
+          productId: item.productId,
+          quantity: String(parseFloat(item.quantity)),
+          unitPrice: String(parseFloat(item.unitPrice)),
+          discount: String(parseFloat(item.discount || 0)),
+          requiredWeightKg: String(
+            weightInfo.breakdown.find(b => b.productId === item.productId)?.requiredWeightKg || 0
+          ),
+        });
+      }
+    }
+
+    // Return fully refreshed order data so frontend receives latest fields.
+    return await this.getOrderById(orderId);
   }
 
   async deleteOrder(orderId) {
