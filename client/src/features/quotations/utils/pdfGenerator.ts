@@ -29,7 +29,7 @@ export async function downloadQuotationPDF(quotationData: QuotationData): Promis
   // the best way is to open it in a new window with auto-download flag
 
   // Store data in sessionStorage for the new window to access
-  const dataKey = `quotation_download_${Date.now()}`;
+  const dataKey = `quotation_download_${Date.now()}_${Math.random()}`;
   sessionStorage.setItem(
     dataKey,
     JSON.stringify({
@@ -62,5 +62,13 @@ export async function downloadInvoicePDF(quotationData: QuotationData): Promise<
 
   // Open QuotationMaker in new window
   const url = `/quotation-print?download=${dataKey}`;
-  window.open(url, '_blank');
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
