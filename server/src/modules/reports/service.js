@@ -122,25 +122,23 @@ export class ReportsService {
         if (bm.materialId) uniqueMaterialIds.add(bm.materialId);
       });
 
-      // 4. Bulk Fetch Latest Unit Prices from Inwards
+      // 4. Bulk Fetch Purchase Cost from masterProductRM (Update Product -> Raw Material)
+      // This is the Purchase Cost configured in Update Product section
       const materialIdsArr = Array.from(uniqueMaterialIds);
-      let latestPriceMap = new Map();
+      const purchaseCostMap = new Map();
       if (materialIdsArr.length > 0) {
-        // Fetch all inward rows for these materials, then pick the latest in-memory
-        // This is much faster than N separate subqueries
-        const inwardRows = await db
+        // Fetch purchaseCost directly from masterProductRM table
+        const rmDetails = await db
           .select({
-            masterProductId: materialInward.masterProductId,
-            unitPrice: materialInward.unitPrice,
-            inwardDate: materialInward.inwardDate,
+            masterProductId: masterProductRM.masterProductId,
+            purchaseCost: masterProductRM.purchaseCost,
           })
-          .from(materialInward)
-          .where(inArray(materialInward.masterProductId, materialIdsArr))
-          .orderBy(desc(materialInward.inwardDate));
+          .from(masterProductRM)
+          .where(inArray(masterProductRM.masterProductId, materialIdsArr));
 
-        inwardRows.forEach(row => {
-          if (!latestPriceMap.has(row.masterProductId)) {
-            latestPriceMap.set(row.masterProductId, row.unitPrice);
+        rmDetails.forEach(row => {
+          if (!purchaseCostMap.has(row.masterProductId)) {
+            purchaseCostMap.set(row.masterProductId, row.purchaseCost);
           }
         });
       }
@@ -179,25 +177,27 @@ export class ReportsService {
 
         // Process Materials (Raw Materials)
         const batchMaterialsData = materialsByBatchMap.get(batch.batchId) || [];
-        const rawMaterials = batchMaterialsData.map(bm => {
-          const isWater = (bm.materialName || '').toLowerCase().includes('water');
-          const hasPercentage = bm.percentage != null && parseFloat(bm.percentage) > 0;
-          const isAdditional = bm.isAdditional || isWater || !hasPercentage;
+        const rawMaterials = batchMaterialsData
+          .map(bm => {
+            const isWater = (bm.materialName || '').toLowerCase().includes('water');
+            const hasPercentage = bm.percentage != null && parseFloat(bm.percentage) > 0;
+            const isAdditional = bm.isAdditional || isWater || !hasPercentage;
 
-          return {
-            bomId: bm.batchMaterialId,
-            rawMaterialId: bm.materialId,
-            rawMaterialName: bm.materialName || 'Unknown',
-            productType: bm.productType,
-            percentage: bm.percentage || 0,
-            actualQty: bm.requiredQuantity,
-            unitPrice: latestPriceMap.get(bm.materialId) || null,
-            isAdditional,
-          };
-        }).sort((a, b) => {
-          if (a.isAdditional !== b.isAdditional) return a.isAdditional ? 1 : -1;
-          return 0;
-        });
+            return {
+              bomId: bm.batchMaterialId,
+              rawMaterialId: bm.materialId,
+              rawMaterialName: bm.materialName || 'Unknown',
+              productType: bm.productType,
+              percentage: bm.percentage || 0,
+              actualQty: bm.requiredQuantity,
+              unitPrice: purchaseCostMap.get(bm.materialId) || null,
+              isAdditional,
+            };
+          })
+          .sort((a, b) => {
+            if (a.isAdditional !== b.isAdditional) return a.isAdditional ? 1 : -1;
+            return 0;
+          });
 
         // Calculate Packaging Materials based on Batch Products
         const packagingMap = new Map();
@@ -225,7 +225,8 @@ export class ReportsService {
           masterProductId: batch.masterProductId,
           productName: batch.masterProduct?.masterProductName || 'Unknown Product',
           productType: batch.masterProduct?.productType,
-          batchType: batch.batchType ||
+          batchType:
+            batch.batchType ||
             (batch.batchProducts?.some(sp => sp.orderId) ? 'MAKE_TO_ORDER' : 'MAKE_TO_STOCK'),
           scheduledDate: batch.scheduledDate,
           status: batch.status,
@@ -252,17 +253,29 @@ export class ReportsService {
           labourNames: batch.labourNames,
           qualityStatus: batch.qualityStatus,
           subProducts: (batch.batchProducts || []).map((sp, _, arr) => {
-            const capacity = sp.product?.packaging?.pmDetails?.capacity || sp.product?.packageCapacityKg || 0;
-            let actualQty = sp.producedUnits ?? (batch.status === 'Completed' ? (parseInt(sp.plannedUnits || 0) || '-') : '-');
+            const capacity =
+              sp.product?.packaging?.pmDetails?.capacity || sp.product?.packageCapacityKg || 0;
+            let actualQty =
+              sp.producedUnits ??
+              (batch.status === 'Completed' ? parseInt(sp.plannedUnits || 0) || '-' : '-');
 
             // Legacy MTS fallback for single-SKU
-            if (actualQty === '-' && batch.status === 'Completed' && arr.length === 1 && parseFloat(batch.actualQuantity) > 0 && parseFloat(capacity) > 0) {
+            if (
+              actualQty === '-' &&
+              batch.status === 'Completed' &&
+              arr.length === 1 &&
+              parseFloat(batch.actualQuantity) > 0 &&
+              parseFloat(capacity) > 0
+            ) {
               actualQty = Math.round(parseFloat(batch.actualQuantity) / parseFloat(capacity));
             }
 
             return {
               subProductId: sp.batchProductId,
-              productName: sp.product?.productName || sp.product?.masterProduct?.masterProductName || 'Unknown',
+              productName:
+                sp.product?.productName ||
+                sp.product?.masterProduct?.masterProductName ||
+                'Unknown',
               batchQty: sp.plannedUnits || 0,
               actualQty,
               capacity: capacity || null,
@@ -756,6 +769,7 @@ export class ReportsService {
           rmConditions.push(eq(masterProducts.masterProductId, parseInt(productId)));
         }
 
+        // Use Drizzle query builder with proper date handling (consistent with FG/PM)
         const rmResults = await db
           .select({
             productId: masterProducts.masterProductId,
@@ -763,15 +777,16 @@ export class ReportsService {
             masterProductName: masterProducts.masterProductName,
             productType: masterProducts.productType,
             availableQuantity: masterProductRM.availableQty,
-            availableWeightKg: sql`COALESCE(${masterProductRM.availableQty} * ${masterProductRM.rmDensity}, 0)`, // RM: Qty * Density
+            availableWeightKg: sql`COALESCE(${masterProductRM.availableQty} * ${masterProductRM.rmDensity}, 0)`,
             reservedQuantity: sql`0`,
             minStockLevel: masterProducts.minStockLevel,
-            sellingPrice: masterProductRM.purchaseCost, // Show purchase cost for RM
+            sellingPrice: masterProductRM.purchaseCost,
             packageCapacityKg: sql`0`,
             isActive: masterProducts.isActive,
-            updatedAt: masterProducts.updatedAt,
-            totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
-            totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
+            updatedAt: sql`(SELECT MAX(it.created_at) FROM app.inventory_transactions it WHERE it.master_product_id = ${masterProducts.masterProductId})`,
+            // Use proper date comparison with Drizzle operators (consistent with FG/PM)
+            totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${gte(inventoryTransactions.createdAt, start)} AND ${lte(inventoryTransactions.createdAt, end)} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
+            totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${gte(inventoryTransactions.createdAt, start)} AND ${lte(inventoryTransactions.createdAt, end)} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
           })
           .from(masterProducts)
           .innerJoin(
@@ -819,7 +834,7 @@ export class ReportsService {
             sellingPrice: masterProductPM.purchaseCost, // Show purchase cost for PM
             packageCapacityKg: masterProductPM.capacity,
             isActive: masterProducts.isActive,
-            updatedAt: masterProducts.updatedAt,
+            updatedAt: sql`(SELECT MAX(it.created_at) FROM app.inventory_transactions it WHERE it.master_product_id = ${masterProducts.masterProductId})`,
             totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
             totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
           })
@@ -1364,13 +1379,13 @@ export class ReportsService {
       return {
         product: product
           ? {
-            ...product,
-            masterProductName: product.masterProduct?.masterProductName,
-            productType: product.masterProduct?.productType,
-            fgDetails: product.masterProduct?.fgDetails,
-            rmDetails: product.masterProduct?.rmDetails,
-            pmDetails: product.masterProduct?.pmDetails,
-          }
+              ...product,
+              masterProductName: product.masterProduct?.masterProductName,
+              productType: product.masterProduct?.productType,
+              fgDetails: product.masterProduct?.fgDetails,
+              rmDetails: product.masterProduct?.rmDetails,
+              pmDetails: product.masterProduct?.pmDetails,
+            }
           : null,
         transactions: processedTransactions,
         bom: bom.map(b => ({

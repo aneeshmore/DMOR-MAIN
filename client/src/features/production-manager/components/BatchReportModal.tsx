@@ -602,7 +602,7 @@ export default function BatchReportModal({
     autoTable(doc, {
       startY: rightStackY,
       margin: { left: rightTableX, right: 14 },
-      head: [['Shade', 'QTY', 'ACT QTY', 'LTR', 'KG']],
+      head: [['Packing', 'QTY', 'ACT QTY', 'LTR', 'KG']],
       body: productData,
       foot: [
         [
@@ -1051,7 +1051,7 @@ export default function BatchReportModal({
                 <table className="w-full border-collapse border border-gray-800 text-sm mb-4">
                   <thead>
                     <tr>
-                      <th className="border border-gray-800 px-2 py-1">Shade</th>
+                      <th className="border border-gray-800 px-2 py-1">Packing</th>
                       <th className="border border-gray-800 px-2 py-1 w-12">QTY</th>
                       <th className="border border-gray-800 px-2 py-1 w-16">ACT QTY</th>
                       <th className="border border-gray-800 px-2 py-1 w-12">LTR</th>

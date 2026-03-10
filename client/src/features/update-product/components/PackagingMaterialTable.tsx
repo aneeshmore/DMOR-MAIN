@@ -6,6 +6,7 @@ import { Save, Search, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-rea
 import { updateProductApi } from '../api';
 import UpdateConfirmationModal from './UpdateConfirmationModal';
 import EditableName from './EditableName';
+import { handleEnterKeyNavigation } from './EnterKeyNavigation';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -211,17 +212,21 @@ const PackagingMaterialTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
+                      data-column="2"
                       className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentCost}
                       onChange={e => handleInputChange(elementId, 'purchaseCost', e.target.value)}
+                      onKeyDown={handleEnterKeyNavigation}
                     />
                   </td>
                   <td className="px-4 py-3">
                     <input
                       type="number"
+                      data-column="3"
                       className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentMinStock}
                       onChange={e => handleInputChange(elementId, 'minStockLevel', e.target.value)}
+                      onKeyDown={handleEnterKeyNavigation}
                     />
                   </td>
                 </tr>
