@@ -313,13 +313,21 @@ const ProductWiseReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Last Updated" />,
         cell: ({ row }) => {
           const date = row.original.updatedAt ? new Date(row.original.updatedAt) : null;
+          if (!date || isNaN(date.getTime()))
+            return <div className="text-center text-xs text-gray-400">-</div>;
+          // Format as dd-mm-yy with time
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = String(date.getFullYear()).slice(-2);
+          const time = date.toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Kolkata',
+          });
           return (
             <div className="text-center text-xs text-gray-500">
-              {date
-                ? date.toLocaleDateString() +
-                  ' ' +
-                  date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : '-'}
+              {`${day}-${month}-${year} ${time}`}
             </div>
           );
         },

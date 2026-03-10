@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import autoTable from 'jspdf-autotable';
 import {
   Chart as ChartJS,
@@ -480,7 +481,7 @@ const BatchProductionReport = () => {
       autoTable(doc, {
         startY: tableY,
         margin: { left: rightTableX, right: margin },
-        head: [['Parameter', 'Input', 'Output', 'Var']],
+        head: [['Parameter', 'Input', 'Output', 'Difference']],
         body: [
           [
             'Filling Density',
@@ -537,7 +538,7 @@ const BatchProductionReport = () => {
       autoTable(doc, {
         startY: rightStackY,
         margin: { left: rightTableX, right: margin },
-        head: [['Packing', 'QTY', 'Filled', 'LTR', 'KG']],
+        head: [['Packing', 'QTY', 'ACT QTY', 'LTR', 'KG']],
         body: subProductsBody,
         theme: 'grid',
         styles: {
