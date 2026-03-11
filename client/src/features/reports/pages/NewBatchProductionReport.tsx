@@ -164,7 +164,12 @@ const NewBatchProductionReport = () => {
 
   const handleDownloadBatch = React.useCallback(
     (batch: BatchProductionReportItem) => {
-      const doc = new jsPDF();
+      // Use A4 portrait size explicitly
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       const margin = 14;
@@ -285,11 +290,11 @@ const NewBatchProductionReport = () => {
         return actQty > 0 || batchQty > 0;
       });
 
-      // Total LTR from Sub Products
-      const totalLtr = (batch.subProducts || []).reduce((s, x) => {
-        const qty = parseFloat(x.actualQty || '0');
+      // Total LTR from Sub Products - using filtered list and actualQty (matching preview)
+      const totalLtr = filteredSubProducts.reduce((s, x) => {
+        const actualQty = parseFloat(x.actualQty || '0');
         const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
-        return s + qty * capacity;
+        return s + actualQty * capacity;
       }, 0);
 
       const totalBatchQty = filteredSubProducts.reduce(
@@ -627,7 +632,7 @@ const NewBatchProductionReport = () => {
       }
 
       // 4. Footer: Remark & Signs
-      // Ensure we don't fall off the page - simplistic check
+      // Check if we need a new page for footer
       if (nextY > 250) {
         doc.addPage();
         nextY = 20;

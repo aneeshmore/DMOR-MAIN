@@ -64,6 +64,15 @@ const ProductWiseReport = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  const productIdsKey = useMemo(
+    () =>
+      data
+        .map(item => item.productId)
+        .filter(Boolean)
+        .join('|'),
+    [data]
+  );
+
   // Everything is a ledger now as per user request
   const isLedgerMode = true;
 
@@ -181,6 +190,93 @@ const ProductWiseReport = () => {
 
     fetchData();
   }, [selectedProduct, startDate, endDate, productTypeFilter]);
+
+  useEffect(() => {
+    if (!productIdsKey || data.length === 0) return;
+
+    let cancelled = false;
+    const parseNumeric = (value: unknown) => {
+      if (value === null || value === undefined || value === '') return 0;
+      const num = Number(String(value).replace(/,/g, ''));
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    const fetchTotalsForAll = async () => {
+      const rows = data.filter(item => item.productId);
+      const chunkSize = 5;
+
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
+        const results = await Promise.all(
+          chunk.map(async item => {
+            try {
+              const res = await reportsApi.getProductWiseReport(
+                item.productId?.toString(),
+                startDate || undefined,
+                endDate || undefined,
+                item.productType
+              );
+              const transactions = res.transactions || [];
+              const totalOutward = transactions.reduce(
+                (sum, tx) => sum + parseNumeric(tx.outward),
+                0
+              );
+              const totalInward = transactions.reduce(
+                (sum, tx) => sum + parseNumeric(tx.inward),
+                0
+              );
+              return {
+                productId: item.productId?.toString(),
+                totalOutward,
+                totalInward,
+              };
+            } catch (error) {
+              console.error('Error fetching totals for product', item.productId, error);
+              return null;
+            }
+          })
+        );
+
+        if (cancelled) return;
+
+        setData(prev =>
+          prev.map(p => {
+            const match = results.find(r => r?.productId === p.productId?.toString());
+            if (!match) return p;
+            return {
+              ...p,
+              totalOutward: match.totalOutward,
+              totalInward: match.totalInward,
+            };
+          })
+        );
+      }
+    };
+
+    fetchTotalsForAll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [productIdsKey, startDate, endDate, productTypeFilter]);
+
+  const handleTotalsUpdate = (totals: {
+    productId: string;
+    totalInward: number;
+    totalOutward: number;
+  }) => {
+    setData(prev =>
+      prev.map(item =>
+        item.productId?.toString() === totals.productId
+          ? {
+              ...item,
+              totalInward: totals.totalInward,
+              totalOutward: totals.totalOutward,
+            }
+          : item
+      )
+    );
+  };
 
   const handleExportPdf = () => {
     const isDetailView = !!selectedProduct;
@@ -509,12 +605,20 @@ const ProductWiseReport = () => {
           defaultPageSize={15}
           showToolbar={true}
           showPagination={true}
+          autoResetExpanded={false}
+          getRowId={(row, index) =>
+            row.productId?.toString() ||
+            row.masterProductId?.toString?.() ||
+            row.productName ||
+            String(index)
+          }
           getRowCanExpand={() => true}
           renderSubComponent={({ row }) => (
             <ProductTransactionHistory
               productId={row.original.productId?.toString()}
               productType={row.original.productType}
               endDate={endDate} // Pass end date for "till date" context (ignores startDate for history)
+              onTotalsUpdate={handleTotalsUpdate}
             />
           )}
         />

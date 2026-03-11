@@ -15,12 +15,14 @@ interface ProductTransactionHistoryProps {
   productId: string;
   productType: string;
   endDate?: string;
+  onTotalsUpdate?: (totals: { productId: string; totalInward: number; totalOutward: number }) => void;
 }
 
 const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
   productId,
   productType,
   endDate,
+  onTotalsUpdate,
 }) => {
   const [data, setData] = useState<ProductWiseReportItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,13 +33,40 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     const fetchHistory = async () => {
       try {
         setIsLoading(true);
+        const parseNumeric = (value: unknown) => {
+          if (value === null || value === undefined || value === '') return 0;
+          const num = Number(String(value).replace(/,/g, ''));
+          return Number.isFinite(num) ? num : 0;
+        };
         const result = await reportsApi.getProductWiseReport(
           productId,
           historyStartDate || undefined,
           historyEndDate || undefined,
           productType
         );
-        setData(result.transactions || []);
+        const normalized = (result.transactions || []).map(tx => {
+          const outwardNum = parseNumeric(tx.outward);
+          const inwardNum = parseNumeric(tx.inward);
+          const balanceNum = parseNumeric(tx.balance);
+          return {
+            ...tx,
+            outward: outwardNum,
+            inward: inwardNum,
+            balance: balanceNum,
+          };
+        });
+
+        // Display all transactions (inward and outward)
+        setData(normalized);
+        if (productId) {
+          const totalInward = normalized.reduce((sum, item) => sum + (item.inward || 0), 0);
+          const totalOutward = normalized.reduce((sum, item) => sum + (item.outward || 0), 0);
+          onTotalsUpdate?.({
+            productId,
+            totalInward,
+            totalOutward,
+          });
+        }
       } catch (error) {
         console.error('Error fetching product history:', error);
       } finally {
@@ -89,7 +118,14 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
   };
 
   const columns = useMemo<ColumnDef<ProductWiseReportItem>[]>(
-    () => [
+    () => {
+      const formatTxnValue = (value: unknown) => {
+        const num = Number(value);
+        if (!Number.isFinite(num) || num <= 0) return '-';
+        return num.toFixed(2);
+      };
+
+      return [
       {
         accessorKey: 'date',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Date & Time" />,
@@ -133,7 +169,7 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
         header: ({ column }) => <DataTableColumnHeader column={column} title="Inward" />,
         cell: ({ row }) => (
           <div className="text-center font-bold text-green-600">
-            {row.original.inward ? row.original.inward.toFixed(2) : '-'}
+            {formatTxnValue(row.original.inward)}
           </div>
         ),
       },
@@ -142,7 +178,7 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
         header: ({ column }) => <DataTableColumnHeader column={column} title="Outward" />,
         cell: ({ row }) => (
           <div className="text-center font-bold text-red-600">
-            {row.original.outward ? row.original.outward.toFixed(2) : '-'}
+            {formatTxnValue(row.original.outward)}
           </div>
         ),
       },
@@ -155,7 +191,8 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
           </div>
         ),
       },
-    ],
+      ];
+    },
     []
   );
 

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import autoTable from 'jspdf-autotable';
 import {
   Chart as ChartJS,
@@ -50,6 +50,584 @@ ChartJS.register(
   Legend
 );
 
+// Robust numeric parser: accepts numbers or numeric strings (commas, spaces) and returns number
+const parseNumber = (val: any): number => {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  // Remove commas and any non-numeric except dot and minus
+  const cleaned = String(val)
+    .replace(/,/g, '')
+    .replace(/[^\d.-]/g, '')
+    .trim();
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+};
+
+// Helper to format numbers for preview UI - handles null/undefined
+const formatNumberForPreview = (val: any): string => {
+  if (val === null || val === undefined || val === '' || val === '-') return '-';
+  const num = parseNumber(val);
+  if (isNaN(num)) return '-';
+  return num.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+// Helper to format numbers for PDF - max 3 decimals
+const formatNumber = (val: string | number | null | undefined): string => {
+  if (val === null || val === undefined || val === '' || val === '-') return '-';
+  const num = parseNumber(val);
+  if (isNaN(num)) return String(val);
+  return parseFloat(num.toFixed(3)).toString();
+};
+
+type BatchReportPreviewContentProps = {
+  batch: BatchProductionReportItem;
+  companyInfo: CompanyInfo | null;
+  showDownload?: boolean;
+  onDownload?: () => void;
+};
+
+const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPreviewContentProps>(
+  ({ batch, companyInfo, showDownload = false, onDownload }, ref) => (
+    <div
+      ref={ref}
+      className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 max-w-4xl mx-auto printable-content"
+    >
+      {/* Header */}
+      <div className="text-center mb-6 border-b pb-4">
+        <h1 className="text-2xl font-bold text-gray-900">
+          {companyInfo?.companyName || 'MOREX TECHNOLOGIES'}
+        </h1>
+      </div>
+
+      {/* Info Grid */}
+      <div className="grid grid-cols-2 gap-x-12 gap-y-4 mb-8 text-sm">
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">Batch No:</span>
+            <span className="font-medium text-gray-900">
+              {batch.batchNo} {batch.productName ? `/ ${batch.productName}` : ''}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">Supervisor:</span>
+            <span className="text-gray-900">{batch.supervisor || '-'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">Labours:</span>
+            <span className="text-gray-900">{batch.labourNames || '-'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">Date:</span>
+            <span className="text-gray-900">{formatDate(new Date().toISOString())}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">Start Date-Time:</span>
+            <span className="text-gray-900">{formatDateTime(batch.startedAt)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">End Date-Time:</span>
+            <span className="text-gray-900">{formatDateTime(batch.completedAt)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">Total Time:</span>
+            <span className="text-gray-900">{batch.timeRequired || '-'}</span>
+          </div>
+        </div>
+
+        {/* Right Side: Quality & Variance Analysis Table */}
+        <div className="space-y-2">
+          <h4 className="font-bold text-sm text-gray-700 mb-2">Quality & Variance Analysis</h4>
+          <table className="w-full text-xs border-collapse border border-gray-300">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="border border-gray-300 px-2 py-1 text-left">Parameter</th>
+                <th className="border border-gray-300 px-2 py-1 text-right">Input </th>
+                <th className="border border-gray-300 px-2 py-1 text-right">Output</th>
+                <th className="border border-gray-300 px-2 py-1 text-right">Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                // Align calculations with handleDownloadBatch
+                const stdDensity = batch.density ? parseFloat(batch.density) : 0;
+                const actDensity = batch.actualDensity ? parseFloat(batch.actualDensity) : 0;
+                const densityVariance = actDensity - stdDensity;
+
+                const stdViscosity = batch.viscosity ? parseFloat(batch.viscosity) : 0;
+                const actViscosity = batch.actualViscosity ? parseFloat(batch.actualViscosity) : 0;
+                const viscosityVariance = actViscosity - stdViscosity;
+
+                // 1. Ingredients Calculation (Standard Weight)
+                const rms = (batch.rawMaterials || []).filter(rm => rm.productType !== 'PM');
+                const totalActualWeightFromIngredients = rms.reduce(
+                  (sum, rm) => sum + parseNumber(rm.actualQty || rm.percentage || '0'),
+                  0
+                );
+
+                // 2. Sub Products Calculation (Output Weight)
+                const totalKg = (batch.subProducts || []).reduce((s, x) => {
+                  const actualQty = parseFloat(String(x.actualQty || '0'));
+                  const plannedQty = parseFloat(String(x.batchQty || '0'));
+                  const effQty = actualQty > 0 ? actualQty : plannedQty;
+                  const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
+                  const ltr = effQty * capacity;
+                  const productDensity = parseFloat(String(x.fillingDensity || '0'));
+                  const density =
+                    productDensity > 0
+                      ? productDensity
+                      : parseFloat(
+                          batch.packingDensity || batch.actualDensity || batch.density || '0'
+                        );
+
+                  return s + ltr * density;
+                }, 0);
+
+                const stdTotalWeight = totalActualWeightFromIngredients;
+                const actTotalWeight = totalKg;
+                const totalWeightVariance = actTotalWeight - stdTotalWeight;
+
+                return (
+                  <>
+                    <tr>
+                      <td className="border border-gray-300 px-2 py-1">Filling Density</td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {stdDensity.toFixed(2)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {actDensity.toFixed(2)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {densityVariance.toFixed(2)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-300 px-2 py-1">Viscosity</td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {stdViscosity > 0 ? stdViscosity : '-'}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {actViscosity > 0 ? actViscosity : '-'}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {viscosityVariance.toFixed(2)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-300 px-2 py-1">Total Weight (Kg)</td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {stdTotalWeight.toFixed(2)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {actTotalWeight.toFixed(2)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {totalWeightVariance.toFixed(2)}
+                      </td>
+                    </tr>
+                  </>
+                );
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tables Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        {/* Ingredients Table */}
+        {(() => {
+          const rms = (batch.rawMaterials || []).filter(rm => rm.productType !== 'PM');
+
+          const regular = rms.filter(rm => !rm.isAdditional && Number(rm.percentage ?? '0') > 0);
+
+          const additional = rms.filter(rm => rm.isAdditional || Number(rm.percentage ?? '0') <= 0);
+
+          const allMaterials = [...regular, ...additional];
+          const totalPercentage = allMaterials.reduce(
+            (s, rm) => s + parseNumber(rm.percentage ?? '0'),
+            0
+          );
+          const totalActual = allMaterials.reduce(
+            (s, rm) => s + parseNumber(rm.actualQty ?? rm.percentage ?? '0'),
+            0
+          );
+          const totalAmount = allMaterials.reduce((s, rm) => {
+            const actual = parseNumber(rm.actualQty ?? rm.percentage ?? '0');
+            const rate =
+              rm.unitPrice !== null && rm.unitPrice !== undefined ? parseNumber(rm.unitPrice) : 0;
+            return s + actual * rate;
+          }, 0);
+
+          return (
+            <div>
+              <table className="w-full text-xs border-collapse border border-gray-300">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="border border-gray-300 px-2 py-1 text-left">Seq</th>
+                    <th className="border border-gray-300 px-2 py-1 text-left">Product</th>
+                    <th className="border border-gray-300 px-2 py-1 text-right">Percentage (%)</th>
+                    <th className="border border-gray-300 px-2 py-1 text-right">Actual</th>
+                    <th className="border border-gray-300 px-2 py-1 text-right">Rate</th>
+                    <th className="border border-gray-300 px-2 py-1 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Regular Materials */}
+                  {regular.map((rm, idx) => (
+                    <tr key={`reg-${idx}`}>
+                      <td className="border border-gray-300 px-2 py-1 text-center">{idx + 1}</td>
+                      <td className="border border-gray-300 px-2 py-1">{rm.rawMaterialName}</td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {formatNumberForPreview(rm.percentage)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {formatNumberForPreview(rm.actualQty || rm.percentage)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {formatNumberForPreview(rm.unitPrice)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {formatNumberForPreview(
+                          parseNumber(rm.actualQty ?? rm.percentage ?? '0') *
+                            (rm.unitPrice !== null && rm.unitPrice !== undefined
+                              ? parseNumber(rm.unitPrice)
+                              : 0)
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Additional Materials - All Bold */}
+                  {additional.map((rm, idx) => (
+                    <tr key={`add-${idx}`}>
+                      <td className="border border-gray-300 px-2 py-1 text-center font-bold">
+                        {regular.length + idx + 1}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 font-bold">
+                        {rm.rawMaterialName}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right font-bold">
+                        {formatNumberForPreview(rm.percentage)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right font-bold">
+                        {formatNumberForPreview(rm.actualQty || rm.percentage)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right font-bold">
+                        {formatNumberForPreview(rm.unitPrice)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right font-bold">
+                        {formatNumberForPreview(
+                          parseNumber(rm.actualQty ?? rm.percentage ?? '0') *
+                            (rm.unitPrice !== null && rm.unitPrice !== undefined
+                              ? parseNumber(rm.unitPrice)
+                              : 0)
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-[var(--color-success)] text-white font-bold">
+                  <tr>
+                    <td className="border border-gray-300 px-2 py-1" colSpan={2}>
+                      Total
+                    </td>
+                    <td className="border border-gray-300 px-2 py-1 text-right">
+                      {formatNumberForPreview(totalPercentage)}
+                    </td>
+                    <td className="border border-gray-300 px-2 py-1 text-right">
+                      {formatNumberForPreview(totalActual)}
+                    </td>
+                    <td className="border border-gray-300 px-2 py-1 text-right">&nbsp;</td>
+                    <td className="border border-gray-300 px-2 py-1 text-right">
+                      {formatNumberForPreview(totalAmount)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          );
+        })()}
+
+        {/* Sub Products Table */}
+        <div>
+          <table className="w-full text-xs border-collapse border border-gray-300">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="border border-gray-300 px-2 py-1 text-left">Packing</th>
+                <th className="border border-gray-300 px-2 py-1 text-right">QTY</th>
+                <th className="border border-gray-300 px-2 py-1 text-right">ACT QTY</th>
+                <th className="border border-gray-300 px-2 py-1 text-center">LTR</th>
+                <th className="border border-gray-300 px-2 py-1 text-center">KG</th>
+              </tr>
+            </thead>
+            <tbody>
+              {batch.subProducts &&
+              batch.subProducts.filter(sp => {
+                // Only show SKUs with actualQty > 0 OR batchQty > 0
+                const actQty =
+                  typeof sp.actualQty === 'number' ? sp.actualQty : parseFloat(sp.actualQty || '0');
+                const batchQty =
+                  typeof sp.batchQty === 'number' ? sp.batchQty : parseFloat(sp.batchQty || '0');
+                return actQty > 0 || batchQty > 0;
+              }).length > 0 ? (
+                batch.subProducts
+                  .filter(sp => {
+                    const actQty =
+                      typeof sp.actualQty === 'number'
+                        ? sp.actualQty
+                        : parseFloat(sp.actualQty || '0');
+                    const batchQty =
+                      typeof sp.batchQty === 'number'
+                        ? sp.batchQty
+                        : parseFloat(sp.batchQty || '0');
+                    return actQty > 0 || batchQty > 0;
+                  })
+                  .map((sp, idx) => (
+                    <tr key={idx}>
+                      <td className="border border-gray-300 px-2 py-1">{sp.productName}</td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {formatNumberForPreview(sp.batchQty)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {formatNumberForPreview(sp.actualQty)}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {(() => {
+                          const qty = parseFloat(String(sp.actualQty || '0'));
+                          const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
+                          return formatNumberForPreview(qty * capacity);
+                        })()}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {(() => {
+                          const qty = parseFloat(String(sp.actualQty || '0'));
+                          const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
+                          const ltr = qty * capacity;
+                          const density = batch.actualDensity ? parseFloat(batch.actualDensity) : 0;
+                          return formatNumberForPreview(ltr * density);
+                        })()}
+                      </td>
+                    </tr>
+                  ))
+              ) : batch.productName ? (
+                <tr>
+                  <td className="border border-gray-300 px-2 py-1">{batch.productName}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right">
+                    {formatNumberForPreview(batch.plannedQuantity)}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-1 text-right">
+                    {formatNumberForPreview(batch.actualQuantity)}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-1 text-right">
+                    {(() => {
+                      const qty = parseFloat(String(batch.actualQuantity || '0'));
+                      const capacity = (batch as any).capacity
+                        ? parseFloat((batch as any).capacity.toString())
+                        : 0;
+                      return formatNumberForPreview(qty * capacity);
+                    })()}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-1 text-right">
+                    {(() => {
+                      const qty = parseFloat(String(batch.actualQuantity || '0'));
+                      const capacity = (batch as any).capacity
+                        ? parseFloat((batch as any).capacity.toString())
+                        : 0;
+                      const ltr = qty * capacity;
+                      const density = batch.actualDensity ? parseFloat(batch.actualDensity) : 0;
+                      return formatNumberForPreview(ltr * density);
+                    })()}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+            <tfoot className="bg-[var(--color-success)] text-white font-bold">
+              <tr>
+                <td className="border border-gray-300 px-2 py-1">Total</td>
+                <td className="border border-gray-300 px-2 py-1 text-right">
+                  {formatNumberForPreview(
+                    (batch.subProducts || [])
+                      .filter(sp => {
+                        const actQty =
+                          typeof sp.actualQty === 'number'
+                            ? sp.actualQty
+                            : parseFloat(sp.actualQty || '0');
+                        const batchQty =
+                          typeof sp.batchQty === 'number'
+                            ? sp.batchQty
+                            : parseFloat(sp.batchQty || '0');
+                        return actQty > 0 || batchQty > 0;
+                      })
+                      .reduce((sum, sp) => sum + parseFloat(sp.batchQty || '0'), 0)
+                  )}
+                </td>
+                <td className="border border-gray-300 px-2 py-1 text-right">
+                  {formatNumberForPreview(
+                    (batch.subProducts || [])
+                      .filter(sp => {
+                        const actQty =
+                          typeof sp.actualQty === 'number'
+                            ? sp.actualQty
+                            : parseFloat(sp.actualQty || '0');
+                        const batchQty =
+                          typeof sp.batchQty === 'number'
+                            ? sp.batchQty
+                            : parseFloat(sp.batchQty || '0');
+                        return actQty > 0 || batchQty > 0;
+                      })
+                      .reduce((sum, sp) => sum + parseFloat(String(sp.actualQty) || '0'), 0)
+                  )}
+                </td>
+                <td className="border border-gray-300 px-2 py-1 text-right">
+                  {formatNumberForPreview(
+                    (batch.subProducts || [])
+                      .filter(sp => {
+                        const actQty =
+                          typeof sp.actualQty === 'number'
+                            ? sp.actualQty
+                            : parseFloat(sp.actualQty || '0');
+                        const batchQty =
+                          typeof sp.batchQty === 'number'
+                            ? sp.batchQty
+                            : parseFloat(sp.batchQty || '0');
+                        return actQty > 0 || batchQty > 0;
+                      })
+                      .reduce((sum, sp) => {
+                        const qty = parseFloat(String(sp.actualQty || '0'));
+                        const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
+                        return sum + qty * capacity;
+                      }, 0)
+                  )}
+                </td>
+                <td className="border border-gray-300 px-2 py-1 text-right">
+                  {formatNumberForPreview(
+                    (batch.subProducts || [])
+                      .filter(sp => {
+                        const actQty =
+                          typeof sp.actualQty === 'number'
+                            ? sp.actualQty
+                            : parseFloat(sp.actualQty || '0');
+                        const batchQty =
+                          typeof sp.batchQty === 'number'
+                            ? sp.batchQty
+                            : parseFloat(sp.batchQty || '0');
+                        return actQty > 0 || batchQty > 0;
+                      })
+                      .reduce((sum, sp) => {
+                        const qty = parseFloat(String(sp.actualQty || '0'));
+                        const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
+                        const ltr = qty * capacity;
+                        const productDensity = parseFloat(String(sp.fillingDensity || '0'));
+                        const density =
+                          productDensity > 0
+                            ? productDensity
+                            : parseFloat(
+                                batch.packingDensity || batch.actualDensity || batch.density || '0'
+                              );
+                        return sum + ltr * density;
+                      }, 0)
+                  )}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Packaging Materials Table */}
+      {batch.packagingMaterials &&
+        batch.packagingMaterials.filter(pm => {
+          const qty =
+            typeof pm.actualQty === 'number'
+              ? pm.actualQty
+              : parseFloat(String(pm.actualQty || '0'));
+          return qty > 0;
+        }).length > 0 && (
+          <div className="mb-8">
+            <h3 className="font-bold text-sm mb-2">
+              Packaging Materials Used (Based on Actual Output)
+            </h3>
+            <table className="w-full text-xs border-collapse border border-gray-300">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="border border-gray-300 px-2 py-1 text-left">Packaging Name</th>
+                  <th className="border border-gray-300 px-2 py-1 text-right">Actual Qty</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batch.packagingMaterials
+                  .filter(pm => {
+                    const qty =
+                      typeof pm.actualQty === 'number'
+                        ? pm.actualQty
+                        : parseFloat(String(pm.actualQty || '0'));
+                    return qty > 0;
+                  })
+                  .map((pm, idx) => (
+                    <tr key={idx}>
+                      <td className="border border-gray-300 px-2 py-1">{pm.packagingName}</td>
+                      <td className="border border-gray-300 px-2 py-1 text-right">
+                        {formatNumberForPreview(pm.actualQty)}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+              <tfoot className="bg-[var(--color-success)] text-white font-bold">
+                <tr>
+                  <td className="border border-gray-300 px-2 py-1">Total</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right">
+                    {formatNumberForPreview(
+                      batch.packagingMaterials
+                        .filter(pm => {
+                          const qty =
+                            typeof pm.actualQty === 'number'
+                              ? pm.actualQty
+                              : parseFloat(String(pm.actualQty || '0'));
+                          return qty > 0;
+                        })
+                        .reduce((sum, pm) => sum + pm.actualQty, 0)
+                    )}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+
+      {/* Footer Signatures */}
+      <div className="mt-8">
+        <div className="mb-8">
+          <span className="font-bold text-sm">Production Remark :</span>
+          <div className="border-b border-gray-400 mt-2"></div>
+        </div>
+
+        <div className="flex justify-between mt-16 px-12">
+          <div className="text-center">
+            <p className="font-bold text-sm mb-8">Labours Sign :-</p>
+            <p className="text-sm">{batch.labourNames ? batch.labourNames.split(',')[0] : ''}</p>
+          </div>
+          <div className="text-center">
+            <p className="font-bold text-sm mb-8">Superviser Sign :-</p>
+            <p className="text-sm">{batch.supervisor}</p>
+          </div>
+        </div>
+      </div>
+
+      {showDownload && onDownload && (
+        <div className="mt-8 flex justify-center no-print">
+          <Button variant="primary" onClick={onDownload} leftIcon={<FileDown size={18} />}>
+            Download PDF
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+);
+
+BatchReportPreviewContent.displayName = 'BatchReportPreviewContent';
+
 const BatchProductionReport = () => {
   // ... (existing state) ...
   const [data, setData] = useState<BatchProductionReportItem[]>([]);
@@ -58,6 +636,9 @@ const BatchProductionReport = () => {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [previewBatch, setPreviewBatch] = useState<BatchProductionReportItem | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [downloadBatch, setDownloadBatch] = useState<BatchProductionReportItem | null>(null);
+  const downloadRef = React.useRef<HTMLDivElement | null>(null);
+  const downloadInProgressRef = React.useRef(false);
 
   // Fetch Company Info
   useEffect(() => {
@@ -139,584 +720,68 @@ const BatchProductionReport = () => {
     return data.filter(item => item.status === statusFilter);
   }, [data, statusFilter]);
 
-  // Robust numeric parser: accepts numbers or numeric strings (commas, spaces) and returns number
-  const parseNumber = (val: any): number => {
-    if (val === null || val === undefined || val === '') return 0;
-    if (typeof val === 'number') return isNaN(val) ? 0 : val;
-    // Remove commas and any non-numeric except dot and minus
-    const cleaned = String(val)
-      .replace(/,/g, '')
-      .replace(/[^\d.-]/g, '')
-      .trim();
-    const n = parseFloat(cleaned);
-    return isNaN(n) ? 0 : n;
-  };
+  const handleDownloadBatch = React.useCallback(async (batch: BatchProductionReportItem) => {
+    if (downloadInProgressRef.current) return;
+    downloadInProgressRef.current = true;
+    const toastKey = 'batch-report-download';
+    showToast.loading('Preparing PDF...', toastKey);
 
-  // Helper to format numbers for preview UI - handles null/undefined
-  const formatNumberForPreview = (val: any): string => {
-    if (val === null || val === undefined || val === '' || val === '-') return '-';
-    const num = parseNumber(val);
-    if (isNaN(num)) return '-';
-    return num.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
+    try {
+      setDownloadBatch(batch);
 
-  // Helper to format numbers for PDF - max 3 decimals
-  const formatNumber = (val: string | number | null | undefined): string => {
-    if (val === null || val === undefined || val === '' || val === '-') return '-';
-    const num = parseNumber(val);
-    if (isNaN(num)) return String(val);
-    return parseFloat(num.toFixed(3)).toString();
-  };
-
-  type RGBColor = [number, number, number];
-
-  const handleDownloadBatch = React.useCallback(
-    (batch: BatchProductionReportItem) => {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.width;
-      const pageHeight = doc.internal.pageSize.height;
-      const margin = 14;
-
-      // colors from Preview (Tailwind classes approximation)
-      const colorSuccess: RGBColor = [16, 185, 129]; // Emerald 500
-      const colorGray100: RGBColor = [243, 244, 246]; // Gray 100
-      const colorGray700: RGBColor = [55, 65, 81]; // Gray 700
-
-      // 1. Header: Company Info + Title
-      const headerEndY = addPdfHeader(
-        doc,
-        companyInfo,
-        `Batch Production Report: ${batch.batchNo}`
-      );
-
-      // 2. Info Block - Reorganized Layout
-
-      // Use autoTable for layout precision on the text block to match Preview's alignment
-      // Left Info Block
-      // Left Info Block
-      const leftInfoData = [
-        [`Batch No:`, `${batch.batchNo}${batch.productName ? ' / ' + batch.productName : ''}`],
-        [`Supervisor:`, batch.supervisor || '-'],
-        [`Labours:`, batch.labourNames || '-'],
-        [
-          `Total Time:`,
-          (() => {
-            if (!batch.actualTimeHours) return batch.timeRequired || '-';
-            const hours = Math.floor(parseFloat(batch.actualTimeHours));
-            const minutes = Math.round((parseFloat(batch.actualTimeHours) - hours) * 60);
-            return `${hours} Hrs ${minutes} Min`;
-          })(),
-        ],
-      ];
-
-      // Right Info Block (Quality Fields)
-      const rightInfoData = [
-        [`Date:`, formatDate(new Date().toISOString())],
-        [`Actual Density:`, batch.actualDensity || '-'],
-        [`Product Viscosity:`, batch.actualViscosity || '-'],
-      ];
-
-      const infoStartY = headerEndY + 5;
-
-      // Draw Left Table
-      autoTable(doc, {
-        startY: infoStartY,
-        margin: { left: margin },
-        body: leftInfoData,
-        theme: 'plain',
-        styles: {
-          fontSize: 10,
-          cellPadding: 1.5,
-          font: 'helvetica',
-          textColor: colorGray700,
-        },
-        columnStyles: {
-          0: { cellWidth: 35, fontStyle: 'bold' },
-          1: { cellWidth: 60 },
-        },
-        tableWidth: 95,
-      });
-
-      // Draw Right Table
-      autoTable(doc, {
-        startY: infoStartY,
-        margin: { left: margin + 95 + 5 }, // Offset by left table width + gap
-        body: rightInfoData,
-        theme: 'plain',
-        styles: {
-          fontSize: 10,
-          cellPadding: 1.5,
-          font: 'helvetica',
-          textColor: colorGray700,
-        },
-        columnStyles: {
-          0: { cellWidth: 40, fontStyle: 'bold' },
-          1: { cellWidth: 60 },
-        },
-        tableWidth: 100,
-      });
-
-      const infoBlockFinalY = (doc as any).lastAutoTable.finalY;
-
-      // 3. Right Side: Quality & Variance Analysis Table
-      // Calculate variance values
-      const stdDensity = batch.density ? parseFloat(batch.density) : 0;
-      const actDensity = batch.actualDensity ? parseFloat(batch.actualDensity) : 0;
-      const densityVariance = actDensity - stdDensity;
-
-      const stdViscosity = batch.viscosity ? parseFloat(batch.viscosity) : 0;
-      const actViscosity = batch.actualViscosity ? parseFloat(batch.actualViscosity) : 0;
-      const viscosityVariance = actViscosity - stdViscosity;
-
-      // --- CALCULATIONS FOR TABLES (Moved up for use in Quality Table) ---
-
-      // 1. Ingredients Calculation (Left Table)
-      const allIngredients = (batch.rawMaterials || []).filter(rm => rm.productType !== 'PM');
-      const regularIngredients = allIngredients.filter(rm => !rm.isAdditional);
-      const additionalIngredients = allIngredients.filter(rm => rm.isAdditional);
-      const ingredients = [...regularIngredients, ...additionalIngredients];
-
-      // Total Actual Weight from Ingredients (Sum of Actual Qty)
-      const totalActualWeight = ingredients.reduce(
-        (sum, rm) => sum + parseNumber(rm.actualQty || rm.percentage || '0'),
-        0
-      );
-      const totalPercentage = ingredients.reduce(
-        (sum, rm) => sum + parseNumber(rm.percentage || '0'),
-        0
-      );
-
-      // 2. Sub Products Calculation (Right Table / Shade Table)
-      const filteredSubProducts = (batch.subProducts || []).filter(sp => {
-        const actQty = parseNumber(sp.actualQty || '0');
-        const batchQty = parseNumber(sp.batchQty || '0');
-        return actQty > 0 || batchQty > 0;
-      });
-
-      // Total LTR from Sub Products
-      const totalLtr = (batch.subProducts || []).reduce((s, x) => {
-        const qty = parseFloat(x.actualQty || '0');
-        const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
-        return s + qty * capacity;
-      }, 0);
-
-      const totalBatchQty = filteredSubProducts.reduce(
-        (s, x) => s + (parseFloat(x.batchQty || '0') || 0),
-        0
-      );
-      const totalSubActualQty = filteredSubProducts.reduce(
-        (s, x) => s + (parseFloat(x.actualQty || '0') || 0),
-        0
-      );
-      const totalKg = (batch.subProducts || []).reduce((s, x) => {
-        const actualQty = parseFloat(x.actualQty || '0');
-        const plannedQty = parseFloat(x.batchQty || '0');
-
-        const effQty = actualQty > 0 ? actualQty : plannedQty;
-
-        const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
-        const ltr = effQty * capacity;
-        // Use fillingDensity or fallback to batch density for weight calc
-        const density =
-          parseFloat(x.fillingDensity?.toString() || '0') ||
-          parseFloat(batch.packingDensity || batch.actualDensity || batch.density || '0');
-
-        return s + ltr * density;
-      }, 0);
-
-      // Calculate total weight for Quality Table
-      // Standard = Total of Actual Column from Ingredients Table
-      const stdTotalWeight = totalActualWeight;
-
-      // Actual = Total KG from Shade Table
-      const actTotalWeight = totalKg;
-      const totalWeightVariance = actTotalWeight - stdTotalWeight;
-
-      let currentY = infoBlockFinalY + 10;
-
-      // 3. Tables Section - Side by Side
-      // Separate regular and additional materials
-      // Ingredients Body and Totals - compute rate and amount
-      const ingredientsBody = ingredients.map((rm, index) => {
-        const actual = parseNumber(rm.actualQty ?? rm.percentage ?? '0');
-        const rate =
-          rm.unitPrice !== null && rm.unitPrice !== undefined ? parseNumber(rm.unitPrice) : 0;
-        const amount = actual * rate;
-        return [
-          index + 1,
-          rm.rawMaterialName,
-          formatNumber(rm.percentage),
-          formatNumber(actual),
-          formatNumber(rate),
-          formatNumber(amount),
-        ];
-      });
-
-      const totalAmount = ingredients.reduce((sum, rm) => {
-        const actual = parseNumber(rm.actualQty ?? rm.percentage ?? '0');
-        const rate =
-          rm.unitPrice !== null && rm.unitPrice !== undefined ? parseNumber(rm.unitPrice) : 0;
-        return sum + actual * rate;
-      }, 0);
-
-      // Sub Products Body - Using calculated filtered list
-      const subProductsBody = filteredSubProducts.map(sp => {
-        const actualQty = parseFloat(sp.actualQty || '0');
-        const plannedQty = parseFloat(sp.batchQty || '0');
-        const effQty = actualQty > 0 ? actualQty : plannedQty;
-
-        const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
-        const ltr = effQty * capacity;
-        // Use fillingDensity or fallback to batch density for weight calc
-        const productDensity = parseFloat(sp.fillingDensity?.toString() || '0');
-        const density =
-          productDensity > 0
-            ? productDensity
-            : parseFloat(batch.packingDensity || batch.actualDensity || batch.density || '0');
-
-        const kg = ltr * density;
-
-        return [
-          sp.productName,
-          formatNumber(sp.batchQty), // Planned Qty
-          formatNumber(sp.actualQty), // Actual Qty
-          capacity > 0 ? formatNumber(ltr) : '', // Blank if 0 in preview image
-          capacity > 0 ? formatNumber(kg) : '', // Blank if 0 in preview image
-        ];
-      });
-
-      const sideBySideStartPage = doc.internal.pages.length;
-      const tableY = currentY;
-
-      // Left Table: Ingredients (Side by Side - Left)
-      autoTable(doc, {
-        startY: tableY,
-        margin: { left: margin, right: 110 },
-        head: [['Seq', 'Product', 'Percentage (%)', 'Actual', 'Rate', 'Amount']],
-        body: ingredientsBody,
-        theme: 'grid',
-        styles: {
-          fontSize: 7,
-          cellPadding: 3,
-          lineColor: [229, 231, 235],
-          lineWidth: 0.1,
-          textColor: colorGray700,
-          overflow: 'linebreak',
-          cellWidth: 'wrap',
-        },
-        headStyles: {
-          fillColor: colorGray100,
-          textColor: [0, 0, 0],
-          fontStyle: 'bold',
-          fontSize: 7,
-          lineWidth: 0.1,
-          lineColor: [229, 231, 235],
-        },
-        columnStyles: {
-          0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 35, halign: 'left' },
-          2: { cellWidth: 12, halign: 'right' },
-          3: { cellWidth: 12, halign: 'right' },
-          4: { cellWidth: 12, halign: 'right' },
-          5: { cellWidth: 15, halign: 'right' },
-        },
-        tableWidth: 96,
-        foot: [
-          [
-            '',
-            'Total',
-            formatNumber(totalPercentage),
-            formatNumber(totalActualWeight),
-            '',
-            formatNumber(totalAmount),
-          ],
-        ],
-        footStyles: {
-          fillColor: colorSuccess, // Green
-          textColor: [255, 255, 255], // White
-          fontStyle: 'bold',
-          fontSize: 7,
-          lineWidth: 0.1,
-          lineColor: [229, 231, 235],
-        },
-        showFoot: 'lastPage',
-        didParseCell: data => {
-          if (data.section === 'body') {
-            const rm = ingredients[data.row.index];
-            // Bold styling for additional materials
-            if (rm && rm.isAdditional) {
-              data.cell.styles.fontStyle = 'bold';
-            }
-          }
-          // Custom Footer Styling alignment
-          if (data.section === 'foot') {
-            if (data.column.index === 0 || data.column.index === 1) {
-              data.cell.styles.halign = 'left';
-            } else {
-              data.cell.styles.halign = 'right';
-            }
-          }
-        },
-      });
-
-      const leftTableFinalY = (doc as any).lastAutoTable.finalY;
-      const leftTableFinalPage = doc.internal.pages.length;
-
-      // Reset to starting page for Right Column
-      doc.setPage(sideBySideStartPage);
-
-      // RIGHT Column: Table Stack (Parameters -> Shade -> Packaging)
-      const rightTableX = 114;
-      const rightTableWidth = 82;
-
-      // 1. Parameters Table
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('Quality & Variance Analysis', rightTableX, tableY - 2);
-
-      autoTable(doc, {
-        startY: tableY,
-        margin: { left: rightTableX, right: margin },
-        head: [['Parameter', 'Input', 'Output', 'Difference']],
-        body: [
-          [
-            'Filling Density',
-            stdDensity.toFixed(2),
-            actDensity.toFixed(2),
-            densityVariance.toFixed(2),
-          ],
-          [
-            'Viscosity',
-            stdViscosity > 0 ? stdViscosity.toString() : '-',
-            actViscosity > 0 ? actViscosity.toString() : '-',
-            viscosityVariance !== 0 ? viscosityVariance.toFixed(2) : '0.00',
-          ],
-          [
-            'Weight (Kg)',
-            stdTotalWeight.toFixed(2),
-            actTotalWeight.toFixed(2),
-            totalWeightVariance.toFixed(2),
-          ],
-        ],
-        theme: 'grid',
-        styles: {
-          fontSize: 7,
-          cellPadding: 2,
-          lineColor: [229, 231, 235],
-          lineWidth: 0.1,
-          textColor: colorGray700,
-        },
-        headStyles: {
-          fillColor: colorGray100,
-          textColor: [0, 0, 0],
-          fontStyle: 'bold',
-          fontSize: 7,
-          lineWidth: 0.1,
-          lineColor: [229, 231, 235],
-        },
-        columnStyles: {
-          0: { cellWidth: 37 },
-          1: { cellWidth: 15, halign: 'right' },
-          2: { cellWidth: 15, halign: 'right' },
-          3: { cellWidth: 15, halign: 'right' },
-        },
-        tableWidth: rightTableWidth,
-      });
-
-      let rightStackY = (doc as any).lastAutoTable.finalY + 8;
-
-      // 2. Shade Table (Sub Products)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(0, 0, 0);
-      doc.text('Shade Table', rightTableX, rightStackY - 2);
-
-      autoTable(doc, {
-        startY: rightStackY,
-        margin: { left: rightTableX, right: margin },
-        head: [['Packing', 'QTY', 'ACT QTY', 'LTR', 'KG']],
-        body: subProductsBody,
-        theme: 'grid',
-        styles: {
-          fontSize: 7,
-          cellPadding: 2,
-          lineColor: [229, 231, 235],
-          lineWidth: 0.1,
-          textColor: colorGray700,
-          overflow: 'linebreak',
-        },
-        headStyles: {
-          fillColor: colorGray100,
-          textColor: [0, 0, 0],
-          fontStyle: 'bold',
-          fontSize: 7,
-          lineWidth: 0.1,
-          lineColor: [229, 231, 235],
-        },
-        columnStyles: {
-          0: { cellWidth: 30, halign: 'left' },
-          1: { cellWidth: 13, halign: 'right' },
-          2: { cellWidth: 13, halign: 'right' },
-          3: { cellWidth: 13, halign: 'right' },
-          4: { cellWidth: 13, halign: 'right' },
-        },
-        tableWidth: rightTableWidth,
-        foot: [
-          [
-            'Total',
-            formatNumber(totalBatchQty),
-            formatNumber(totalSubActualQty),
-            formatNumber(totalLtr),
-            formatNumber(totalKg),
-          ],
-        ],
-        footStyles: {
-          fillColor: colorSuccess,
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 7,
-          lineWidth: 0.1,
-          lineColor: [229, 231, 235],
-        },
-        showFoot: 'lastPage',
-        didParseCell: data => {
-          if (data.section === 'foot') {
-            data.cell.styles.halign = data.column.index === 0 ? 'left' : 'right';
-          }
-        },
-      });
-
-      rightStackY = (doc as any).lastAutoTable.finalY + 8;
-
-      // 3. Packaging Materials Table
-      const filteredPackagingMaterials = (batch.packagingMaterials || []).filter(pm => {
-        const qty =
-          typeof pm.actualQty === 'number' ? pm.actualQty : parseFloat(String(pm.actualQty || '0'));
-        return qty > 0;
-      });
-
-      if (filteredPackagingMaterials.length > 0) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(0, 0, 0);
-        doc.text('Packaging Materials Used', rightTableX, rightStackY - 2);
-
-        const packagingBody = filteredPackagingMaterials.map(pm => [
-          pm.packagingName,
-          formatNumber(pm.actualQty),
-        ]);
-
-        const totalActualPM = filteredPackagingMaterials.reduce((sum, pm) => sum + pm.actualQty, 0);
-
-        autoTable(doc, {
-          startY: rightStackY,
-          margin: { left: rightTableX, right: margin },
-          head: [['Packaging Name', 'Qty']],
-          body: packagingBody,
-          theme: 'grid',
-          styles: {
-            fontSize: 7,
-            cellPadding: 2,
-            lineColor: [229, 231, 235],
-            lineWidth: 0.1,
-            textColor: colorGray700,
-            overflow: 'linebreak',
-          },
-          headStyles: {
-            fillColor: colorGray100,
-            textColor: [0, 0, 0],
-            fontStyle: 'bold',
-            fontSize: 7,
-            lineWidth: 0.1,
-            lineColor: [229, 231, 235],
-          },
-          columnStyles: {
-            0: { cellWidth: 62, halign: 'left' },
-            1: { cellWidth: 20, halign: 'right' },
-          },
-          tableWidth: rightTableWidth,
-          foot: [['Total', formatNumber(totalActualPM)]],
-          footStyles: {
-            fillColor: colorSuccess,
-            textColor: [255, 255, 255],
-            fontStyle: 'bold',
-            fontSize: 7,
-            lineWidth: 0.1,
-            lineColor: [229, 231, 235],
-          },
-          showFoot: 'lastPage',
-          didParseCell: data => {
-            if (data.section === 'foot') {
-              data.cell.styles.halign = data.column.index === 0 ? 'left' : 'right';
-            }
-          },
-        });
-        rightStackY = (doc as any).lastAutoTable.finalY;
+      for (let i = 0; i < 12; i += 1) {
+        if (downloadRef.current) break;
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
 
-      const rightTableFinalPage = doc.internal.pages.length;
-
-      // Determine max page reached
-      const maxPage = Math.max(leftTableFinalPage, rightTableFinalPage);
-      doc.setPage(maxPage);
-
-      // Calculate nextY based on which column is longer on the MAX page
-      let nextY;
-      if (leftTableFinalPage > rightTableFinalPage) {
-        nextY = leftTableFinalY + 10;
-      } else if (rightTableFinalPage > leftTableFinalPage) {
-        nextY = rightStackY + 10;
-      } else {
-        nextY = Math.max(leftTableFinalY, rightStackY) + 10;
+      const element = downloadRef.current;
+      if (!element) {
+        throw new Error('Report preview not available for download');
       }
 
-      // 4. Footer: Remark & Signs
-      // Ensure we don't fall off the page - simplistic check
-      if (nextY > 250) {
-        doc.addPage();
-        nextY = 20;
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
       }
 
-      currentY = nextY;
+      const dataUrl = await toPng(element, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: Math.max(2, window.devicePixelRatio || 1),
+        filter: node => !(node instanceof HTMLElement && node.classList?.contains('no-print')),
+      });
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10); // Reset font size
-      doc.setTextColor(0, 0, 0);
-      doc.text('Production Remark :', margin, currentY);
+      const img = new Image();
+      img.src = dataUrl;
+      await img.decode();
 
-      doc.setLineWidth(0.5);
-      doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2); // Underline
+      const imgWidthPx = img.naturalWidth;
+      const imgHeightPx = img.naturalHeight;
 
-      currentY += 8;
-      doc.setFont('helvetica', 'normal');
-      // Split text to fit width
-      const remarks = doc.splitTextToSize(batch.productionRemarks || '-', pageWidth - margin * 2);
-      doc.text(remarks, margin, currentY);
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const marginX = 10;
+      const marginY = 10;
+      const contentWidth = pageWidth - marginX * 2;
+      const contentHeight = pageHeight - marginY * 2;
 
-      currentY += 20; // Space for signatures
+      const scale = Math.min(contentWidth / imgWidthPx, contentHeight / imgHeightPx);
+      const renderWidth = imgWidthPx * scale;
+      const renderHeight = imgHeightPx * scale;
+      const x = marginX + (contentWidth - renderWidth) / 2;
+      const y = marginY;
 
-      // Signatures
-      doc.setFont('helvetica', 'bold');
-      doc.text('Labours Sign :-', 40, currentY);
-      doc.text('Superviser Sign :-', 140, currentY);
-
-      currentY += 6;
-      doc.setFont('helvetica', 'normal');
-      const labourName = batch.labourNames ? batch.labourNames.split(',')[0] : '';
-      doc.text(labourName || '', 40, currentY);
-      doc.text(batch.supervisor || '', 140, currentY);
-
-      // Save PDF
-      addPdfFooter(doc);
-      doc.save(`Batch_Report_${batch.batchNo}.pdf`);
-      showToast.success(`Downloaded report for batch ${batch.batchNo}`);
-    },
-    [companyInfo]
-  );
+      pdf.addImage(img, 'PNG', x, y, renderWidth, renderHeight);
+      pdf.save(`Batch_Report_${batch.batchNo}.pdf`);
+      showToast.success(`Downloaded report for batch ${batch.batchNo}`, toastKey);
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
+      showToast.error('Failed to generate PDF', toastKey);
+    } finally {
+      setDownloadBatch(null);
+      downloadInProgressRef.current = false;
+    }
+  }, []);
 
   const handleExportAll = () => {
     if (data.length === 0) {
@@ -1634,587 +1699,25 @@ const BatchProductionReport = () => {
           title={`Batch Report Preview - ${previewBatch.batchNo}`}
           size="lg"
         >
-          <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 max-w-4xl mx-auto printable-content">
-            {/* Header */}
-            <div className="text-center mb-6 border-b pb-4">
-              <h1 className="text-2xl font-bold text-gray-900">
-                {companyInfo?.companyName || 'MOREX TECHNOLOGIES'}
-              </h1>
-            </div>
-
-            {/* Info Grid */}
-            <div className="grid grid-cols-2 gap-x-12 gap-y-4 mb-8 text-sm">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Batch No:</span>
-                  <span className="font-medium text-gray-900">
-                    {previewBatch.batchNo}{' '}
-                    {previewBatch.productName ? `/ ${previewBatch.productName}` : ''}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Supervisor:</span>
-                  <span className="text-gray-900">{previewBatch.supervisor || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Labours:</span>
-                  <span className="text-gray-900">{previewBatch.labourNames || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Date:</span>
-                  <span className="text-gray-900">{formatDate(new Date().toISOString())}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Start Date-Time:</span>
-                  <span className="text-gray-900">{formatDateTime(previewBatch.startedAt)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">End Date-Time:</span>
-                  <span className="text-gray-900">{formatDateTime(previewBatch.completedAt)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Total Time:</span>
-                  <span className="text-gray-900">{previewBatch.timeRequired || '-'}</span>
-                </div>
-              </div>
-
-              {/* Right Side: Quality & Variance Analysis Table */}
-              <div className="space-y-2">
-                <h4 className="font-bold text-sm text-gray-700 mb-2">
-                  Quality & Variance Analysis
-                </h4>
-                <table className="w-full text-xs border-collapse border border-gray-300">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="border border-gray-300 px-2 py-1 text-left">Parameter</th>
-                      <th className="border border-gray-300 px-2 py-1 text-right">Input </th>
-                      <th className="border border-gray-300 px-2 py-1 text-right">Output</th>
-                      <th className="border border-gray-300 px-2 py-1 text-right">Difference</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      // Align calculations with handleDownloadBatch
-                      const stdDensity = previewBatch.density
-                        ? parseFloat(previewBatch.density)
-                        : 0;
-                      const actDensity = previewBatch.actualDensity
-                        ? parseFloat(previewBatch.actualDensity)
-                        : 0;
-                      const densityVariance = actDensity - stdDensity;
-
-                      const stdViscosity = previewBatch.viscosity
-                        ? parseFloat(previewBatch.viscosity)
-                        : 0;
-                      const actViscosity = previewBatch.actualViscosity
-                        ? parseFloat(previewBatch.actualViscosity)
-                        : 0;
-                      const viscosityVariance = actViscosity - stdViscosity;
-
-                      // 1. Ingredients Calculation (Standard Weight)
-                      const rms = (previewBatch.rawMaterials || []).filter(
-                        rm => rm.productType !== 'PM'
-                      );
-                      const totalActualWeightFromIngredients = rms.reduce(
-                        (sum, rm) => sum + parseNumber(rm.actualQty || rm.percentage || '0'),
-                        0
-                      );
-
-                      // 2. Sub Products Calculation (Output Weight)
-                      const totalKg = (previewBatch.subProducts || []).reduce((s, x) => {
-                        const actualQty = parseFloat(String(x.actualQty || '0'));
-                        const plannedQty = parseFloat(String(x.batchQty || '0'));
-                        const effQty = actualQty > 0 ? actualQty : plannedQty;
-                        const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
-                        const ltr = effQty * capacity;
-                        const productDensity = parseFloat(String(x.fillingDensity || '0'));
-                        const density =
-                          productDensity > 0
-                            ? productDensity
-                            : parseFloat(
-                                previewBatch.packingDensity ||
-                                  previewBatch.actualDensity ||
-                                  previewBatch.density ||
-                                  '0'
-                              );
-
-                        return s + ltr * density;
-                      }, 0);
-
-                      const stdTotalWeight = totalActualWeightFromIngredients;
-                      const actTotalWeight = totalKg;
-                      const totalWeightVariance = actTotalWeight - stdTotalWeight;
-
-                      return (
-                        <>
-                          <tr>
-                            <td className="border border-gray-300 px-2 py-1">Filling Density</td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {stdDensity.toFixed(2)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {actDensity.toFixed(2)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {densityVariance.toFixed(2)}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="border border-gray-300 px-2 py-1">Viscosity</td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {stdViscosity > 0 ? stdViscosity : '-'}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {actViscosity > 0 ? actViscosity : '-'}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {viscosityVariance.toFixed(2)}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="border border-gray-300 px-2 py-1">Total Weight (Kg)</td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {stdTotalWeight.toFixed(2)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {actTotalWeight.toFixed(2)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {totalWeightVariance.toFixed(2)}
-                            </td>
-                          </tr>
-                        </>
-                      );
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Tables Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-              {/* Ingredients Table */}
-              {(() => {
-                const rms = (previewBatch.rawMaterials || []).filter(rm => rm.productType !== 'PM');
-
-                const regular = rms.filter(
-                  rm => !rm.isAdditional && Number(rm.percentage ?? '0') > 0
-                );
-
-                const additional = rms.filter(
-                  rm => rm.isAdditional || Number(rm.percentage ?? '0') <= 0
-                );
-
-                const allMaterials = [...regular, ...additional];
-                const totalPercentage = allMaterials.reduce(
-                  (s, rm) => s + parseNumber(rm.percentage ?? '0'),
-                  0
-                );
-                const totalActual = allMaterials.reduce(
-                  (s, rm) => s + parseNumber(rm.actualQty ?? rm.percentage ?? '0'),
-                  0
-                );
-                const totalAmount = allMaterials.reduce((s, rm) => {
-                  const actual = parseNumber(rm.actualQty ?? rm.percentage ?? '0');
-                  const rate =
-                    rm.unitPrice !== null && rm.unitPrice !== undefined
-                      ? parseNumber(rm.unitPrice)
-                      : 0;
-                  return s + actual * rate;
-                }, 0);
-
-                return (
-                  <div>
-                    <table className="w-full text-xs border-collapse border border-gray-300">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="border border-gray-300 px-2 py-1 text-left">Seq</th>
-                          <th className="border border-gray-300 px-2 py-1 text-left">Product</th>
-                          <th className="border border-gray-300 px-2 py-1 text-right">
-                            Percentage (%)
-                          </th>
-                          <th className="border border-gray-300 px-2 py-1 text-right">Actual</th>
-                          <th className="border border-gray-300 px-2 py-1 text-right">Rate</th>
-                          <th className="border border-gray-300 px-2 py-1 text-right">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {/* Regular Materials */}
-                        {regular.map((rm, idx) => (
-                          <tr key={`reg-${idx}`}>
-                            <td className="border border-gray-300 px-2 py-1 text-center">
-                              {idx + 1}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1">
-                              {rm.rawMaterialName}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(rm.percentage)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(rm.actualQty || rm.percentage)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(rm.unitPrice)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(
-                                parseNumber(rm.actualQty ?? rm.percentage ?? '0') *
-                                  (rm.unitPrice !== null && rm.unitPrice !== undefined
-                                    ? parseNumber(rm.unitPrice)
-                                    : 0)
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                        {/* Additional Materials - All Bold */}
-                        {additional.map((rm, idx) => (
-                          <tr key={`add-${idx}`}>
-                            <td className="border border-gray-300 px-2 py-1 text-center font-bold">
-                              {regular.length + idx + 1}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 font-bold">
-                              {rm.rawMaterialName}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right font-bold">
-                              {formatNumberForPreview(rm.percentage)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right font-bold">
-                              {formatNumberForPreview(rm.actualQty || rm.percentage)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right font-bold">
-                              {formatNumberForPreview(rm.unitPrice)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right font-bold">
-                              {formatNumberForPreview(
-                                parseNumber(rm.actualQty ?? rm.percentage ?? '0') *
-                                  (rm.unitPrice !== null && rm.unitPrice !== undefined
-                                    ? parseNumber(rm.unitPrice)
-                                    : 0)
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-[var(--color-success)] text-white font-bold">
-                        <tr>
-                          <td className="border border-gray-300 px-2 py-1" colSpan={2}>
-                            Total
-                          </td>
-                          <td className="border border-gray-300 px-2 py-1 text-right">
-                            {formatNumberForPreview(totalPercentage)}
-                          </td>
-                          <td className="border border-gray-300 px-2 py-1 text-right">
-                            {formatNumberForPreview(totalActual)}
-                          </td>
-                          <td className="border border-gray-300 px-2 py-1 text-right">&nbsp;</td>
-                          <td className="border border-gray-300 px-2 py-1 text-right">
-                            {formatNumberForPreview(totalAmount)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                );
-              })()}
-
-              {/* Sub Products Table */}
-              <div>
-                <table className="w-full text-xs border-collapse border border-gray-300">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="border border-gray-300 px-2 py-1 text-left">Packing</th>
-                      <th className="border border-gray-300 px-2 py-1 text-right">QTY</th>
-                      <th className="border border-gray-300 px-2 py-1 text-right">ACT QTY</th>
-                      <th className="border border-gray-300 px-2 py-1 text-center">LTR</th>
-                      <th className="border border-gray-300 px-2 py-1 text-center">KG</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewBatch.subProducts &&
-                    previewBatch.subProducts.filter(sp => {
-                      // Only show SKUs with actualQty > 0 OR batchQty > 0
-                      const actQty =
-                        typeof sp.actualQty === 'number'
-                          ? sp.actualQty
-                          : parseFloat(sp.actualQty || '0');
-                      const batchQty =
-                        typeof sp.batchQty === 'number'
-                          ? sp.batchQty
-                          : parseFloat(sp.batchQty || '0');
-                      return actQty > 0 || batchQty > 0;
-                    }).length > 0 ? (
-                      previewBatch.subProducts
-                        .filter(sp => {
-                          const actQty =
-                            typeof sp.actualQty === 'number'
-                              ? sp.actualQty
-                              : parseFloat(sp.actualQty || '0');
-                          const batchQty =
-                            typeof sp.batchQty === 'number'
-                              ? sp.batchQty
-                              : parseFloat(sp.batchQty || '0');
-                          return actQty > 0 || batchQty > 0;
-                        })
-                        .map((sp, idx) => (
-                          <tr key={idx}>
-                            <td className="border border-gray-300 px-2 py-1">{sp.productName}</td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(sp.batchQty)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(sp.actualQty)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {(() => {
-                                const qty = parseFloat(String(sp.actualQty || '0'));
-                                const capacity = sp.capacity
-                                  ? parseFloat(sp.capacity.toString())
-                                  : 0;
-                                return formatNumberForPreview(qty * capacity);
-                              })()}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {(() => {
-                                const qty = parseFloat(String(sp.actualQty || '0'));
-                                const capacity = sp.capacity
-                                  ? parseFloat(sp.capacity.toString())
-                                  : 0;
-                                const ltr = qty * capacity;
-                                const density = previewBatch.actualDensity
-                                  ? parseFloat(previewBatch.actualDensity)
-                                  : 0;
-                                return formatNumberForPreview(ltr * density);
-                              })()}
-                            </td>
-                          </tr>
-                        ))
-                    ) : previewBatch.productName ? (
-                      <tr>
-                        <td className="border border-gray-300 px-2 py-1">
-                          {previewBatch.productName}
-                        </td>
-                        <td className="border border-gray-300 px-2 py-1 text-right">
-                          {formatNumberForPreview(previewBatch.plannedQuantity)}
-                        </td>
-                        <td className="border border-gray-300 px-2 py-1 text-right">
-                          {formatNumberForPreview(previewBatch.actualQuantity)}
-                        </td>
-                        <td className="border border-gray-300 px-2 py-1 text-right">
-                          {(() => {
-                            const qty = parseFloat(String(previewBatch.actualQuantity || '0'));
-                            const capacity = (previewBatch as any).capacity
-                              ? parseFloat((previewBatch as any).capacity.toString())
-                              : 0;
-                            return formatNumberForPreview(qty * capacity);
-                          })()}
-                        </td>
-                        <td className="border border-gray-300 px-2 py-1 text-right">
-                          {(() => {
-                            const qty = parseFloat(String(previewBatch.actualQuantity || '0'));
-                            const capacity = (previewBatch as any).capacity
-                              ? parseFloat((previewBatch as any).capacity.toString())
-                              : 0;
-                            const ltr = qty * capacity;
-                            const density = previewBatch.actualDensity
-                              ? parseFloat(previewBatch.actualDensity)
-                              : 0;
-                            return formatNumberForPreview(ltr * density);
-                          })()}
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                  <tfoot className="bg-[var(--color-success)] text-white font-bold">
-                    <tr>
-                      <td className="border border-gray-300 px-2 py-1">Total</td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
-                        {formatNumberForPreview(
-                          (previewBatch.subProducts || [])
-                            .filter(sp => {
-                              const actQty =
-                                typeof sp.actualQty === 'number'
-                                  ? sp.actualQty
-                                  : parseFloat(sp.actualQty || '0');
-                              const batchQty =
-                                typeof sp.batchQty === 'number'
-                                  ? sp.batchQty
-                                  : parseFloat(sp.batchQty || '0');
-                              return actQty > 0 || batchQty > 0;
-                            })
-                            .reduce((sum, sp) => sum + parseFloat(sp.batchQty || '0'), 0)
-                        )}
-                      </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
-                        {formatNumberForPreview(
-                          (previewBatch.subProducts || [])
-                            .filter(sp => {
-                              const actQty =
-                                typeof sp.actualQty === 'number'
-                                  ? sp.actualQty
-                                  : parseFloat(sp.actualQty || '0');
-                              const batchQty =
-                                typeof sp.batchQty === 'number'
-                                  ? sp.batchQty
-                                  : parseFloat(sp.batchQty || '0');
-                              return actQty > 0 || batchQty > 0;
-                            })
-                            .reduce((sum, sp) => sum + parseFloat(String(sp.actualQty) || '0'), 0)
-                        )}
-                      </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
-                        {formatNumberForPreview(
-                          (previewBatch.subProducts || [])
-                            .filter(sp => {
-                              const actQty =
-                                typeof sp.actualQty === 'number'
-                                  ? sp.actualQty
-                                  : parseFloat(sp.actualQty || '0');
-                              const batchQty =
-                                typeof sp.batchQty === 'number'
-                                  ? sp.batchQty
-                                  : parseFloat(sp.batchQty || '0');
-                              return actQty > 0 || batchQty > 0;
-                            })
-                            .reduce((sum, sp) => {
-                              const qty = parseFloat(String(sp.actualQty || '0'));
-                              const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
-                              return sum + qty * capacity;
-                            }, 0)
-                        )}
-                      </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
-                        {formatNumberForPreview(
-                          (previewBatch.subProducts || [])
-                            .filter(sp => {
-                              const actQty =
-                                typeof sp.actualQty === 'number'
-                                  ? sp.actualQty
-                                  : parseFloat(sp.actualQty || '0');
-                              const batchQty =
-                                typeof sp.batchQty === 'number'
-                                  ? sp.batchQty
-                                  : parseFloat(sp.batchQty || '0');
-                              return actQty > 0 || batchQty > 0;
-                            })
-                            .reduce((sum, sp) => {
-                              const qty = parseFloat(String(sp.actualQty || '0'));
-                              const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
-                              const ltr = qty * capacity;
-                              const productDensity = parseFloat(String(sp.fillingDensity || '0'));
-                              const density =
-                                productDensity > 0
-                                  ? productDensity
-                                  : parseFloat(
-                                      previewBatch.packingDensity ||
-                                        previewBatch.actualDensity ||
-                                        previewBatch.density ||
-                                        '0'
-                                    );
-                              return sum + ltr * density;
-                            }, 0)
-                        )}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-            {/* Packaging Materials Table */}
-            {previewBatch.packagingMaterials &&
-              previewBatch.packagingMaterials.filter(pm => {
-                const qty =
-                  typeof pm.actualQty === 'number'
-                    ? pm.actualQty
-                    : parseFloat(String(pm.actualQty || '0'));
-                return qty > 0;
-              }).length > 0 && (
-                <div className="mb-8">
-                  <h3 className="font-bold text-sm mb-2">
-                    Packaging Materials Used (Based on Actual Output)
-                  </h3>
-                  <table className="w-full text-xs border-collapse border border-gray-300">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="border border-gray-300 px-2 py-1 text-left">
-                          Packaging Name
-                        </th>
-                        <th className="border border-gray-300 px-2 py-1 text-right">Actual Qty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewBatch.packagingMaterials
-                        .filter(pm => {
-                          const qty =
-                            typeof pm.actualQty === 'number'
-                              ? pm.actualQty
-                              : parseFloat(String(pm.actualQty || '0'));
-                          return qty > 0;
-                        })
-                        .map((pm, idx) => (
-                          <tr key={idx}>
-                            <td className="border border-gray-300 px-2 py-1">{pm.packagingName}</td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(pm.actualQty)}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                    <tfoot className="bg-[var(--color-success)] text-white font-bold">
-                      <tr>
-                        <td className="border border-gray-300 px-2 py-1">Total</td>
-                        <td className="border border-gray-300 px-2 py-1 text-right">
-                          {formatNumberForPreview(
-                            previewBatch.packagingMaterials
-                              .filter(pm => {
-                                const qty =
-                                  typeof pm.actualQty === 'number'
-                                    ? pm.actualQty
-                                    : parseFloat(String(pm.actualQty || '0'));
-                                return qty > 0;
-                              })
-                              .reduce((sum, pm) => sum + pm.actualQty, 0)
-                          )}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-
-            {/* Footer Signatures */}
-            <div className="mt-8">
-              <div className="mb-8">
-                <span className="font-bold text-sm">Production Remark :</span>
-                <div className="border-b border-gray-400 mt-2"></div>
-              </div>
-
-              <div className="flex justify-between mt-16 px-12">
-                <div className="text-center">
-                  <p className="font-bold text-sm mb-8">Labours Sign :-</p>
-                  <p className="text-sm">
-                    {previewBatch.labourNames ? previewBatch.labourNames.split(',')[0] : ''}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="font-bold text-sm mb-8">Superviser Sign :-</p>
-                  <p className="text-sm">{previewBatch.supervisor}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 flex justify-center no-print">
-              <Button
-                variant="primary"
-                onClick={() => handleDownloadBatch(previewBatch)}
-                leftIcon={<FileDown size={18} />}
-              >
-                Download PDF
-              </Button>
-            </div>
-          </div>
+          <BatchReportPreviewContent
+            batch={previewBatch}
+            companyInfo={companyInfo}
+            showDownload
+            onDownload={() => handleDownloadBatch(previewBatch)}
+          />
         </Modal>
+      )}
+
+      {downloadBatch && (
+        <div className="fixed left-[-10000px] top-0 pointer-events-none" aria-hidden="true">
+          <div className="p-4 sm:p-6" style={{ width: 'min(896px, 100vw)' }}>
+            <BatchReportPreviewContent
+              ref={downloadRef}
+              batch={downloadBatch}
+              companyInfo={companyInfo}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
