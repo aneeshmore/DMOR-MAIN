@@ -311,6 +311,7 @@ const CreateOrderPage: React.FC = () => {
           order.orderNumber ||
           formatDisplayOrderId(order.orderId, order.orderDate),
         date: format(new Date(order.orderDate), 'dd-MMM-yy'),
+        //Payment terms added
         paymentTerms:
           (fullOrder as any).paymentTerms ||
           fullOrder.paymentMethod ||
