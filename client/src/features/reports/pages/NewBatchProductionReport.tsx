@@ -550,6 +550,16 @@ const NewBatchProductionReport = () => {
           lineColor: [229, 231, 235],
         },
         showFoot: 'lastPage',
+        didParseCell: data => {
+          // Custom Footer Styling alignment - match body column alignment
+          if (data.section === 'foot') {
+            if (data.column.index === 0) {
+              data.cell.styles.halign = 'left';
+            } else {
+              data.cell.styles.halign = 'right';
+            }
+          }
+        },
       });
 
       rightStackY = (doc as any).lastAutoTable.finalY + 8;
@@ -611,6 +621,16 @@ const NewBatchProductionReport = () => {
             lineColor: [229, 231, 235],
           },
           showFoot: 'lastPage',
+          didParseCell: data => {
+            // Custom Footer Styling alignment - match body column alignment
+            if (data.section === 'foot') {
+              if (data.column.index === 0) {
+                data.cell.styles.halign = 'left';
+              } else {
+                data.cell.styles.halign = 'right';
+              }
+            }
+          },
         });
         rightStackY = (doc as any).lastAutoTable.finalY;
       }
