@@ -311,12 +311,15 @@ const CreateOrderPage: React.FC = () => {
           order.orderNumber ||
           formatDisplayOrderId(order.orderId, order.orderDate),
         date: format(new Date(order.orderDate), 'dd-MMM-yy'),
-        paymentTerms: fullOrder.paymentMethod || 'Bank Transfer',
+        paymentTerms:
+          (fullOrder as any).paymentTerms ||
+          fullOrder.paymentMethod ||
+          'Net 30 Days from Invoice Date',
         buyerRef: `ORD-${order.orderId}`,
         otherRef: order.salespersonName || '',
-        dispatchThrough: '',
+        dispatchThrough: 'To be arranged',
         destination: fullOrder.deliveryAddress || '',
-        deliveryTerms: '',
+        deliveryTerms: 'Subject to approval',
 
         companyName: c.companyName || '',
         companyAddress: c.address || '',

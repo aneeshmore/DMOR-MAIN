@@ -30,8 +30,6 @@ import { inventoryApi } from '@/features/inventory/api/inventoryApi';
 import { Customer } from '@/features/masters/types';
 import { Employee } from '@/features/employees/types';
 
-
-
 const INITIAL_DATA: QuotationData = {
   quotationNo: '',
   date: format(new Date(), 'dd-MMM-yy'),
@@ -95,11 +93,7 @@ const EditableInput = ({
 }) => {
   if (isPdfMode) {
     return (
-      <span
-        className={`inline-block px-1 min-h-[1.2rem] text-[100%] ${className}`}
-      >
-        {value}
-      </span>
+      <span className={`inline-block px-1 min-h-[1.2rem] text-[100%] ${className}`}>{value}</span>
     );
   }
   return (
@@ -129,13 +123,7 @@ const EditableTextArea = ({
   readOnly?: boolean;
 }) => {
   if (isPdfMode) {
-    return (
-      <div
-        className={`whitespace-pre-wrap px-1 text-[100%] ${className}`}
-      >
-        {value}
-      </div>
-    );
+    return <div className={`whitespace-pre-wrap px-1 text-[100%] ${className}`}>{value}</div>;
   }
   return (
     <textarea
@@ -164,9 +152,8 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
   initialData,
   isModal = false,
   onClose,
-  onUpdate
+  onUpdate,
 }) => {
-
   const [data, setData] = useState<QuotationData>(initialData || INITIAL_DATA);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -260,7 +247,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
       }));
 
       // Check for edit mode (updating rejected quotation)
-      // Use a ref to prevent double toasts in Strict Mode if possible, 
+      // Use a ref to prevent double toasts in Strict Mode if possible,
       // though state updates might still cause re-renders.
       if (location.state.editMode && location.state.quotationId) {
         setIsEditMode(true);
@@ -275,8 +262,6 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
           toastShownRef.current = true;
         }
       }
-
-
 
       // Check for auto-download flag
       if (location.state.autoDownload) {
@@ -388,7 +373,6 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
             }));
           }
         }
-
       } catch (error) {
         console.error('Failed to fetch data:', error);
         showToast.error('Failed to load data');
@@ -453,7 +437,10 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
       const isUpdate = isEditMode && !!editQuotationId;
       console.log('Detailed Save/Update Logic:', { isEditMode, editQuotationId, isUpdate });
 
-      showToast.loading(isUpdate ? 'Updating Quotation...' : 'Saving Quotation...', 'quotation-save');
+      showToast.loading(
+        isUpdate ? 'Updating Quotation...' : 'Saving Quotation...',
+        'quotation-save'
+      );
 
       if (isUpdate) {
         // Explicit Update Call
@@ -471,7 +458,10 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
         // Create Call
         console.log('Calling quotationApi.create');
         await quotationApi.create(data);
-        showToast.success(isAdmin ? 'Quotation Saved' : 'Quotation Sent for Approval', 'quotation-save');
+        showToast.success(
+          isAdmin ? 'Quotation Saved' : 'Quotation Sent for Approval',
+          'quotation-save'
+        );
         if (!isModal) {
           setData(prev => ({ ...prev, status: 'Pending' }));
         }
@@ -649,8 +639,6 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-
 
   const handleSaveCompanyInfo = async () => {
     if (!validateForm()) {
@@ -1003,19 +991,16 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
             onClick={() => handleDownloadPDF()}
             isLoading={isGenerating}
             disabled={!canDownload}
-            className={`flex items-center gap-2 text-white no-print ${canDownload ? 'bg-[var(--primary)]' : 'bg-gray-400 cursor-not-allowed'
-              }`}
+            className={`flex items-center gap-2 text-white no-print ${
+              canDownload ? 'bg-[var(--primary)]' : 'bg-gray-400 cursor-not-allowed'
+            }`}
           >
             <Download size={18} /> Download PDF
           </Button>
 
           {/* Close Button for Modal */}
           {isModal && (
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
+            <Button variant="ghost" onClick={onClose} className="text-gray-500 hover:text-gray-700">
               <X className="h-5 w-5" />
             </Button>
           )}
@@ -1067,7 +1052,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                           alt="Logo"
                           className="w-auto max-h-[50px] object-contain"
                           crossOrigin="anonymous"
-                          onError={(e) => {
+                          onError={e => {
                             (e.target as HTMLImageElement).src = '/morex-logo.png';
                           }}
                         />
@@ -1162,7 +1147,9 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                 {/* Quotation No & Date */}
                 <div className="grid grid-cols-2 divide-x divide-black h-[50px]">
                   <div className="p-1">
-                    <span className="font-bold block text-[8pt]">{isInvoice ? 'Bill No.' : 'Quotation No.'}</span>
+                    <span className="font-bold block text-[8pt]">
+                      {isInvoice ? 'Bill No.' : 'Quotation No.'}
+                    </span>
                     <EditableInput
                       isPdfMode={isPdfMode}
                       readOnly={isPdfMode}
@@ -1182,8 +1169,6 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                     />
                   </div>
                 </div>
-
-
 
                 {/* Buyer Ref / Other Ref */}
                 <div className="grid grid-cols-2 divide-x divide-black h-[50px]">
@@ -1219,79 +1204,93 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                   />
                 </div>
 
-                {/* Terms of Delivery */}
-                <div className="p-1 flex-grow group relative">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-bold block text-[9pt]">Terms of Delivery</span>
-                    {!isPdfMode && (
-                      <div className="no-print flex gap-2 mb-1">
-                        <select
-                          className="text-[8pt] border rounded p-0.5 bg-white outline-none cursor-pointer flex-1"
-                          value={selectedTermType}
-                          onChange={e => setSelectedTermType(e.target.value)}
-                        >
-                          <option value="">Select Type</option>
-                          {tncTypes.map(type => (
-                            <option key={type} value={type}>
-                              {type}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          className="text-[8pt] border rounded p-0.5 bg-white outline-none cursor-pointer flex-1"
-                          value=""
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (val) {
-                              const current = data.deliveryTerms || '';
-                              const typeHeader = `Terms of ${selectedTermType}`;
+                {/* NEW: Payment Terms - Matches Dispatched through layout */}
+                <div className="p-1 ml-[5px]">
+                  {/* Payment Terms */}
+                  <div className="mb-2">
+                    <span className="font-bold block text-[8pt]">Payment Terms</span>
+                    <EditableInput
+                      isPdfMode={isPdfMode}
+                      readOnly={true}
+                      value={data.paymentTerms}
+                      onChange={v => updateField('paymentTerms', v)}
+                    />
+                  </div>
 
-                              // Escape regex functionality for safety
-                              const escapedHeader = typeHeader.replace(
-                                /[.*+?^${}()|[\]\\]/g,
-                                '\\$&'
-                              );
-                              // Regex: Match Header (optional colon), content, lookahead for next section or EOS
-                              const regex = new RegExp(
-                                `(${escapedHeader}[:]?)([\\s\\S]*?)(?=(\\n\\nTerms of|$))`
-                              );
-                              const match = current.match(regex);
+                  {/* Terms of Delivery */}
+                  <div className="group relative">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold block text-[8pt]">Terms of Delivery</span>
 
-                              let newVal;
-                              if (match) {
-                                // Section exists, append to it
-                                const fullMatch = match[0];
-                                const newSection = fullMatch + `\n   - ${val}`;
-                                newVal = current.replace(fullMatch, newSection);
-                              } else {
-                                // New section
-                                const prefix = current ? '\n\n' : '';
-                                newVal = `${current}${prefix}${typeHeader}:\n   - ${val}`;
-                              }
-                              updateField('deliveryTerms', newVal);
-                            }
-                          }}
-                          disabled={!selectedTermType}
-                        >
-                          <option value="">+ Add Term</option>
-                          {tncList
-                            .filter(t => (t.type || 'General') === selectedTermType)
-                            .map(t => (
-                              <option key={t.tncId} value={t.description}>
-                                {t.description}
+                      {!isPdfMode && (
+                        <div className="no-print flex gap-2">
+                          <select
+                            className="text-[8pt] border rounded p-0.5 bg-white outline-none cursor-pointer flex-1"
+                            value={selectedTermType}
+                            onChange={e => setSelectedTermType(e.target.value)}
+                          >
+                            <option value="">Select Type</option>
+                            {tncTypes.map(type => (
+                              <option key={type} value={type}>
+                                {type}
                               </option>
                             ))}
-                        </select>
-                      </div>
-                    )}
+                          </select>
+
+                          <select
+                            className="text-[8pt] border rounded p-0.5 bg-white outline-none cursor-pointer flex-1"
+                            value=""
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val) {
+                                const current = data.deliveryTerms || '';
+                                const typeHeader = `Terms of ${selectedTermType}`;
+
+                                const escapedHeader = typeHeader.replace(
+                                  /[.*+?^${}()|[\]\\]/g,
+                                  '\\$&'
+                                );
+                                const regex = new RegExp(
+                                  `(${escapedHeader}[:]?)([\\s\\S]*?)(?=(\\n\\nTerms of|$))`
+                                );
+                                const match = current.match(regex);
+
+                                let newVal;
+                                if (match) {
+                                  const fullMatch = match[0];
+                                  const newSection = fullMatch + `\n   - ${val}`;
+                                  newVal = current.replace(fullMatch, newSection);
+                                } else {
+                                  const prefix = current ? '\n\n' : '';
+                                  newVal = `${current}${prefix}${typeHeader}:\n   - ${val}`;
+                                }
+
+                                updateField('deliveryTerms', newVal);
+                              }
+                            }}
+                            disabled={!selectedTermType}
+                          >
+                            <option value="">+ Add Term</option>
+                            {tncList
+                              .filter(t => (t.type || 'General') === selectedTermType)
+                              .map(t => (
+                                <option key={t.tncId} value={t.description}>
+                                  {t.description}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <EditableTextArea
+                      isPdfMode={isPdfMode}
+                      readOnly={isPdfMode}
+                      value={data.deliveryTerms}
+                      onChange={v => updateField('deliveryTerms', v)}
+                      className="min-h-[50px]"
+                    />
                   </div>
-                  <EditableTextArea
-                    isPdfMode={isPdfMode}
-                    readOnly={isPdfMode}
-                    value={data.deliveryTerms}
-                    onChange={v => updateField('deliveryTerms', v)}
-                    className="h-full min-h-[150px]"
-                  />
                 </div>
               </div>
             </div>
@@ -1437,16 +1436,18 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
 
             <div className="border border-black grid grid-cols-[1fr_auto] divide-x divide-black font-bold text-[9pt]">
               <div className="p-1 text-right">Total</div>
-              <div className="p-1 w-[144px] text-right">₹ {finalTotal.toFixed(2)}<br /><span className="text-[7.5pt] text-gray-600 italic">(Incl. 18% GST)</span></div>
+              <div className="p-1 w-[144px] text-right">
+                ₹ {finalTotal.toFixed(2)}
+                <br />
+                <span className="text-[7.5pt] text-gray-600 italic">(Incl. 18% GST)</span>
+              </div>
             </div>
           </div>
 
           {/* Amount in words */}
           <div className="border border-black p-2 text-[8.5pt]">
             <span className="font-normal">Amount Chargeable (in words)</span>
-            <div className="font-bold italic mt-1">
-              INR {numberToWords(finalTotal)} Only
-            </div>
+            <div className="font-bold italic mt-1">INR {numberToWords(finalTotal)} Only</div>
           </div>
 
           {/* Footer */}
@@ -1537,7 +1538,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
           This is a Computer Generated Document
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 
