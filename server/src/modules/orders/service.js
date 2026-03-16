@@ -315,7 +315,7 @@ export class OrdersService {
     return new OrderWithDetailsDTO(order, details);
   }
 
-  async updateOrder(orderId, updateData) {
+  async updateOrder(orderId, updateData, bypassStatusCheck = false) {
     const existing = await this.repository.findById(orderId);
     if (!existing) {
       throw new AppError('Order not found', 404);
@@ -323,12 +323,14 @@ export class OrdersService {
 
     // Check status - only allow editing if Pending or Rejected
     // "Accepted" orders are locked for general edits (but PM can update delivery date via specific endpoints)
-    const allowedStatuses = ['Pending', 'Rejected'];
-    if (!allowedStatuses.includes(existing.status)) {
-      throw new AppError(
-        `Cannot edit order in '${existing.status}' status. Only Pending or Rejected orders can be edited.`,
-        400
-      );
+    if (!bypassStatusCheck) {
+      const allowedStatuses = ['Pending', 'Rejected'];
+      if (!allowedStatuses.includes(existing.status)) {
+        throw new AppError(
+          `Cannot edit order in '${existing.status}' status. Only Pending or Rejected orders can be edited.`,
+          400
+        );
+      }
     }
 
     // Map API fields to DB columns

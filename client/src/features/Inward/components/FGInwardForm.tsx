@@ -112,7 +112,14 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
           unitApi.getAll().then(res => res.data),
           customerApi.getAll().then(res => res.data || []),
         ]);
-        setUnits(unitsData || []);
+        // Normalize unit objects to expected shape { UnitID, UnitName }
+        const normalizedUnits = (unitsData || []).map((u: any) => ({
+          UnitID: u.UnitID ?? u.unitId ?? u.id ?? 0,
+          UnitName: u.UnitName ?? u.unitName ?? u.name ?? '',
+          UnitSymbol: u.UnitSymbol ?? u.unitSymbol ?? u.symbol ?? undefined,
+        }));
+
+        setUnits(normalizedUnits);
         setCustomers(customersData || []);
       } catch (error) {
         console.error('Failed to load data', error);
@@ -320,10 +327,13 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
         finalItems.push(newItemToAdd);
       }
 
-      const formattedItems = finalItems.map(item => ({
-        ...item,
-        inwardDate: new Date(billDetails.inwardDate).toISOString(),
-      }));
+      const formattedItems = finalItems.map(item => {
+        const processedItem = {
+          ...item,
+          inwardDate: new Date(billDetails.inwardDate).toISOString(),
+        };
+        return processedItem;
+      });
 
       const payload = {
         billNo: '',
