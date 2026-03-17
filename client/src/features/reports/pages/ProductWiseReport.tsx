@@ -61,6 +61,9 @@ const ProductWiseReport = () => {
   const [products, setProducts] = useState<
     { id: string; value: string; label: string; type: string }[]
   >([]);
+  const [batchConsumptionByProductId, setBatchConsumptionByProductId] = useState<
+    Record<string, { total: number }>
+  >({});
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -72,6 +75,12 @@ const ProductWiseReport = () => {
         .join('|'),
     [data]
   );
+
+  const parseNumeric = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return 0;
+    const num = Number(String(value).replace(/,/g, ''));
+    return Number.isFinite(num) ? num : 0;
+  };
 
   // Everything is a ledger now as per user request
   const isLedgerMode = true;
@@ -195,11 +204,6 @@ const ProductWiseReport = () => {
     if (!productIdsKey || data.length === 0) return;
 
     let cancelled = false;
-    const parseNumeric = (value: unknown) => {
-      if (value === null || value === undefined || value === '') return 0;
-      const num = Number(String(value).replace(/,/g, ''));
-      return Number.isFinite(num) ? num : 0;
-    };
 
     const fetchTotalsForAll = async () => {
       const rows = data.filter(item => item.productId);
@@ -225,9 +229,22 @@ const ProductWiseReport = () => {
                 (sum, tx) => sum + parseNumeric(tx.inward),
                 0
               );
+              const productionConsumptionOutward = transactions.reduce(
+                (sum, tx) =>
+                  tx.transactionType === 'Production Consumption'
+                    ? sum + parseNumeric(tx.outward)
+                    : sum,
+                0
+              );
+              const batchConsumptionTotal =
+                batchConsumptionByProductId[item.productId?.toString() || '']?.total || 0;
+              const shouldApplyBatchConsumption = item.productType === 'RM';
+              const adjustedTotalOutward = shouldApplyBatchConsumption
+                ? totalOutward - productionConsumptionOutward + batchConsumptionTotal
+                : totalOutward;
               return {
                 productId: item.productId?.toString(),
-                totalOutward,
+                totalOutward: adjustedTotalOutward,
                 totalInward,
               };
             } catch (error) {
@@ -258,7 +275,57 @@ const ProductWiseReport = () => {
     return () => {
       cancelled = true;
     };
-  }, [productIdsKey, startDate, endDate, productTypeFilter]);
+  }, [productIdsKey, startDate, endDate, productTypeFilter, batchConsumptionByProductId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchBatchConsumption = async () => {
+      if (productTypeFilter !== 'RM') {
+        setBatchConsumptionByProductId({});
+        return;
+      }
+
+      try {
+        const batches = await reportsApi.getBatchProductionReport(
+          'Completed',
+          startDate || undefined,
+          endDate || undefined
+        );
+
+        if (cancelled) return;
+
+        const consumptionMap: Record<string, { total: number }> = {};
+
+        (batches || []).forEach(batch => {
+          if (!batch || batch.status !== 'Completed') return;
+
+          const materials = batch.rawMaterials || [];
+          materials.forEach(rm => {
+            const materialId = rm.rawMaterialId ? rm.rawMaterialId.toString() : '';
+            if (!materialId) return;
+            const qty = parseNumeric(rm.actualQty ?? 0);
+            if (qty <= 0) return;
+            if (!consumptionMap[materialId]) {
+              consumptionMap[materialId] = { total: 0 };
+            }
+            consumptionMap[materialId].total += qty;
+          });
+        });
+
+        setBatchConsumptionByProductId(consumptionMap);
+      } catch (error) {
+        console.error('Error fetching batch consumption data:', error);
+        if (!cancelled) setBatchConsumptionByProductId({});
+      }
+    };
+
+    fetchBatchConsumption();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [productTypeFilter, startDate, endDate]);
 
   const handleTotalsUpdate = (totals: {
     productId: string;
@@ -618,6 +685,9 @@ const ProductWiseReport = () => {
               productId={row.original.productId?.toString()}
               productType={row.original.productType}
               endDate={endDate} // Pass end date for "till date" context (ignores startDate for history)
+              batchConsumptionTotal={
+                batchConsumptionByProductId[row.original.productId?.toString() || '']?.total || 0
+              }
               onTotalsUpdate={handleTotalsUpdate}
             />
           )}
