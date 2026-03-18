@@ -62,7 +62,13 @@ const ProductWiseReport = () => {
     { id: string; value: string; label: string; type: string }[]
   >([]);
   const [batchConsumptionByProductId, setBatchConsumptionByProductId] = useState<
-    Record<string, { total: number }>
+    Record<
+      string,
+      {
+        total: number;
+        entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
+      }
+    >
   >({});
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -295,7 +301,10 @@ const ProductWiseReport = () => {
 
         if (cancelled) return;
 
-        const consumptionMap: Record<string, { total: number }> = {};
+        const consumptionMap: Record<
+          string,
+          { total: number; entries: { quantity: number; batchNo?: string; completedAt?: string | null }[] }
+        > = {};
 
         (batches || []).forEach(batch => {
           if (!batch || batch.status !== 'Completed') return;
@@ -307,9 +316,14 @@ const ProductWiseReport = () => {
             const qty = parseNumeric(rm.actualQty ?? 0);
             if (qty <= 0) return;
             if (!consumptionMap[materialId]) {
-              consumptionMap[materialId] = { total: 0 };
+              consumptionMap[materialId] = { total: 0, entries: [] };
             }
             consumptionMap[materialId].total += qty;
+            consumptionMap[materialId].entries.push({
+              quantity: qty,
+              batchNo: batch.batchNo,
+              completedAt: batch.completedAt,
+            });
           });
         });
 
@@ -687,6 +701,9 @@ const ProductWiseReport = () => {
               endDate={endDate} // Pass end date for "till date" context (ignores startDate for history)
               batchConsumptionTotal={
                 batchConsumptionByProductId[row.original.productId?.toString() || '']?.total || 0
+              }
+              batchConsumptionEntries={
+                batchConsumptionByProductId[row.original.productId?.toString() || '']?.entries || []
               }
               onTotalsUpdate={handleTotalsUpdate}
             />
