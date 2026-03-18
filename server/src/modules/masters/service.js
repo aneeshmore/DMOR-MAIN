@@ -6,6 +6,55 @@ import logger from '../../config/logger.js';
 export class MastersService {
   constructor() {
     this.repository = new MastersRepository();
+    this.postalDetailsCache = new Map();
+  }
+
+  async getPostalDetailsByPincode(pincode) {
+    if (!pincode || !/^\d{6}$/.test(String(pincode))) {
+      return null;
+    }
+
+    if (this.postalDetailsCache.has(pincode)) {
+      return this.postalDetailsCache.get(pincode);
+    }
+
+    const request = fetch(`https://api.postalpincode.in/pincode/${pincode}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data?.[0]?.Status !== 'Success') {
+          return null;
+        }
+
+        const postOffice = data?.[0]?.PostOffice?.[0];
+        return {
+          district: postOffice?.District || null,
+          state: postOffice?.State || null,
+        };
+      })
+      .catch(error => {
+        logger.warn('Failed to fetch postal details for customer', {
+          pincode,
+          error: error.message,
+        });
+        return null;
+      });
+
+    this.postalDetailsCache.set(pincode, request);
+    return request;
+  }
+
+  async enrichCustomerWithPostalDetails(customer) {
+    const postalDetails = await this.getPostalDetailsByPincode(customer.pinCode || customer.pin_code);
+
+    return {
+      ...customer,
+      district: postalDetails?.district || null,
+      state: postalDetails?.state || null,
+    };
+  }
+
+  async enrichCustomersWithPostalDetails(customers) {
+    return Promise.all(customers.map(customer => this.enrichCustomerWithPostalDetails(customer)));
   }
 
   // Department methods
@@ -296,7 +345,8 @@ export class MastersService {
   async getAllCustomers() {
     try {
       const customers = await this.repository.findAllCustomers();
-      return customers.map(cust => new CustomerDTO(cust));
+      const enrichedCustomers = await this.enrichCustomersWithPostalDetails(customers);
+      return enrichedCustomers.map(cust => new CustomerDTO(cust));
     } catch (error) {
       logger.error('Failed to fetch customers', { error: error.message });
       throw error;
@@ -306,7 +356,8 @@ export class MastersService {
   async getActiveCustomers() {
     try {
       const customers = await this.repository.findAllActiveCustomers();
-      return customers.map(cust => new CustomerDTO(cust));
+      const enrichedCustomers = await this.enrichCustomersWithPostalDetails(customers);
+      return enrichedCustomers.map(cust => new CustomerDTO(cust));
     } catch (error) {
       logger.error('Failed to fetch active customers', { error: error.message });
       throw error;
@@ -321,7 +372,8 @@ export class MastersService {
   async getCustomersForUser(userContext) {
     try {
       const customers = await this.repository.findCustomersForUser(userContext);
-      return customers.map(cust => new CustomerDTO(cust));
+      const enrichedCustomers = await this.enrichCustomersWithPostalDetails(customers);
+      return enrichedCustomers.map(cust => new CustomerDTO(cust));
     } catch (error) {
       logger.error('Failed to fetch customers for user', { error: error.message, userContext });
       throw error;
@@ -333,7 +385,8 @@ export class MastersService {
     if (!customer) {
       throw new NotFoundError('Customer not found');
     }
-    return new CustomerDTO(customer);
+    const enrichedCustomer = await this.enrichCustomerWithPostalDetails(customer);
+    return new CustomerDTO(enrichedCustomer);
   }
 
   async createCustomer(customerData) {

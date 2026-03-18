@@ -196,6 +196,7 @@ const CustomerForm = ({
     CountryCode3: item?.CountryCode3 || '+91',
     EmailID: item?.EmailID || '',
     Location: item?.Location || '',
+    State: item?.State || '',
     Area: item?.Area || '',
     Address: item?.Address || '',
     Pincode: item?.Pincode || '',
@@ -236,6 +237,7 @@ const CustomerForm = ({
         CountryCode3: item.CountryCode3 || '+91',
         EmailID: item.EmailID || '',
         Location: item.Location || '',
+        State: item.State || '',
         Area: item.Area || '',
         Address: item.Address || '',
         Pincode: item.Pincode || '',
@@ -479,13 +481,14 @@ const CustomerForm = ({
         break;
 
       case 'Location':
+      case 'State':
         if (value.trim()) {
           if (value.length < 3) {
-            error = 'Location must be at least 3 characters';
+            error = `${name} must be at least 3 characters`;
           } else if (value.length > 50) {
-            error = 'Location must be at most 50 characters';
+            error = `${name} must be at most 50 characters`;
           } else if (!/^[a-zA-Z\s]*$/.test(value)) {
-            error = 'Location should contain only alphabets and spaces';
+            error = `${name} should contain only alphabets and spaces`;
           }
         }
         break;
@@ -520,23 +523,45 @@ const CustomerForm = ({
     return error;
   };
 
+  const fetchLocationDetailsByPincode = async (pincode: string) => {
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+      const data = await response.json();
+
+      if (data?.[0]?.Status === 'Success') {
+        return {
+          District: data?.[0]?.PostOffice?.[0]?.District || '',
+          State: data?.[0]?.PostOffice?.[0]?.State || '',
+        };
+      }
+
+      logger.error('Invalid pincode API response:', data);
+      return null;
+    } catch (error) {
+      logger.error('Failed to fetch location details from pincode:', error);
+      return null;
+    }
+  };
+
   const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const pincode = e.target.value.replace(/\D/g, '').slice(0, 6);
     setFormData(prev => ({ ...prev, Pincode: pincode }));
     validateField('Pincode', pincode);
 
     if (pincode.length === 6) {
-      try {
-        const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
-        const data = await response.json();
-        if (data[0].Status === 'Success') {
-          const postOffice = data[0].PostOffice[0];
-          const city = postOffice.District;
-          setFormData(prev => ({ ...prev, Location: city }));
-          validateField('Location', city);
-        }
-      } catch (error) {
-        logger.error('Failed to fetch location from pincode:', error);
+      const locationDetails = await fetchLocationDetailsByPincode(pincode);
+
+      if (locationDetails) {
+        setFormData(
+          prev =>
+            ({
+              ...prev,
+              Location: locationDetails.District,
+              State: locationDetails.State,
+            }) as Partial<Customer>
+        );
+        validateField('Location', locationDetails.District);
+        validateField('State', locationDetails.State);
       }
     }
   };
@@ -565,6 +590,7 @@ const CustomerForm = ({
     const emailError = validateField('EmailID', formData.EmailID || '');
     const addressError = validateField('Address', formData.Address || '');
     const locationError = validateField('Location', formData.Location || '');
+    const stateError = validateField('State', formData.State || '');
     const areaError = validateField('Area', formData.Area || '');
     const gstinError = validateField('GSTNumber', formData.GSTNumber || '');
     const pincodeError = validateField('Pincode', formData.Pincode || '');
@@ -575,6 +601,7 @@ const CustomerForm = ({
     if (emailError) newErrors.EmailID = emailError;
     if (addressError) newErrors.Address = addressError;
     if (locationError) newErrors.Location = locationError;
+    if (stateError) newErrors.State = stateError;
     if (areaError) newErrors.Area = areaError;
     if (gstinError) newErrors.GSTNumber = gstinError;
     if (pincodeError) newErrors.Pincode = pincodeError;
@@ -600,6 +627,7 @@ const CustomerForm = ({
       CountryCode3: formData.MobileNo3?.trim() ? formData.CountryCode3 || '+91' : '',
       EmailID: formData.EmailID?.trim() || '',
       Location: formData.Location?.trim() || '',
+      State: formData.State?.trim() || '',
       Area: formData.Area?.trim() || '',
       Address: formData.Address?.trim() || '',
       Pincode: formData.Pincode?.trim() || '',
@@ -635,9 +663,11 @@ const CustomerForm = ({
         CountryCode3: '+91',
         EmailID: '',
         Location: '',
+        State: '',
         Area: '',
         Address: '',
         GSTNumber: '',
+        Pincode: '',
         SalesPersonID: undefined,
         IsActive: true,
       });
@@ -754,9 +784,7 @@ const CustomerForm = ({
               </div>
               <div className="space-y-1">
                 <span className="text-xs font-medium text-[var(--text-secondary)]">Area</span>
-                <p className="text-[var(--text-primary)] font-medium">
-                  {pendingData?.Area || '-'}
-                </p>
+                <p className="text-[var(--text-primary)] font-medium">{pendingData?.Area || '-'}</p>
               </div>
               {pendingData?.Address && (
                 <div className="space-y-1 sm:col-span-2">
@@ -1056,12 +1084,15 @@ const CustomerForm = ({
                     label="Opening Balance (Rs.)"
                     type="number"
                     value={formData.OpeningBalance || ''}
-                    onChange={e => setFormData({ ...formData, OpeningBalance: Number(e.target.value) })}
+                    onChange={e =>
+                      setFormData({ ...formData, OpeningBalance: Number(e.target.value) })
+                    }
                     placeholder="0.00"
                     className="h-10 font-medium"
                   />
                   <p className="text-xs text-[var(--text-secondary)] mt-1">
-                    Initial balance for the customer. Positive for Debit (Due), Negative for Credit (Advance).
+                    Initial balance for the customer. Positive for Debit (Due), Negative for Credit
+                    (Advance).
                   </p>
                 </div>
               </div>
@@ -1088,18 +1119,32 @@ const CustomerForm = ({
 
             <div className="space-y-1">
               <Input
-                label="Location / City (Auto-fetched)"
+                label="Location / District (Auto-fetched)"
                 value={formData.Location || ''}
                 onChange={e => {
                   setFormData({ ...formData, Location: e.target.value });
                   validateField('Location', e.target.value);
                 }}
-                placeholder="City will be fetched from pincode"
+                placeholder="District will be fetched from pincode"
                 className="h-10"
               />
               {errors.Location && (
                 <p className="text-xs text-red-500 font-medium">{errors.Location}</p>
               )}
+            </div>
+
+            <div className="space-y-1">
+              <Input
+                label="State (Auto-fetched)"
+                value={formData.State || ''}
+                onChange={e => {
+                  setFormData({ ...formData, State: e.target.value });
+                  validateField('State', e.target.value);
+                }}
+                placeholder="State will be fetched from pincode"
+                className="h-10"
+              />
+              {errors.State && <p className="text-xs text-red-500 font-medium">{errors.State}</p>}
             </div>
 
             <div className="space-y-1">
@@ -1113,9 +1158,7 @@ const CustomerForm = ({
                 placeholder="Enter Area"
                 className="h-10"
               />
-              {errors.Area && (
-                <p className="text-xs text-red-500 font-medium">{errors.Area}</p>
-              )}
+              {errors.Area && <p className="text-xs text-red-500 font-medium">{errors.Area}</p>}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -1123,8 +1166,9 @@ const CustomerForm = ({
                 Complete Address (Optional)
               </label>
               <textarea
-                className={`w-full h-10 px-3 py-2 text-sm rounded-[var(--radius-md)] bg-[var(--surface)] border ${errors.Address ? 'border-red-500' : 'border-[var(--border)]'
-                  } text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] placeholder:opacity-60 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all duration-200 resize-none`}
+                className={`w-full h-10 px-3 py-2 text-sm rounded-[var(--radius-md)] bg-[var(--surface)] border ${
+                  errors.Address ? 'border-red-500' : 'border-[var(--border)]'
+                } text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] placeholder:opacity-60 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all duration-200 resize-none`}
                 value={formData.Address || ''}
                 onChange={e => {
                   setFormData({ ...formData, Address: e.target.value });
@@ -1208,7 +1252,7 @@ const CustomerForm = ({
             )}
           </Button>
         </div>
-      </div >
+      </div>
     </>
   );
 };
@@ -1233,7 +1277,11 @@ export default function CustomerMaster() {
         if (response.data.length > 0) {
           console.log('DEBUG: Customer Keys:', Object.keys(response.data[0]));
           // Log raw balance values to check if they are string or number
-          console.log('DEBUG: Balance Value Sample:', response.data[0].currentBalance, (response.data[0] as any).CurrentBalance);
+          console.log(
+            'DEBUG: Balance Value Sample:',
+            response.data[0].currentBalance,
+            (response.data[0] as any).CurrentBalance
+          );
         }
         setCustomers(response.data);
       }
@@ -1363,7 +1411,9 @@ export default function CustomerMaster() {
         ].filter(m => m.number);
 
         // Deduplicate mobile numbers to prevent key errors
-        const uniqueMobiles = Array.from(new Set(mobiles.map(m => JSON.stringify(m)))).map(s => JSON.parse(s));
+        const uniqueMobiles = Array.from(new Set(mobiles.map(m => JSON.stringify(m)))).map(s =>
+          JSON.parse(s)
+        );
 
         if (uniqueMobiles.length === 0) return '-';
 
@@ -1409,10 +1459,15 @@ export default function CustomerMaster() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
       cell: ({ row }) => {
         // Handle both camelCase and PascalCase
-        const val = row.original.currentBalance !== undefined ? row.original.currentBalance : (row.original as any).CurrentBalance;
+        const val =
+          row.original.currentBalance !== undefined
+            ? row.original.currentBalance
+            : (row.original as any).CurrentBalance;
         const balance = Number(val || 0);
         return (
-          <span className={`font-medium ${balance > 0 ? 'text-red-600' : balance < 0 ? 'text-green-600' : ''}`}>
+          <span
+            className={`font-medium ${balance > 0 ? 'text-red-600' : balance < 0 ? 'text-green-600' : ''}`}
+          >
             Rs. {Math.abs(balance).toFixed(2)} {balance > 0 ? ' (Dr)' : balance < 0 ? ' (Cr)' : ''}
           </span>
         );
@@ -1444,10 +1499,11 @@ export default function CustomerMaster() {
           </button>
           <button
             onClick={() => handleToggleStatus(row.original)}
-            className={`p-2 rounded-lg transition-colors border border-transparent focus-ring ${row.original.IsActive
-              ? 'hover:bg-red-50 text-[var(--text-secondary)] hover:text-[var(--danger)] hover:border-red-200'
-              : 'hover:bg-green-50 text-[var(--text-secondary)] hover:text-green-600 hover:border-green-200'
-              }`}
+            className={`p-2 rounded-lg transition-colors border border-transparent focus-ring ${
+              row.original.IsActive
+                ? 'hover:bg-red-50 text-[var(--text-secondary)] hover:text-[var(--danger)] hover:border-red-200'
+                : 'hover:bg-green-50 text-[var(--text-secondary)] hover:text-green-600 hover:border-green-200'
+            }`}
             title={row.original.IsActive ? 'Deactivate' : 'Activate'}
             aria-label={row.original.IsActive ? 'Deactivate' : 'Activate'}
           >

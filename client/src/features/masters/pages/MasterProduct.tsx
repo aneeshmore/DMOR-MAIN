@@ -419,7 +419,8 @@ const MasterProduct = () => {
                       <div className="font-medium">{product.masterProductName}</div>
                       <div className="text-xs text-[var(--text-secondary)]">
                         ID: {product.masterProductId} • {product.Subcategory || 'General'}
-                        {product.productType === 'RM' && ` • Density: ${product.RMDensity || '-'} • Solid%: ${product.RMSolids || '-'}`}
+                        {product.productType === 'RM' &&
+                          ` • Density: ${product.RMDensity || '-'} • Solid%: ${product.RMSolids || '-'}`}
                         {product.productType === 'PM' && ` • Capacity: ${product.Capacity || '-'}`}
                       </div>
                     </div>
@@ -443,7 +444,10 @@ const MasterProduct = () => {
                         onChange={() => setSubcategory(opt)}
                         className="accent-[var(--primary)] w-4 h-4"
                       />
-                      <span className="text-sm text-[var(--text-primary)]">{opt}</span>
+                      <span className="text-sm text-[var(--text-primary)]">
+                        {' '}
+                        {opt === 'General' ? '1K' : opt}
+                      </span>
                     </label>
                   ))}
                 </div>

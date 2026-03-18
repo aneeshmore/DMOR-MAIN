@@ -59,6 +59,8 @@ interface CustomerMonthlyData {
   companyName: string;
   contactPerson: string;
   location: string;
+  district: string;
+  pincode: string;
   contactNo: string;
   salesPersonId: number | null;
   monthlyAmounts: number[]; // 12 months
@@ -96,6 +98,7 @@ const CustomerReport: React.FC = () => {
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [districtByPincode, setDistrictByPincode] = useState<Record<string, string>>({});
 
   // Fetch Company Info
   useEffect(() => {
@@ -170,7 +173,9 @@ const CustomerReport: React.FC = () => {
               customer.CompanyName ?? customer.companyName ?? customer.company_name ?? 'N/A',
             contactPerson:
               customer.ContactPerson ?? customer.contactPerson ?? customer.contact_person ?? 'N/A',
-            location: customer.Location ?? customer.location ?? customer.city ?? 'N/A',
+            location: customer.Location ?? customer.location ?? customer.city ?? '',
+            district: customer.District ?? customer.district ?? '',
+            pincode: customer.Pincode ?? customer.pincode ?? customer.pinCode ?? customer.pin_code ?? '',
             contactNo,
             salesPersonId:
               customer.SalesPersonId ?? customer.salesPersonId ?? customer.sales_person_id ?? null,
@@ -275,6 +280,51 @@ const CustomerReport: React.FC = () => {
 
     fetchData();
   }, [selectedYear]);
+
+  useEffect(() => {
+    const fetchDistricts = async () => {
+      const uniquePincodes = Array.from(
+        new Set(
+          customerData
+            .map(customer => customer.pincode?.trim())
+            .filter((pincode): pincode is string => /^\d{6}$/.test(pincode || ''))
+        )
+      ).filter(pincode => !districtByPincode[pincode]);
+
+      if (uniquePincodes.length === 0) {
+        return;
+      }
+
+      try {
+        const responses = await Promise.all(
+          uniquePincodes.map(async pincode => {
+            const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+            const data = await response.json();
+
+            return {
+              pincode,
+              district:
+                data?.[0]?.Status === 'Success' ? data?.[0]?.PostOffice?.[0]?.District || '' : '',
+            };
+          })
+        );
+
+        setDistrictByPincode(prev => {
+          const next = { ...prev };
+          responses.forEach(({ pincode, district }) => {
+            if (district) {
+              next[pincode] = district;
+            }
+          });
+          return next;
+        });
+      } catch (err) {
+        console.error('Failed to fetch district details for customer report', err);
+      }
+    };
+
+    fetchDistricts();
+  }, [customerData, districtByPincode]);
 
   // Get unique years from current year - 5 to current year
   const years = useMemo(() => {
@@ -443,15 +493,15 @@ const CustomerReport: React.FC = () => {
       });
     });
 
-    // Revenue by City
-    const revenueByCity = filteredCustomers.reduce(
+    // Revenue by District
+    const revenueByDistrict = filteredCustomers.reduce(
       (acc, customer) => {
-        const city = decodeHtml(customer.location) || 'N/A';
-        const existing = acc.find(item => item.name === city);
+        const district = decodeHtml(districtByPincode[customer.pincode] || customer.district) || 'N/A';
+        const existing = acc.find(item => item.name === district);
         if (existing) {
           existing.value += customer.totalAmount;
         } else {
-          acc.push({ name: city, value: customer.totalAmount });
+          acc.push({ name: district, value: customer.totalAmount });
         }
         return acc;
       },
@@ -464,9 +514,9 @@ const CustomerReport: React.FC = () => {
       avgRevenuePerCustomer,
       top5Customers,
       monthlyRevenue,
-      revenueByCity: revenueByCity.sort((a, b) => b.value - a.value).slice(0, 8),
+      revenueByDistrict: revenueByDistrict.sort((a, b) => b.value - a.value).slice(0, 8),
     };
-  }, [filteredCustomers]);
+  }, [districtByPincode, filteredCustomers]);
 
   // Chart data for monthly revenue trend
   const monthlyRevenueChartData = {
@@ -576,13 +626,13 @@ const CustomerReport: React.FC = () => {
     ],
   };
 
-  // Chart data for revenue by city
-  const revenueByCityChartData = {
-    labels: stats.revenueByCity.map(item => item.name),
+  // Chart data for revenue by district
+  const revenueByDistrictChartData = {
+    labels: stats.revenueByDistrict.map(item => item.name),
     datasets: [
       {
         label: 'Revenue',
-        data: stats.revenueByCity.map(item => item.value),
+        data: stats.revenueByDistrict.map(item => item.value),
         backgroundColor: 'rgba(59, 130, 246, 0.8)',
         hoverBackgroundColor: 'rgba(37, 99, 235, 1)',
         borderRadius: 6,
@@ -626,7 +676,7 @@ const CustomerReport: React.FC = () => {
         { header: 'Company Name', width: 30 },
         { header: 'Contact Person', width: 22 },
         { header: 'Contact No', width: 22 },
-        { header: 'City', width: 20 },
+        { header: 'District', width: 20 },
         ...MONTHS.map(month => ({ header: month, width: 10 })),
         { header: 'Total', width: 18 },
       ];
@@ -814,7 +864,7 @@ const CustomerReport: React.FC = () => {
         'Company Name',
         'Contact Person',
         'Contact No',
-        'City',
+        'District',
         ...MONTHS,
         'Total Amount',
       ];
@@ -1081,14 +1131,14 @@ const CustomerReport: React.FC = () => {
               </div>
             </div>
 
-            {/* Revenue by City */}
+            {/* Revenue by District */}
             <div className="card p-6 shadow-sm hover:shadow-md transition-shadow">
               <h3 className="mb-6 text-lg font-semibold text-[var(--text-primary)]">
-                Revenue by City (Top 8)
+                Revenue by District (Top 8)
               </h3>
               <div style={{ height: '300px' }}>
                 <Bar
-                  data={revenueByCityChartData}
+                  data={revenueByDistrictChartData}
                   options={revenueByCityChartOptions as ChartOptions<'bar'>}
                 />
               </div>
@@ -1237,7 +1287,7 @@ const CustomerReport: React.FC = () => {
                     className="px-6 py-3 text-left font-semibold text-[var(--foreground)] cursor-pointer"
                     onClick={() => handleSort('location')}
                   >
-                    City
+                    District
                     {sortConfig?.key === 'location' &&
                       (sortConfig.direction === 'asc' ? (
                         <ArrowUp className="inline h-4 w-4 ml-1" />
