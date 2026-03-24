@@ -203,12 +203,20 @@ const DoubleProductDevelopment = () => {
   // Helper to fetch recipe items
   const fetchRecipeItems = async (
     mpId: number
-  ): Promise<{ materials: RawMaterialItem[]; mixingRatioPart?: number; viscosity?: string } | null> => {
+  ): Promise<{
+    materials: RawMaterialItem[];
+    mixingRatioPart?: number;
+    viscosity?: string;
+  } | null> => {
     try {
+      if (!Number.isFinite(Number(mpId))) {
+        return null;
+      }
+
       // 1. Try saved development record
       const devRes = await productDevelopmentApi.getByMasterProductId(mpId);
-      if (devRes && devRes.success && devRes.data && devRes.data.materials?.length > 0) {
-        const materials = devRes.data.materials.map((item: any, index: number) => {
+      if (devRes && devRes.success && devRes.data) {
+        const materials = (devRes.data.materials || []).map((item: any, index: number) => {
           const rmDetails = rmMasterProducts.find(rm => rm.masterProductId === item.materialId);
           const totalPct = Number(item.totalPercentage) || 0;
           let wtCalculated = Number(item.wtPerLtr || item.wtInLtr) || 0; // Check DB fields
@@ -232,9 +240,10 @@ const DoubleProductDevelopment = () => {
         });
         return {
           materials,
-          mixingRatioPart: devRes.data.mixingRatioPart
-            ? Number(devRes.data.mixingRatioPart)
-            : undefined,
+          mixingRatioPart:
+            devRes.data.mixingRatioPart !== null && devRes.data.mixingRatioPart !== undefined
+              ? Number(devRes.data.mixingRatioPart)
+              : undefined,
           viscosity:
             devRes.data.viscosity !== null && devRes.data.viscosity !== undefined
               ? String(devRes.data.viscosity)
@@ -288,7 +297,7 @@ const DoubleProductDevelopment = () => {
     const baseData = await fetchRecipeItems(value);
     setBaseItems(baseData?.materials || []);
     setViscosity(baseData?.viscosity || '');
-    if (baseData?.mixingRatioPart) {
+    if (baseData?.mixingRatioPart !== null && baseData?.mixingRatioPart !== undefined) {
       setRatioBase(String(baseData.mixingRatioPart));
     } else {
       setRatioBase('');
@@ -299,7 +308,7 @@ const DoubleProductDevelopment = () => {
       setLinkedHardenerId(baseProduct.HardenerID);
       const hardenerData = await fetchRecipeItems(baseProduct.HardenerID);
       setHardenerItems(hardenerData?.materials || []);
-      if (hardenerData?.mixingRatioPart) {
+      if (hardenerData?.mixingRatioPart !== null && hardenerData?.mixingRatioPart !== undefined) {
         setRatioHardener(String(hardenerData.mixingRatioPart));
       } else {
         setRatioHardener('');
@@ -504,7 +513,6 @@ const DoubleProductDevelopment = () => {
             ...item,
             totalPercentage: totalPct.toFixed(3),
             wtInLtr: (totalPct / density).toFixed(3),
-            percentage: hardenerTotal > 0 ? ((totalPct / hardenerTotal) * 100).toFixed(3) : '0',
           };
         })
       );
@@ -1359,7 +1367,10 @@ const DoubleProductDevelopment = () => {
                       try {
                         const hardenerData = await fetchRecipeItems(newId);
                         setHardenerItems(hardenerData?.materials || []);
-                        if (hardenerData?.mixingRatioPart) {
+                        if (
+                          hardenerData?.mixingRatioPart !== null &&
+                          hardenerData?.mixingRatioPart !== undefined
+                        ) {
                           setRatioHardener(String(hardenerData.mixingRatioPart));
                         } else {
                           setRatioHardener('');

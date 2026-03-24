@@ -22,7 +22,10 @@ export class ProductDevelopmentService {
     const createdBy = parseInt(data.createdBy) || 1;
     // Use provided status or default to 'Draft'/'Incomplete'
     const status = data.status || 'Draft';
-    const mixingRatioPart = data.mixingRatioPart ? String(data.mixingRatioPart) : null;
+    const mixingRatioPart =
+      data.mixingRatioPart !== null && data.mixingRatioPart !== undefined
+        ? String(data.mixingRatioPart)
+        : null;
     const calculationBasis = data.calculationBasis || 'Ltr'; // Default to Ltr if not provided
 
     // Calculate density from materials if materials are provided (always override)

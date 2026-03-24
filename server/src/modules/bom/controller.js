@@ -1,6 +1,7 @@
 import { BOMService } from './service.js';
 import { createBOMSchema, updateBOMSchema } from './schema.js';
 import logger from '../../config/logger.js';
+import { AppError } from '../../utils/AppError.js';
 import { z } from 'zod';
 
 export class BOMController {
@@ -39,6 +40,9 @@ export class BOMController {
   getBOMByFinishedGood = async (req, res, next) => {
     try {
       const finishedGoodId = parseInt(req.params.finishedGoodId);
+      if (isNaN(finishedGoodId)) {
+        throw new AppError('Invalid finished good ID', 400);
+      }
       const bom = await this.service.getBOMByFinishedGood(finishedGoodId);
 
       res.json({
