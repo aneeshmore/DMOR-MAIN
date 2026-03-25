@@ -696,11 +696,13 @@ const ProductDevelopment = () => {
   // Create options for Select components
   const masterProductOptions = useMemo(
     () =>
-      masterProducts.map(mp => ({
-        id: mp.masterProductId,
-        label: mp.masterProductName,
-        value: mp.masterProductId,
-      })),
+      masterProducts
+        .filter(mp => mp.Subcategory !== 'Base')
+        .map(mp => ({
+          id: mp.masterProductId,
+          label: mp.masterProductName,
+          value: mp.masterProductId,
+        })),
     [masterProducts]
   );
 

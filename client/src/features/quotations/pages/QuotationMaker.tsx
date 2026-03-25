@@ -1479,7 +1479,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                     year: 'numeric',
                   })}{' '}
                   to{' '}
-                  {new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
+                  {new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
                     day: '2-digit',
                     month: 'short',
                     year: 'numeric',
