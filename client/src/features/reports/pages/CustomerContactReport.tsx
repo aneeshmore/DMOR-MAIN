@@ -117,7 +117,6 @@ const CustomerContactReport: React.FC = () => {
     };
 
     fetchData();
-    fetchData();
   }, [user]); // Re-run if user matches (though user should be stable)
 
   // Get unique salespersons from loaded customers

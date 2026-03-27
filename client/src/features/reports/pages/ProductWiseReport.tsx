@@ -1,4 +1,16 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
 import { PageHeader } from '@/components/common';
 import { FileDown } from 'lucide-react';
 import { showToast } from '@/utils/toast';
@@ -26,6 +38,17 @@ import {
   ArcElement,
 } from 'chart.js';
 
+// Shared cache to avoid duplicate product-wise report fetches between parent and child
+const productReportCache = new Map<
+  string,
+  {
+    productId?: string | number;
+    productType?: string;
+    transactions?: any[];
+    product?: { productType?: string; productName?: string };
+  }
+>();
+
 // Register Chart.js components
 ChartJS.register(
   CategoryScale,
@@ -40,6 +63,7 @@ ChartJS.register(
 
 const ProductWiseReport = () => {
   const chartRef = useRef<ChartJS<'bar'> | null>(null);
+  const isMountedRef = useRef(false);
   const [chartKey, setChartKey] = useState(0);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'updatedAt', desc: true }]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
@@ -72,6 +96,17 @@ const ProductWiseReport = () => {
   const [products, setProducts] = useState<
     { id: string; value: string; label: string; type: string }[]
   >([]);
+  // 👇 FIX #1: Stable batch consumption refs for child - prevents prop churn
+  const batchConsumptionDataRef = useRef<
+    Record<
+      string,
+      {
+        total: number;
+        entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
+      }
+    >
+  >({});
+
   const [batchConsumptionByProductId, setBatchConsumptionByProductId] = useState<
     Record<
       string,
@@ -83,6 +118,12 @@ const ProductWiseReport = () => {
   >({});
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  const makeReportCacheKey = useCallback(
+    (pid?: string, s?: string, e?: string, type?: string) =>
+      `${pid || ''}|${s || ''}|${e || ''}|${type || ''}`,
+    []
+  );
 
   const productIdsKey = useMemo(
     () =>
@@ -101,6 +142,13 @@ const ProductWiseReport = () => {
 
   // Everything is a ledger now as per user request
   const isLedgerMode = true;
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Cleanup chart on unmount
   useEffect(() => {
@@ -219,7 +267,7 @@ const ProductWiseReport = () => {
           showToast.error('Failed to load report data');
         }
       } finally {
-        if (cancelled) return;
+        if (cancelled || !isMountedRef.current) return;
         setIsLoading(false);
       }
     };
@@ -241,16 +289,32 @@ const ProductWiseReport = () => {
       const chunkSize = 5;
 
       for (let i = 0; i < rows.length; i += chunkSize) {
+        if (cancelled) return;
         const chunk = rows.slice(i, i + chunkSize);
         const results = await Promise.all(
           chunk.map(async item => {
             try {
-              const res = await reportsApi.getProductWiseReport(
+              const cacheKey = makeReportCacheKey(
                 item.productId?.toString(),
                 startDate || undefined,
                 endDate || undefined,
                 item.productType
               );
+              const cachedReport = productReportCache.get(cacheKey);
+              const res =
+                cachedReport ||
+                (await reportsApi.getProductWiseReport(
+                  item.productId?.toString(),
+                  startDate || undefined,
+                  endDate || undefined,
+                  item.productType
+                ));
+
+              if (!cachedReport) {
+                // cache the full report for reuse by child component
+                productReportCache.set(cacheKey, res);
+              }
+
               const transactions = res.transactions || [];
               const totalOutward = transactions.reduce(
                 (sum, tx) => sum + parseNumeric(tx.outward),
@@ -322,11 +386,17 @@ const ProductWiseReport = () => {
   }, [productIdsKey, startDate, endDate, productTypeFilter, batchConsumptionByProductId]);
 
   useEffect(() => {
+    Object.keys(batchConsumptionDataRef.current).forEach(
+      key => delete batchConsumptionDataRef.current[key]
+    ); // 👇 Reset on filter change - TS safe
     let cancelled = false;
 
     const fetchBatchConsumption = async () => {
       if (productTypeFilter !== 'RM') {
         setBatchConsumptionByProductId({});
+        Object.keys(batchConsumptionDataRef.current).forEach(
+          key => delete batchConsumptionDataRef.current[key]
+        );
         return;
       }
 
@@ -368,10 +438,16 @@ const ProductWiseReport = () => {
           });
         });
 
+        Object.assign(batchConsumptionDataRef.current, consumptionMap); // 👇 Stable ref for child props
         setBatchConsumptionByProductId(consumptionMap);
       } catch (error) {
         console.error('Error fetching batch consumption data:', error);
-        if (!cancelled) setBatchConsumptionByProductId({});
+        if (!cancelled) {
+          setBatchConsumptionByProductId({});
+          Object.keys(batchConsumptionDataRef.current).forEach(
+            key => delete batchConsumptionDataRef.current[key]
+          );
+        }
       }
     };
 
@@ -753,13 +829,16 @@ const ProductWiseReport = () => {
             <ProductTransactionHistory
               productId={row.original.productId?.toString()}
               productType={row.original.productType}
+              reportCache={productReportCache}
               endDate={endDate} // Pass end date for "till date" context (ignores startDate for history)
               batchConsumptionTotal={
-                batchConsumptionByProductId[row.original.productId?.toString() || '']?.total || 0
+                batchConsumptionDataRef.current[row.original.productId?.toString() || '']?.total ||
+                0
               }
               batchConsumptionEntries={
-                batchConsumptionByProductId[row.original.productId?.toString() || '']?.entries || []
-              }
+                batchConsumptionDataRef.current[row.original.productId?.toString() || '']
+                  ?.entries || []
+              } // 👇 FIX #2: Use stable ref - prevents child re-mount/refetch
               onTotalsUpdate={handleTotalsUpdate}
             />
           )}
