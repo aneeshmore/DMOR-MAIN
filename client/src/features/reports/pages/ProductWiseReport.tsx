@@ -7,7 +7,7 @@ import autoTable from 'jspdf-autotable';
 import { addPdfFooter, addPdfHeader } from '@/utils/pdfUtils';
 import { ColumnDef, SortingState } from '@tanstack/react-table';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
-import { Button, Input, SearchableSelect } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
 import { reportsApi } from '../api/reportsApi';
 import { companyApi } from '@/features/company/api/companyApi';
 import { CompanyInfo } from '@/features/company/types';
@@ -45,10 +45,21 @@ const ProductWiseReport = () => {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     companyApi
       .get()
-      .then(res => setCompanyInfo(res.data.data))
-      .catch(console.error);
+      .then(res => {
+        if (cancelled) return;
+        setCompanyInfo(res.data.data);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        console.error(err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const [data, setData] = useState<StockReportItem[]>([]);
@@ -108,6 +119,7 @@ const ProductWiseReport = () => {
 
   // Fetch products based on product type filter
   useEffect(() => {
+    let cancelled = false;
     const fetchProducts = async () => {
       try {
         const type =
@@ -115,6 +127,8 @@ const ProductWiseReport = () => {
             ? 'FG'
             : (productTypeFilter as 'FG' | 'RM' | 'PM' | 'All');
         const productsList = await reportsApi.getProductsList(type);
+
+        if (cancelled) return;
 
         const formattedProducts = productsList.map(
           (p: {
@@ -139,6 +153,7 @@ const ProductWiseReport = () => {
 
         setProducts(formattedProducts);
       } catch (error) {
+        if (cancelled) return;
         console.error('Error fetching products:', error);
         showToast.error('Failed to load products');
         setProducts([]);
@@ -146,6 +161,9 @@ const ProductWiseReport = () => {
     };
 
     fetchProducts();
+    return () => {
+      cancelled = true;
+    };
   }, [productTypeFilter]);
 
   // Reset selected product if it's no longer in the products list
@@ -163,6 +181,8 @@ const ProductWiseReport = () => {
 
   // Fetch data based on selected product or fetch summary if none selected
   useEffect(() => {
+    let cancelled = false;
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
@@ -176,7 +196,6 @@ const ProductWiseReport = () => {
               : (productTypeFilter as 'FG' | 'RM' | 'PM' | 'Sub-Product');
 
         // Always fetch stock report for the list view
-        // We filter by selectedProduct locally or via API if supported, but here acts as a search
         const result = await reportsApi.getStockReport(
           type,
           selectedProduct || undefined, // If product selected from dropdown, filter the list
@@ -184,14 +203,15 @@ const ProductWiseReport = () => {
           endDate
         );
 
+        if (cancelled) return;
+
         setData(result || []);
         setProductInfo(null);
         setBomData([]);
-        // setSummaryData([]);
       } catch (error: unknown) {
+        if (cancelled) return;
         console.error('Error fetching data:', error);
         setData([]);
-        // setSummaryData([]);
         setProductInfo(null);
         setBomData([]);
         const err = error as { response?: { status: number } };
@@ -199,11 +219,16 @@ const ProductWiseReport = () => {
           showToast.error('Failed to load report data');
         }
       } finally {
+        if (cancelled) return;
         setIsLoading(false);
       }
     };
 
     fetchData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedProduct, startDate, endDate, productTypeFilter]);
 
   useEffect(() => {
@@ -254,7 +279,9 @@ const ProductWiseReport = () => {
                 totalInward,
               };
             } catch (error) {
-              console.error('Error fetching totals for product', item.productId, error);
+              if (!cancelled) {
+                console.error('Error fetching totals for product', item.productId, error);
+              }
               return null;
             }
           })
