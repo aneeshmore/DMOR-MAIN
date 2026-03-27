@@ -38,6 +38,17 @@ import {
   ArcElement,
 } from 'chart.js';
 
+// Shared cache to avoid duplicate product-wise report fetches between parent and child
+const productReportCache = new Map<
+  string,
+  {
+    productId?: string | number;
+    productType?: string;
+    transactions?: any[];
+    product?: { productType?: string; productName?: string };
+  }
+>();
+
 // Register Chart.js components
 ChartJS.register(
   CategoryScale,
@@ -107,6 +118,12 @@ const ProductWiseReport = () => {
   >({});
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  const makeReportCacheKey = useCallback(
+    (pid?: string, s?: string, e?: string, type?: string) =>
+      `${pid || ''}|${s || ''}|${e || ''}|${type || ''}`,
+    []
+  );
 
   const productIdsKey = useMemo(
     () =>
@@ -286,6 +303,14 @@ const ProductWiseReport = () => {
                 endDate || undefined,
                 item.productType
               );
+              // cache the full report for reuse by child component
+              const cacheKey = makeReportCacheKey(
+                item.productId?.toString(),
+                startDate || undefined,
+                endDate || undefined,
+                item.productType
+              );
+              productReportCache.set(cacheKey, res);
               const transactions = res.transactions || [];
               const totalOutward = transactions.reduce(
                 (sum, tx) => sum + parseNumeric(tx.outward),
@@ -800,6 +825,7 @@ const ProductWiseReport = () => {
             <ProductTransactionHistory
               productId={row.original.productId?.toString()}
               productType={row.original.productType}
+              reportCache={productReportCache}
               endDate={endDate} // Pass end date for "till date" context (ignores startDate for history)
               batchConsumptionTotal={
                 batchConsumptionDataRef.current[row.original.productId?.toString() || '']?.total ||

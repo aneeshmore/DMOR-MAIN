@@ -11,12 +11,30 @@ import { showToast } from '@/utils/toast';
 import { addPdfFooter } from '@/utils/pdfUtils';
 import { formatDate } from '@/utils/dateUtils';
 
+const useDebouncedValue = <T,>(value: T, delay = 300) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+};
+
 interface ProductTransactionHistoryProps {
   productId: string;
   productType: string;
   endDate?: string;
   batchConsumptionTotal?: number;
   batchConsumptionEntries?: { quantity: number; batchNo?: string; completedAt?: string | null }[];
+  reportCache?: Map<
+    string,
+    {
+      productId?: string | number;
+      productType?: string;
+      transactions?: ProductWiseReportItem[];
+      product?: { productType?: string; productName?: string };
+    }
+  >;
   onTotalsUpdate?: (totals: {
     productId: string;
     totalInward: number;
@@ -30,12 +48,16 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
   endDate,
   batchConsumptionTotal = 0,
   batchConsumptionEntries,
+  reportCache,
   onTotalsUpdate,
 }) => {
   const [data, setData] = useState<ProductWiseReportItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState(endDate || '');
+
+  const debouncedHistoryStartDate = useDebouncedValue(historyStartDate, 300);
+  const debouncedHistoryEndDate = useDebouncedValue(historyEndDate, 300);
 
   // 👇 FIX #1: Stable batch ref - eliminates JSON dep churn causing loops
   const batchEntriesRef = useRef<
@@ -61,12 +83,24 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     fetchInFlightRef.current = true;
     try {
       setIsLoading(true);
-      const result = await reportsApi.getProductWiseReport(
-        productId,
-        historyStartDate || undefined,
-        historyEndDate || undefined,
-        productType
-      );
+      const cacheKey = `${productId}|${debouncedHistoryStartDate || ''}|${debouncedHistoryEndDate || ''}|${productType}`;
+      const cached =
+        reportCache?.get(cacheKey) ??
+        null;
+
+      const result =
+        cached ||
+        (await reportsApi.getProductWiseReport(
+          productId,
+          debouncedHistoryStartDate || undefined,
+          debouncedHistoryEndDate || undefined,
+          productType
+        ));
+
+      if (!cached) {
+        reportCache?.set(cacheKey, result);
+      }
+
       const normalized = (result.transactions || []).map(tx => {
         const outwardNum = parseNumeric(tx.outward);
         const inwardNum = parseNumeric(tx.inward);
@@ -127,7 +161,15 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
       setIsLoading(false);
       fetchInFlightRef.current = false; // Reset fetch flag
     }
-  }, [productId, productType, historyStartDate, historyEndDate, batchConsumptionTotal, endDate]); // 👇 FIX #3: Stable deps only - refs don't trigger
+  }, [
+    productId,
+    productType,
+    debouncedHistoryStartDate,
+    debouncedHistoryEndDate,
+    batchConsumptionTotal,
+    endDate,
+    reportCache,
+  ]); // 👇 FIX #3: Stable deps only - refs don't trigger
 
   useEffect(() => {
     fetchHistory();
