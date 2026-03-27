@@ -279,12 +279,9 @@ const ProductWiseReport = () => {
     };
   }, [selectedProduct, startDate, endDate, productTypeFilter]);
 
-  const totalsFetchedRef = useRef<string>('');
   useEffect(() => {
     if (!productIdsKey || data.length === 0) return;
-    if (totalsFetchedRef.current === productIdsKey) return;
 
-    totalsFetchedRef.current = productIdsKey;
     let cancelled = false;
 
     const fetchTotalsForAll = async () => {
@@ -297,20 +294,27 @@ const ProductWiseReport = () => {
         const results = await Promise.all(
           chunk.map(async item => {
             try {
-              const res = await reportsApi.getProductWiseReport(
-                item.productId?.toString(),
-                startDate || undefined,
-                endDate || undefined,
-                item.productType
-              );
-              // cache the full report for reuse by child component
               const cacheKey = makeReportCacheKey(
                 item.productId?.toString(),
                 startDate || undefined,
                 endDate || undefined,
                 item.productType
               );
-              productReportCache.set(cacheKey, res);
+              const cachedReport = productReportCache.get(cacheKey);
+              const res =
+                cachedReport ||
+                (await reportsApi.getProductWiseReport(
+                  item.productId?.toString(),
+                  startDate || undefined,
+                  endDate || undefined,
+                  item.productType
+                ));
+
+              if (!cachedReport) {
+                // cache the full report for reuse by child component
+                productReportCache.set(cacheKey, res);
+              }
+
               const transactions = res.transactions || [];
               const totalOutward = transactions.reduce(
                 (sum, tx) => sum + parseNumeric(tx.outward),
