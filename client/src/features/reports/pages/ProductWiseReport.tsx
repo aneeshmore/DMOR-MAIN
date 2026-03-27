@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { PageHeader } from '@/components/common';
 import { FileDown } from 'lucide-react';
 import { showToast } from '@/utils/toast';
@@ -289,17 +289,28 @@ const ProductWiseReport = () => {
 
         if (cancelled) return;
 
-        setData(prev =>
-          prev.map(p => {
+        setData(prev => {
+          let changed = false;
+
+          const updated = prev.map(p => {
             const match = results.find(r => r?.productId === p.productId?.toString());
             if (!match) return p;
+
+            if (p.totalOutward === match.totalOutward && p.totalInward === match.totalInward) {
+              return p;
+            }
+
+            changed = true;
+
             return {
               ...p,
               totalOutward: match.totalOutward,
               totalInward: match.totalInward,
             };
-          })
-        );
+          });
+
+          return changed ? updated : prev;
+        });
       }
     };
 
@@ -330,7 +341,10 @@ const ProductWiseReport = () => {
 
         const consumptionMap: Record<
           string,
-          { total: number; entries: { quantity: number; batchNo?: string; completedAt?: string | null }[] }
+          {
+            total: number;
+            entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
+          }
         > = {};
 
         (batches || []).forEach(batch => {
@@ -368,23 +382,37 @@ const ProductWiseReport = () => {
     };
   }, [productTypeFilter, startDate, endDate]);
 
-  const handleTotalsUpdate = (totals: {
+  type TotalsUpdate = {
     productId: string;
     totalInward: number;
     totalOutward: number;
-  }) => {
-    setData(prev =>
-      prev.map(item =>
-        item.productId?.toString() === totals.productId
-          ? {
-              ...item,
-              totalInward: totals.totalInward,
-              totalOutward: totals.totalOutward,
-            }
-          : item
-      )
-    );
   };
+
+  const handleTotalsUpdate = useCallback((totals: TotalsUpdate) => {
+    setData(prev => {
+      let changed = false;
+
+      const updated = prev.map(item => {
+        if (item.productId?.toString() !== totals.productId) return item;
+
+        // 🚫 prevent unnecessary updates (important for avoiding loops)
+        if (item.totalInward === totals.totalInward && item.totalOutward === totals.totalOutward) {
+          return item;
+        }
+
+        changed = true;
+
+        return {
+          ...item,
+          totalInward: totals.totalInward,
+          totalOutward: totals.totalOutward,
+        };
+      });
+
+      // 🚫 avoid triggering re-render if nothing changed
+      return changed ? updated : prev;
+    });
+  }, []);
 
   const handleExportPdf = () => {
     const isDetailView = !!selectedProduct;
