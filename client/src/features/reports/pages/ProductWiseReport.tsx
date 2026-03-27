@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { PageHeader } from '@/components/common';
 import { FileDown } from 'lucide-react';
 import { showToast } from '@/utils/toast';
@@ -330,7 +330,10 @@ const ProductWiseReport = () => {
 
         const consumptionMap: Record<
           string,
-          { total: number; entries: { quantity: number; batchNo?: string; completedAt?: string | null }[] }
+          {
+            total: number;
+            entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
+          }
         > = {};
 
         (batches || []).forEach(batch => {
@@ -368,23 +371,30 @@ const ProductWiseReport = () => {
     };
   }, [productTypeFilter, startDate, endDate]);
 
-  const handleTotalsUpdate = (totals: {
-    productId: string;
-    totalInward: number;
-    totalOutward: number;
-  }) => {
-    setData(prev =>
-      prev.map(item =>
-        item.productId?.toString() === totals.productId
-          ? {
-              ...item,
-              totalInward: totals.totalInward,
-              totalOutward: totals.totalOutward,
-            }
-          : item
-      )
-    );
-  };
+  const handleTotalsUpdate = useCallback(
+    (totals: { productId: string; totalInward: number; totalOutward: number }) => {
+      setData(prev =>
+        prev.map(item => {
+          if (item.productId?.toString() !== totals.productId) return item;
+
+          // 🚫 prevent unnecessary updates
+          if (
+            item.totalInward === totals.totalInward &&
+            item.totalOutward === totals.totalOutward
+          ) {
+            return item;
+          }
+
+          return {
+            ...item,
+            totalInward: totals.totalInward,
+            totalOutward: totals.totalOutward,
+          };
+        })
+      );
+    },
+    []
+  );
 
   const handleExportPdf = () => {
     const isDetailView = !!selectedProduct;

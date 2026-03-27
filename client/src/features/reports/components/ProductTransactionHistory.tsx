@@ -17,7 +17,11 @@ interface ProductTransactionHistoryProps {
   endDate?: string;
   batchConsumptionTotal?: number;
   batchConsumptionEntries?: { quantity: number; batchNo?: string; completedAt?: string | null }[];
-  onTotalsUpdate?: (totals: { productId: string; totalInward: number; totalOutward: number }) => void;
+  onTotalsUpdate?: (totals: {
+    productId: string;
+    totalInward: number;
+    totalOutward: number;
+  }) => void;
 }
 
 const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
@@ -145,7 +149,7 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
       totalInward,
       totalOutward: totalOutwardLedger,
     });
-  }, [data, productId, onTotalsUpdate]);
+  }, [data, productId]);
 
   const handleExportPdf = () => {
     if (data.length === 0) {
@@ -185,84 +189,81 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     showToast.success('History exported successfully');
   };
 
-  const columns = useMemo<ColumnDef<ProductWiseReportItem>[]>(
-    () => {
-      const formatTxnValue = (value: unknown) => {
-        const num = Number(value);
-        if (!Number.isFinite(num) || num <= 0) return '-';
-        return num.toFixed(2);
-      };
+  const columns = useMemo<ColumnDef<ProductWiseReportItem>[]>(() => {
+    const formatTxnValue = (value: unknown) => {
+      const num = Number(value);
+      if (!Number.isFinite(num) || num <= 0) return '-';
+      return num.toFixed(2);
+    };
 
-      return [
-        {
-          accessorKey: 'date',
-          header: ({ column }) => <DataTableColumnHeader column={column} title="Date & Time" />,
-          cell: ({ row }) => {
-            const dateStr = row.original.date;
-            if (!dateStr || dateStr === '-') return <span className="text-gray-400">-</span>;
-            const dateObj = new Date(dateStr);
-            if (isNaN(dateObj.getTime())) return <span className="text-gray-400">-</span>;
-            // Format as dd-mm-yy with time
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const year = String(dateObj.getFullYear()).slice(-2);
-            const time = dateObj.toLocaleTimeString('en-IN', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-              timeZone: 'Asia/Kolkata',
-            });
-            return (
-              <div className="flex flex-col">
-                <span className="font-medium text-gray-900">{`${day}-${month}-${year}`}</span>
-                <span className="text-xs text-gray-500">{time}</span>
-              </div>
-            );
-          },
-        },
-        {
-          accessorKey: 'type',
-          header: ({ column }) => <DataTableColumnHeader column={column} title="Details" />,
-          cell: ({ row }) => (
+    return [
+      {
+        accessorKey: 'date',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Date & Time" />,
+        cell: ({ row }) => {
+          const dateStr = row.original.date;
+          if (!dateStr || dateStr === '-') return <span className="text-gray-400">-</span>;
+          const dateObj = new Date(dateStr);
+          if (isNaN(dateObj.getTime())) return <span className="text-gray-400">-</span>;
+          // Format as dd-mm-yy with time
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const year = String(dateObj.getFullYear()).slice(-2);
+          const time = dateObj.toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Kolkata',
+          });
+          return (
             <div className="flex flex-col">
-              <span className="font-medium text-gray-700">{row.original.type || '-'}</span>
-              <span className="text-[10px] text-gray-500 uppercase">
-                {row.original.transactionType}
-              </span>
+              <span className="font-medium text-gray-900">{`${day}-${month}-${year}`}</span>
+              <span className="text-xs text-gray-500">{time}</span>
             </div>
-          ),
+          );
         },
-        {
-          accessorKey: 'inward',
-          header: ({ column }) => <DataTableColumnHeader column={column} title="Inward" />,
-          cell: ({ row }) => (
-            <div className="text-center font-bold text-green-600">
-              {formatTxnValue(row.original.inward)}
-            </div>
-          ),
-        },
-        {
-          accessorKey: 'outward',
-          header: ({ column }) => <DataTableColumnHeader column={column} title="Outward" />,
-          cell: ({ row }) => (
-            <div className="text-center font-bold text-red-600">
-              {formatTxnValue(row.original.outward)}
-            </div>
-          ),
-        },
-        {
-          accessorKey: 'balance',
-          header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
-          cell: ({ row }) => (
-            <div className="text-center font-bold text-blue-700">
-              {row.original.balance ? row.original.balance.toFixed(2) : '0'}
-            </div>
-          ),
-        },
-      ];
-    },
-    []
-  );
+      },
+      {
+        accessorKey: 'type',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Details" />,
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="font-medium text-gray-700">{row.original.type || '-'}</span>
+            <span className="text-[10px] text-gray-500 uppercase">
+              {row.original.transactionType}
+            </span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'inward',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Inward" />,
+        cell: ({ row }) => (
+          <div className="text-center font-bold text-green-600">
+            {formatTxnValue(row.original.inward)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'outward',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Outward" />,
+        cell: ({ row }) => (
+          <div className="text-center font-bold text-red-600">
+            {formatTxnValue(row.original.outward)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'balance',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
+        cell: ({ row }) => (
+          <div className="text-center font-bold text-blue-700">
+            {row.original.balance ? row.original.balance.toFixed(2) : '0'}
+          </div>
+        ),
+      },
+    ];
+  }, []);
 
   if (isLoading) {
     return <div className="p-4 text-center text-sm text-gray-500">Loading history...</div>;
