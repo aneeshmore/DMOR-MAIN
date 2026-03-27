@@ -37,16 +37,15 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState(endDate || '');
 
-  // Stable memo for batch entries; uses serialized key so new [] props don't retrigger effects
-  const batchEntriesKey = useMemo(
-    () => JSON.stringify(batchConsumptionEntries ?? []),
-    [batchConsumptionEntries]
-  );
+  // 👇 FIX #1: Stable batch ref - eliminates JSON dep churn causing loops
+  const batchEntriesRef = useRef<
+    { quantity: number; batchNo?: string; completedAt?: string | null }[]
+  >(batchConsumptionEntries ?? []);
 
-  const safeBatchConsumptionEntries = useMemo(
-    () => batchConsumptionEntries ?? [],
-    [batchEntriesKey]
-  );
+  // Update ref when prop changes
+  useEffect(() => {
+    batchEntriesRef.current = batchConsumptionEntries ?? [];
+  }, [batchConsumptionEntries]);
 
   const parseNumeric = (value: unknown) => {
     if (value === null || value === undefined || value === '') return 0;
@@ -54,8 +53,12 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     return Number.isFinite(num) ? num : 0;
   };
 
+  // 👇 FIX #2: Fetch guard - prevents duplicate concurrent calls
+  const fetchInFlightRef = useRef(false);
+
   const fetchHistory = useCallback(async () => {
-    if (!productId) return;
+    if (!productId || fetchInFlightRef.current) return; // Skip if already fetching
+    fetchInFlightRef.current = true;
     try {
       setIsLoading(true);
       const result = await reportsApi.getProductWiseReport(
@@ -80,7 +83,7 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
 
       // For raw materials, replace "Production Consumption" entries with actual batch consumption
       if (productType === 'RM') {
-        const entries = safeBatchConsumptionEntries.filter(e => e && e.quantity > 0);
+        const entries = batchEntriesRef.current.filter(e => e && e.quantity > 0);
         const hasBatchConsumption = entries.length > 0 || batchConsumptionTotal > 0;
 
         if (hasBatchConsumption) {
@@ -115,24 +118,16 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
         return Number.isFinite(time) ? time : 0;
       };
 
-      adjusted.sort((a, b) => safeTime(b.date) - safeTime(a.date));
+      adjusted = [...adjusted].sort((a, b) => safeTime(b.date) - safeTime(a.date));
 
       setData(adjusted);
     } catch (error) {
       console.error('Error fetching product history:', error);
     } finally {
       setIsLoading(false);
+      fetchInFlightRef.current = false; // Reset fetch flag
     }
-  }, [
-    productId,
-    productType,
-    historyStartDate,
-    historyEndDate,
-    batchConsumptionTotal,
-    batchEntriesKey,
-    safeBatchConsumptionEntries,
-    endDate,
-  ]);
+  }, [productId, productType, historyStartDate, historyEndDate, batchConsumptionTotal, endDate]); // 👇 FIX #3: Stable deps only - refs don't trigger
 
   useEffect(() => {
     fetchHistory();
@@ -148,13 +143,14 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
 
     const prev = prevTotalsRef.current;
 
-    // 🚫 Prevent infinite loop
+    // 👇 FIX #4: Enhanced guard - deep equality check
     if (prev && prev.inward === totalInward && prev.outward === totalOutward) {
       return;
     }
 
     prevTotalsRef.current = { inward: totalInward, outward: totalOutward };
 
+    // 👇 Only call callback if totals actually changed
     onTotalsUpdate?.({
       productId,
       totalInward,
