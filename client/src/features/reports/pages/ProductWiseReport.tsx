@@ -289,17 +289,28 @@ const ProductWiseReport = () => {
 
         if (cancelled) return;
 
-        setData(prev =>
-          prev.map(p => {
+        setData(prev => {
+          let changed = false;
+
+          const updated = prev.map(p => {
             const match = results.find(r => r?.productId === p.productId?.toString());
             if (!match) return p;
+
+            if (p.totalOutward === match.totalOutward && p.totalInward === match.totalInward) {
+              return p;
+            }
+
+            changed = true;
+
             return {
               ...p,
               totalOutward: match.totalOutward,
               totalInward: match.totalInward,
             };
-          })
-        );
+          });
+
+          return changed ? updated : prev;
+        });
       }
     };
 
@@ -371,30 +382,37 @@ const ProductWiseReport = () => {
     };
   }, [productTypeFilter, startDate, endDate]);
 
-  const handleTotalsUpdate = useCallback(
-    (totals: { productId: string; totalInward: number; totalOutward: number }) => {
-      setData(prev =>
-        prev.map(item => {
-          if (item.productId?.toString() !== totals.productId) return item;
+  type TotalsUpdate = {
+    productId: string;
+    totalInward: number;
+    totalOutward: number;
+  };
 
-          // 🚫 prevent unnecessary updates
-          if (
-            item.totalInward === totals.totalInward &&
-            item.totalOutward === totals.totalOutward
-          ) {
-            return item;
-          }
+  const handleTotalsUpdate = useCallback((totals: TotalsUpdate) => {
+    setData(prev => {
+      let changed = false;
 
-          return {
-            ...item,
-            totalInward: totals.totalInward,
-            totalOutward: totals.totalOutward,
-          };
-        })
-      );
-    },
-    []
-  );
+      const updated = prev.map(item => {
+        if (item.productId?.toString() !== totals.productId) return item;
+
+        // 🚫 prevent unnecessary updates (important for avoiding loops)
+        if (item.totalInward === totals.totalInward && item.totalOutward === totals.totalOutward) {
+          return item;
+        }
+
+        changed = true;
+
+        return {
+          ...item,
+          totalInward: totals.totalInward,
+          totalOutward: totals.totalOutward,
+        };
+      });
+
+      // 🚫 avoid triggering re-render if nothing changed
+      return changed ? updated : prev;
+    });
+  }, []);
 
   const handleExportPdf = () => {
     const isDetailView = !!selectedProduct;

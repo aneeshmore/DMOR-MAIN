@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { Button, Input } from '@/components/ui';
@@ -138,18 +138,29 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     fetchHistory();
   }, [fetchHistory]);
 
+  const prevTotalsRef = useRef<{ inward: number; outward: number } | null>(null);
+
   useEffect(() => {
     if (!productId) return;
 
     const totalInward = data.reduce((sum, item) => sum + (item.inward || 0), 0);
-    const totalOutwardLedger = data.reduce((sum, item) => sum + (item.outward || 0), 0);
+    const totalOutward = data.reduce((sum, item) => sum + (item.outward || 0), 0);
+
+    const prev = prevTotalsRef.current;
+
+    // 🚫 Prevent infinite loop
+    if (prev && prev.inward === totalInward && prev.outward === totalOutward) {
+      return;
+    }
+
+    prevTotalsRef.current = { inward: totalInward, outward: totalOutward };
 
     onTotalsUpdate?.({
       productId,
       totalInward,
-      totalOutward: totalOutwardLedger,
+      totalOutward,
     });
-  }, [data, productId]);
+  }, [data, productId, onTotalsUpdate]);
 
   const handleExportPdf = () => {
     if (data.length === 0) {
