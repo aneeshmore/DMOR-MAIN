@@ -209,7 +209,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
       if (name === 'unitPrice') {
         const num = parseFloat(String(value));
         if (!isNaN(num) && num === 0) {
-          showToast.error('Enter a non-zero value for Actual Density');
+          showToast.error('Enter a non-zero value for Unit Price');
           return;
         }
       }
@@ -217,11 +217,18 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
       setCurrentItem(prev => {
         const updated = { ...prev, [name]: name === 'unitId' ? Number(value) : value } as any;
 
-        if (name === 'quantity' || name === 'totalPrice') {
+        // Sync quantity, unitPrice and totalPrice
+        if (name === 'quantity' || name === 'unitPrice') {
           const qty = Number(name === 'quantity' ? value : updated.quantity);
-          const total = Number(name === 'totalPrice' ? value : updated.totalPrice);
+          const unitPx = Number(name === 'unitPrice' ? value : updated.unitPrice);
 
-          if (qty > 0 && total > 0) {
+          if (!isNaN(qty) && !isNaN(unitPx)) {
+            updated.totalPrice = qty * unitPx;
+          }
+        } else if (name === 'totalPrice') {
+          const total = Number(value);
+          const qty = Number(updated.quantity);
+          if (qty > 0 && !isNaN(total)) {
             updated.unitPrice = String(total / qty);
           }
         }
@@ -372,8 +379,8 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
             return;
           }
 
-          const total = currentItem.totalPrice ? Number(currentItem.totalPrice) : 0;
-          const calculatedUnitPrice = qty > 0 ? total / qty : 0;
+          const unitPriceVal = currentItem.unitPrice ? Number(currentItem.unitPrice) : 0;
+          const total = qty * unitPriceVal;
 
           newItemToAdd = {
             inwardId: currentItem.inwardId,
@@ -381,7 +388,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
             inwardDate: '', // Will be set later
             quantity: qty,
             unitId: finalUnitId,
-            unitPrice: calculatedUnitPrice,
+            unitPrice: unitPriceVal,
             totalCost: total,
           };
         } catch (e) {

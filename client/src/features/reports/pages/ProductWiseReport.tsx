@@ -396,8 +396,12 @@ const ProductWiseReport = () => {
               );
               const batchConsumptionTotal =
                 batchConsumptionByProductId[item.productId?.toString() || '']?.total || 0;
-              const shouldApplyBatchConsumption = item.productType === 'RM';
-              const adjustedTotalOutward = shouldApplyBatchConsumption
+              // RM and PM use special batch-based calculation adjustment
+              // Only FG and Sub-Product use direct transaction totals
+              const isRM = item.productType === 'RM';
+              const isPM = item.productType === 'PM';
+
+              const adjustedTotalOutward = (isRM || isPM)
                 ? totalOutward - productionConsumptionOutward + batchConsumptionTotal
                 : totalOutward;
               const latestBalance = computeLatestBalance(
@@ -472,7 +476,7 @@ const ProductWiseReport = () => {
     let cancelled = false;
 
     const fetchBatchConsumption = async () => {
-      if (productTypeFilter !== 'RM') {
+      if (productTypeFilter !== 'RM' && productTypeFilter !== 'PM') {
         setBatchConsumptionByProductId({});
         Object.keys(batchConsumptionDataRef.current).forEach(
           key => delete batchConsumptionDataRef.current[key]
@@ -505,6 +509,24 @@ const ProductWiseReport = () => {
             const materialId = rm.rawMaterialId ? rm.rawMaterialId.toString() : '';
             if (!materialId) return;
             const qty = parseNumeric(rm.actualQty ?? 0);
+            if (qty <= 0) return;
+            if (!consumptionMap[materialId]) {
+              consumptionMap[materialId] = { total: 0, entries: [] };
+            }
+            consumptionMap[materialId].total += qty;
+            consumptionMap[materialId].entries.push({
+              quantity: qty,
+              batchNo: batch.batchNo,
+              completedAt: batch.completedAt,
+            });
+          });
+
+          // Packaging Materials Processing
+          const packaging = batch.packagingMaterials || [];
+          packaging.forEach(pm => {
+            const materialId = pm.packagingId ? pm.packagingId.toString() : '';
+            if (!materialId) return;
+            const qty = parseNumeric(pm.actualQty ?? 0);
             if (qty <= 0) return;
             if (!consumptionMap[materialId]) {
               consumptionMap[materialId] = { total: 0, entries: [] };
@@ -633,9 +655,8 @@ const ProductWiseReport = () => {
     addPdfFooter(doc);
 
     // Save PDF
-    const fileName = `product_stock_report_${productTypeFilter}_${
-      new Date().toISOString().split('T')[0]
-    }.pdf`;
+    const fileName = `product_stock_report_${productTypeFilter}_${new Date().toISOString().split('T')[0]
+      }.pdf`;
 
     doc.save(fileName);
     showToast.success('Report exported successfully');
@@ -679,11 +700,10 @@ const ProductWiseReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Available Qty" />,
         cell: ({ row }) => (
           <div
-            className={`font-bold ${
-              row.original.availableQuantity <= (row.original.minStockLevel || 0)
+            className={`font-bold ${row.original.availableQuantity <= (row.original.minStockLevel || 0)
                 ? 'text-red-600'
                 : 'text-green-600'
-            }`}
+              }`}
           >
             {row.original.availableQuantity}
           </div>
@@ -796,11 +816,10 @@ const ProductWiseReport = () => {
                     setProductTypeFilter(type);
                     setSelectedProduct('');
                   }}
-                  className={`min-w-[3rem] transition-all duration-200 ${
-                    productTypeFilter === type
+                  className={`min-w-[3rem] transition-all duration-200 ${productTypeFilter === type
                       ? 'bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md'
                       : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   {type === 'FG'
                     ? 'FINISHED GOODS'
