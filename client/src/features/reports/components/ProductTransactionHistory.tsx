@@ -39,6 +39,7 @@ interface ProductTransactionHistoryProps {
     productId: string;
     totalInward: number;
     totalOutward: number;
+    latestBalance?: number;
   }) => void;
 }
 
@@ -189,28 +190,37 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     fetchHistory();
   }, [fetchHistory]);
 
-  const prevTotalsRef = useRef<{ inward: number; outward: number } | null>(null);
+  const prevTotalsRef = useRef<{ inward: number; outward: number; latestBalance: number } | null>(
+    null
+  );
 
   useEffect(() => {
     if (!productId || isLoading) return;
 
     const totalInward = data.reduce((sum, item) => sum + (item.inward || 0), 0);
     const totalOutward = data.reduce((sum, item) => sum + (item.outward || 0), 0);
+    const latestBalance = data.length > 0 ? Number(data[0].balance || 0) : 0;
 
     const prev = prevTotalsRef.current;
 
     // 👇 FIX #4: Enhanced guard - deep equality check
-    if (prev && prev.inward === totalInward && prev.outward === totalOutward) {
+    if (
+      prev &&
+      prev.inward === totalInward &&
+      prev.outward === totalOutward &&
+      prev.latestBalance === latestBalance
+    ) {
       return;
     }
 
-    prevTotalsRef.current = { inward: totalInward, outward: totalOutward };
+    prevTotalsRef.current = { inward: totalInward, outward: totalOutward, latestBalance };
 
     // 👇 Only call callback if totals actually changed
     onTotalsUpdate?.({
       productId,
       totalInward,
       totalOutward,
+      latestBalance,
     });
   }, [data, productId, onTotalsUpdate]);
 
