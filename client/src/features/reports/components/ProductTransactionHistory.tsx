@@ -115,8 +115,8 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
 
       let adjusted = normalized;
 
-      // For raw materials, replace "Production Consumption" entries with actual batch consumption
-      if (productType === 'RM') {
+      // For raw materials and packing materials, replace "Production Consumption" entries with actual batch consumption
+      if (productType === 'RM' || productType === 'PM') {
         const entries = batchEntriesRef.current.filter(e => e && e.quantity > 0);
         const hasBatchConsumption = entries.length > 0 || batchConsumptionTotal > 0;
 
@@ -134,7 +134,7 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
             transactionId: -(idx + 1), // ensure stable unique id
             productName: result.product?.productName || '',
             date: entry.completedAt || endDate || new Date().toISOString(),
-            type: entry.batchNo ? `Batch ${entry.batchNo}` : 'Batch Consumption',
+            type: entry.batchNo ? `Batch ${entry.batchNo}` : (productType === 'PM' ? 'Packaging Consumption' : 'Batch Consumption'),
             inward: 0,
             outward: entry.quantity,
             // ✅ Removed hardcoded balance: 0 - now uses running balance calculation
@@ -192,7 +192,7 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
   const prevTotalsRef = useRef<{ inward: number; outward: number } | null>(null);
 
   useEffect(() => {
-    if (!productId) return;
+    if (!productId || isLoading) return;
 
     const totalInward = data.reduce((sum, item) => sum + (item.inward || 0), 0);
     const totalOutward = data.reduce((sum, item) => sum + (item.outward || 0), 0);
