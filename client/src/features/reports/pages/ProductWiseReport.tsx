@@ -140,6 +140,69 @@ const ProductWiseReport = () => {
     return Number.isFinite(num) ? num : 0;
   };
 
+  // Reuse the same running-balance logic as the expanded transaction view
+  const computeLatestBalance = (
+    transactions: any[],
+    productType?: string,
+    batchInfo?: {
+      total: number;
+      entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
+    },
+    defaultDate?: string
+  ) => {
+    if (!transactions || transactions.length === 0) return 0;
+
+    const normalized = transactions.map(tx => ({
+      ...tx,
+      inward: parseNumeric(tx.inward),
+      outward: parseNumeric(tx.outward),
+      balance: parseNumeric(tx.balance),
+    }));
+
+    let adjusted = normalized;
+
+    if (productType === 'RM') {
+      const entries = batchInfo?.entries?.filter(e => e && e.quantity > 0) || [];
+      const total = batchInfo?.total || 0;
+      const hasBatchConsumption = entries.length > 0 || total > 0;
+
+      if (hasBatchConsumption) {
+        adjusted = normalized.filter(tx => tx.transactionType !== 'Production Consumption');
+
+        const entryList =
+          entries.length > 0 ? entries : [{ quantity: total, batchNo: undefined, completedAt: defaultDate }];
+
+        const synthetic = entryList.map((entry, idx) => ({
+          transactionId: -(idx + 1),
+          productName: '',
+          date: entry.completedAt || defaultDate || new Date().toISOString(),
+          type: entry.batchNo ? `Batch ${entry.batchNo}` : 'Batch Consumption',
+          inward: 0,
+          outward: entry.quantity,
+          balance: 0,
+          transactionType: 'Batch Consumption',
+          productCategory: productType || 'RM',
+        }));
+
+        adjusted = [...adjusted, ...synthetic];
+      }
+    }
+
+    const safeTime = (value: string | number | Date | undefined) => {
+      const time = new Date(value || '').getTime();
+      return Number.isFinite(time) ? time : 0;
+    };
+
+    const chronological = [...adjusted].sort((a, b) => safeTime(a.date) - safeTime(b.date));
+
+    let runningBalance = 0;
+    chronological.forEach(tx => {
+      runningBalance += parseNumeric(tx.inward) - parseNumeric(tx.outward);
+    });
+
+    return runningBalance;
+  };
+
   // Everything is a ledger now as per user request
   const isLedgerMode = true;
   useEffect(() => {
@@ -337,10 +400,17 @@ const ProductWiseReport = () => {
               const adjustedTotalOutward = shouldApplyBatchConsumption
                 ? totalOutward - productionConsumptionOutward + batchConsumptionTotal
                 : totalOutward;
+              const latestBalance = computeLatestBalance(
+                transactions,
+                item.productType,
+                batchConsumptionByProductId[item.productId?.toString() || ''],
+                endDate
+              );
               return {
                 productId: item.productId?.toString(),
                 totalOutward: adjustedTotalOutward,
                 totalInward,
+                latestBalance,
               };
             } catch (error) {
               if (!cancelled) {
@@ -360,7 +430,14 @@ const ProductWiseReport = () => {
             const match = results.find(r => r?.productId === p.productId?.toString());
             if (!match) return p;
 
-            if (p.totalOutward === match.totalOutward && p.totalInward === match.totalInward) {
+            const shouldUpdateAvailable =
+              match.latestBalance !== undefined && p.availableQuantity !== match.latestBalance;
+
+            if (
+              p.totalOutward === match.totalOutward &&
+              p.totalInward === match.totalInward &&
+              !shouldUpdateAvailable
+            ) {
               return p;
             }
 
@@ -370,6 +447,9 @@ const ProductWiseReport = () => {
               ...p,
               totalOutward: match.totalOutward,
               totalInward: match.totalInward,
+              ...(match.latestBalance !== undefined
+                ? { availableQuantity: match.latestBalance }
+                : {}),
             };
           });
 
@@ -462,6 +542,7 @@ const ProductWiseReport = () => {
     productId: string;
     totalInward: number;
     totalOutward: number;
+    latestBalance?: number;
   };
 
   const handleTotalsUpdate = useCallback((totals: TotalsUpdate) => {
@@ -471,8 +552,15 @@ const ProductWiseReport = () => {
       const updated = prev.map(item => {
         if (item.productId?.toString() !== totals.productId) return item;
 
+        const shouldUpdateAvailable =
+          totals.latestBalance !== undefined && item.availableQuantity !== totals.latestBalance;
+
         // 🚫 prevent unnecessary updates (important for avoiding loops)
-        if (item.totalInward === totals.totalInward && item.totalOutward === totals.totalOutward) {
+        if (
+          item.totalInward === totals.totalInward &&
+          item.totalOutward === totals.totalOutward &&
+          !shouldUpdateAvailable
+        ) {
           return item;
         }
 
@@ -482,6 +570,9 @@ const ProductWiseReport = () => {
           ...item,
           totalInward: totals.totalInward,
           totalOutward: totals.totalOutward,
+          ...(totals.latestBalance !== undefined
+            ? { availableQuantity: totals.latestBalance }
+            : {}),
         };
       });
 
