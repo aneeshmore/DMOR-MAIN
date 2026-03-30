@@ -137,6 +137,7 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
             type: entry.batchNo ? `Batch ${entry.batchNo}` : 'Batch Consumption',
             inward: 0,
             outward: entry.quantity,
+            // ✅ Removed hardcoded balance: 0 - now uses running balance calculation
             balance: 0,
             transactionType: 'Batch Consumption',
             productCategory: result.product?.productType || 'RM',
@@ -146,15 +147,28 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
         }
       }
 
-      // Keep newest first
+      // 1️⃣ CHRONOLOGICAL SORT (oldest first) for balance calculation
       const safeTime = (value: string | number | Date | undefined) => {
         const time = new Date(value || '').getTime();
         return Number.isFinite(time) ? time : 0;
       };
 
-      adjusted = [...adjusted].sort((a, b) => safeTime(b.date) - safeTime(a.date));
+      // Sort chronologically for balance calculation (oldest first)
+      let chronologicalData = [...adjusted].sort((a, b) => safeTime(a.date) - safeTime(b.date));
 
-      setData(adjusted);
+      // 2️⃣ CLIENT-SIDE RUNNING BALANCE CALCULATION
+      let runningBalance = 0;
+      chronologicalData = chronologicalData.map(tx => {
+        runningBalance += parseNumeric(tx.inward) - parseNumeric(tx.outward);
+        return { ...tx, balance: runningBalance };
+      });
+
+      // 3️⃣ UI SORT - newest first for display
+      const displayData = [...chronologicalData].sort(
+        (a, b) => safeTime(b.date) - safeTime(a.date)
+      );
+
+      setData(displayData);
     } catch (error) {
       console.error('Error fetching product history:', error);
     } finally {
@@ -305,11 +319,20 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
       {
         accessorKey: 'balance',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
-        cell: ({ row }) => (
-          <div className="text-center font-bold text-blue-700">
-            {row.original.balance ? row.original.balance.toFixed(2) : '0'}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const balance = row.original.balance || 0;
+          const isLowStock = balance <= 0; // Negative or zero is concerning for RM
+
+          return (
+            <div
+              className={`text-center font-bold px-2 py-1 rounded ${
+                isLowStock ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50'
+              }`}
+            >
+              {balance.toFixed(2)}
+            </div>
+          );
+        },
       },
     ];
   }, []);
