@@ -47,22 +47,49 @@ export async function downloadQuotationPDF(quotationData: QuotationData): Promis
 /**
  * For inline download of Invoice - opens in new tab with Invoice mode
  */
-export async function downloadInvoicePDF(quotationData: QuotationData): Promise<void> {
+export async function downloadInvoicePDF(
+  quotationData: QuotationData,
+  targetWindow?: Window | null
+): Promise<void> {
   // Store data in sessionStorage for the new window to access
   const dataKey = `invoice_download_${Date.now()}`;
-  sessionStorage.setItem(
-    dataKey,
-    JSON.stringify({
-      importedData: quotationData,
-      startInPreview: true,
-      autoDownload: true,
-      isInvoice: true, // Flag to trigger Invoice mode
-    })
-  );
+  const payload = JSON.stringify({
+    importedData: quotationData,
+    startInPreview: true,
+    autoDownload: true,
+    isInvoice: true, // Flag to trigger Invoice mode
+  });
 
-  // Open QuotationMaker in new window
+  // Try to use a caller-provided window (helps on mobile where popups require a user gesture)
+  let storageTarget: Window | null | undefined = targetWindow;
+
+  // If we have a pre-opened window, put data in its sessionStorage; otherwise fall back to current window
+  try {
+    if (storageTarget) {
+      storageTarget.sessionStorage.setItem(dataKey, payload);
+    } else {
+      sessionStorage.setItem(dataKey, payload);
+    }
+  } catch {
+    // If writing to the pre-opened window fails (popup blocked), fall back to current window
+    storageTarget = null;
+    targetWindow?.close();
+    sessionStorage.setItem(dataKey, payload);
+  }
+
+  // Build target URL
   const url = `/quotation-print?download=${dataKey}`;
 
+  // If we have a usable pre-opened window, navigate it directly (avoids popup blockers on mobile)
+  if (storageTarget && !storageTarget.closed) {
+    storageTarget.location.href = url;
+    if (typeof storageTarget.focus === 'function') {
+      storageTarget.focus();
+    }
+    return;
+  }
+
+  // Fallback: create a temporary anchor to open in a new tab
   const link = document.createElement('a');
   link.href = url;
   link.target = '_blank';

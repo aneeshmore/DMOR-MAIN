@@ -292,6 +292,10 @@ const CreateOrderPage: React.FC = () => {
   }, []);
 
   const handleDownloadInvoice = useCallback(async (order: Order) => {
+    // On mobile, open a blank tab immediately to keep the user gesture alive for the download
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const preOpenedWindow = isMobile ? window.open('', '_blank') : null;
+
     try {
       showToast.loading('Preparing Invoice...', 'invoice-dl');
 
@@ -361,9 +365,13 @@ const CreateOrderPage: React.FC = () => {
       // We might want to fetch product names properly if they are just IDs.
       // But for now let's send what we have.
 
-      await downloadInvoicePDF(invoiceData);
+      await downloadInvoicePDF(invoiceData, preOpenedWindow);
       showToast.success('Invoice Download Started', 'invoice-dl');
     } catch (error) {
+      // If we opened a blank window and something failed, close it to avoid leaving a tab behind
+      if (preOpenedWindow && !preOpenedWindow.closed) {
+        preOpenedWindow.close();
+      }
       console.error('Invoice download failed:', error);
       showToast.error('Failed to download invoice', 'invoice-dl');
     }
