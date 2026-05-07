@@ -184,6 +184,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
   }, [tncList]);
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [downloadDone, setDownloadDone] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const [isPdfMode, setIsPdfMode] = useState(false);
@@ -523,6 +524,9 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
 
   const finalTotal = totalAmount + finalCGST + finalSGST;
 
+  const isMobile = () =>
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   const handleDownloadPDF = async (autoClose = false) => {
     if (!printRef.current) return;
 
@@ -587,9 +591,10 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
       pdf.save(`${prefix}_${customerName}.pdf`);
 
       showToast.success('PDF Downloaded!', 'pdf-gen');
+      setDownloadDone(true);
 
-      // Auto close window if requested
-      if (autoClose) {
+      // Auto close window if requested - DISABLED for mobile to prevent download interruption
+      if (autoClose && !isMobile()) {
         setTimeout(() => {
           window.close();
         }, 1000);
@@ -921,35 +926,65 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
   return (
     <div className="p-6 max-w-[1250px] mx-auto relative bg-[var(--background)]">
       {/* Full-screen loading overlay - blocks all interactions during PDF generation */}
-      {(autoDownloadPending || isGenerating) && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center">
-          <div className="bg-[var(--surface)] rounded-2xl p-8 shadow-2xl max-w-md mx-4 text-center">
-            <div className="relative mb-6">
-              <div className="w-20 h-20 border-4 border-blue-200 rounded-full mx-auto"></div>
-              <div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full mx-auto animate-spin absolute top-0 left-1/2 -translate-x-1/2"></div>
-            </div>
-            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">
-              {isGenerating ? 'Generating PDF...' : 'Preparing Quotation...'}
-            </h3>
-            <p className="text-[var(--text-secondary)]">
-              {isGenerating
-                ? 'Your quotation PDF is being created. Please wait...'
-                : 'Loading quotation data for download...'}
-            </p>
-            <div className="mt-4 flex justify-center gap-1">
-              <div
-                className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                style={{ animationDelay: '0ms' }}
-              ></div>
-              <div
-                className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                style={{ animationDelay: '150ms' }}
-              ></div>
-              <div
-                className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                style={{ animationDelay: '300ms' }}
-              ></div>
-            </div>
+      {(autoDownloadPending || isGenerating || (isMobile() && downloadDone)) && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-[var(--surface)] rounded-2xl p-8 shadow-2xl max-w-md w-full text-center border border-[var(--border)]">
+            {!downloadDone ? (
+              <>
+                <div className="relative mb-6">
+                  <div className="w-20 h-20 border-4 border-blue-100 rounded-full mx-auto"></div>
+                  <div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full mx-auto animate-spin absolute top-0 left-1/2 -translate-x-1/2"></div>
+                </div>
+                <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+                  {isGenerating ? 'Generating PDF...' : 'Preparing Quotation...'}
+                </h3>
+                <p className="text-[var(--text-secondary)] mb-6">
+                  {isGenerating
+                    ? 'Your quotation PDF is being created. High quality rendering in progress...'
+                    : 'Loading quotation data for download...'}
+                </p>
+                <div className="flex justify-center gap-1.5">
+                  {[0, 150, 300].map(delay => (
+                    <div
+                      key={delay}
+                      className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce"
+                      style={{ animationDelay: `${delay}ms` }}
+                    ></div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Download size={40} />
+                </div>
+                <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+                  Ready for Download
+                </h3>
+                <p className="text-[var(--text-secondary)] mb-8">
+                  Your PDF should start downloading automatically. If it doesn't, click the button
+                  below.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    onClick={() => handleDownloadPDF()}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 h-auto text-lg font-semibold shadow-lg shadow-blue-200"
+                  >
+                    <Download size={20} className="mr-2" /> Download Again
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setDownloadDone(false);
+                      if (shouldAutoClose) window.close();
+                    }}
+                    className="w-full py-3 h-auto text-lg border-2"
+                  >
+                    Close Preview
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
