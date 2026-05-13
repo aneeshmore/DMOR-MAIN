@@ -576,7 +576,7 @@ const StockReport = () => {
       },
       {
         accessorKey: 'reservedQuantity',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Reserved Qty" />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="WIP" />,
         cell: ({ row }) => (
           <div className="text-right text-[var(--text-secondary)]">
             {Number(row.original.reservedQuantity).toFixed(2)}
