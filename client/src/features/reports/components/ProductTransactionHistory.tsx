@@ -335,9 +335,8 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
 
           return (
             <div
-              className={`text-center font-bold px-2 py-1 rounded ${
-                isLowStock ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50'
-              }`}
+              className={`text-center font-bold px-2 py-1 rounded ${isLowStock ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50'
+                }`}
             >
               {balance.toFixed(2)}
             </div>

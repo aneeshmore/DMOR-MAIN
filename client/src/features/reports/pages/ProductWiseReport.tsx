@@ -701,8 +701,8 @@ const ProductWiseReport = () => {
         cell: ({ row }) => (
           <div
             className={`font-bold ${row.original.availableQuantity <= (row.original.minStockLevel || 0)
-                ? 'text-red-600'
-                : 'text-green-600'
+              ? 'text-red-600'
+              : 'text-green-600'
               }`}
           >
             {row.original.availableQuantity}
@@ -817,8 +817,8 @@ const ProductWiseReport = () => {
                     setSelectedProduct('');
                   }}
                   className={`min-w-[3rem] transition-all duration-200 ${productTypeFilter === type
-                      ? 'bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                     }`}
                 >
                   {type === 'FG'

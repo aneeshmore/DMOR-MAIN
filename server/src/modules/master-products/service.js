@@ -241,7 +241,7 @@ export class MasterProductsService {
             ? mp.rmDetails?.availableQty || 0
             : mp.pmDetails?.availableQty || 0,
         availableWeightKg:
-          mp.masterProduct?.productType === 'RM' ? mp.rmDetails?.availableWeightKg || 0 : null,
+          mp.masterProduct?.productType === 'RM' ? parseFloat(mp.rmDetails?.availableQty || 0) : null,
         minStockLevel: mp.masterProduct?.minStockLevel || 0,
         isActive: mp.masterProduct?.isActive,
       });
@@ -268,7 +268,7 @@ export class MasterProductsService {
         ProductType: mp.masterProduct?.productType,
         availableQuantity:
           productType === 'RM' ? mp.rmDetails?.availableQty || 0 : mp.pmDetails?.availableQty || 0,
-        availableWeightKg: productType === 'RM' ? mp.rmDetails?.availableWeightKg || 0 : null,
+        availableWeightKg: productType === 'RM' ? parseFloat(mp.rmDetails?.availableQty || 0) : null,
         minStockLevel: mp.masterProduct?.minStockLevel || 0,
         isActive: mp.masterProduct?.isActive,
       }));
