@@ -641,8 +641,8 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
                 name="quantity"
                 value={currentItem.quantity}
                 onChange={handleItemChange}
-                min="1"
-                step="1"
+                min={activeTab === 'PM' ? "0" : "1"}
+                step={activeTab === 'PM' ? "any" : "1"}
                 placeholder="1"
               />
             </div>
