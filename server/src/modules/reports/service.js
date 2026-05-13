@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, lt, inArray, notInArray, sql, isNotNull } from 'drizzle-orm';
+import { eq, ne, desc, and, gte, lte, lt, inArray, notInArray, sql, isNotNull } from 'drizzle-orm';
 import db from '../../db/index.js';
 import {
   materialInward,
@@ -777,16 +777,22 @@ export class ReportsService {
             masterProductName: masterProducts.masterProductName,
             productType: masterProducts.productType,
             availableQuantity: masterProductRM.availableQty,
-            availableWeightKg: sql`COALESCE(${masterProductRM.availableQty} * ${masterProductRM.rmDensity}, 0)`,
-            reservedQuantity: sql`0`,
+            availableWeightKg: masterProductRM.availableQty,
+            reservedQuantity: sql`(
+              SELECT COALESCE(SUM(bm.required_quantity), 0)
+              FROM app.batch_materials bm
+              JOIN app.production_batches_enhanced pb ON bm.batch_id = pb.batch_id
+              WHERE bm.material_id = ${masterProducts.masterProductId}
+              AND pb.status NOT IN ('Completed', 'Cancelled')
+            )`,
             minStockLevel: masterProducts.minStockLevel,
             sellingPrice: masterProductRM.purchaseCost,
             packageCapacityKg: sql`0`,
             isActive: masterProducts.isActive,
             updatedAt: sql`(SELECT MAX(it.created_at) FROM app.inventory_transactions it WHERE it.master_product_id = ${masterProducts.masterProductId})`,
             // Use proper date comparison with Drizzle operators (consistent with FG/PM)
-            totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${gte(inventoryTransactions.createdAt, start)} AND ${lte(inventoryTransactions.createdAt, end)} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
-            totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${gte(inventoryTransactions.createdAt, start)} AND ${lte(inventoryTransactions.createdAt, end)} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
+            totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
+            totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
           })
           .from(masterProducts)
           .innerJoin(
@@ -1045,8 +1051,9 @@ export class ReportsService {
                   : masterProductData.pmDetails?.availableQty || 0,
               availableWeightKg:
                 masterProductData.productType === 'RM'
-                  ? masterProductData.rmDetails?.availableWeightKg || 0
+                  ? parseFloat(masterProductData.rmDetails?.availableQty || 0)
                   : null,
+              reservedQuantity: 0, // Placeholder, calculated later for RM
             };
           }
         } else {
@@ -1089,8 +1096,9 @@ export class ReportsService {
                     : masterProductData.pmDetails?.availableQty || 0,
                 availableWeightKg:
                   masterProductData.productType === 'RM'
-                    ? masterProductData.rmDetails?.availableWeightKg || 0
+                    ? parseFloat(masterProductData.rmDetails?.availableQty || 0)
                     : null,
+                reservedQuantity: 0, // Placeholder, calculated later for RM
               };
             }
           }
@@ -1277,7 +1285,28 @@ export class ReportsService {
 
       const transactions = await query;
 
-      // 3. Process Transactions & Calculate Running Balance
+      // 3. Get Batch Consumption Info if RM
+      let batchConsumptions = [];
+      if (productType === 'RM' && productIdNum) {
+        batchConsumptions = await db
+          .select({
+            batchNo: productionBatch.batchNo,
+            status: productionBatch.status,
+            quantity: batchMaterials.requiredQuantity,
+            createdAt: batchMaterials.createdAt,
+          })
+          .from(batchMaterials)
+          .innerJoin(productionBatch, eq(batchMaterials.batchId, productionBatch.batchId))
+          .where(
+            and(
+              eq(batchMaterials.materialId, productIdNum),
+              ne(productionBatch.status, 'Cancelled'),
+              ne(productionBatch.status, 'Completed')
+            )
+          );
+      }
+
+      // 4. Process Transactions & Calculate Running Balance
       let currentRunningBalance = openingBalance;
 
       const processedTransactions = transactions.map(
@@ -1385,6 +1414,13 @@ export class ReportsService {
               fgDetails: product.masterProduct?.fgDetails,
               rmDetails: product.masterProduct?.rmDetails,
               pmDetails: product.masterProduct?.pmDetails,
+              reservedQuantity:
+                productType === 'RM'
+                  ? (batchConsumptions || []).reduce(
+                      (sum, item) => sum + parseFloat(item.quantity || 0),
+                      0
+                    )
+                  : product.reservedQuantity || 0,
             }
           : null,
         transactions: processedTransactions,
