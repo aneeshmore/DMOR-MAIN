@@ -145,8 +145,8 @@ export const InwardDashboard: React.FC = () => {
   const filteredInwards = inwards.filter(entry => {
     if (activeViewTab !== 'ALL' && entry.productType !== activeViewTab) return false;
 
-    // Apply quantity filters: PM >= 1, RM > 0
-    if (entry.productType === 'PM' && Number(entry.quantity) < 1) return false;
+    // Apply quantity filters: PM > 1 (whole numbers), RM > 0
+    if (entry.productType === 'PM' && (Number(entry.quantity) <= 1 || !Number.isInteger(Number(entry.quantity)))) return false;
     if (entry.productType === 'RM' && Number(entry.quantity) <= 0) return false;
 
     return true;

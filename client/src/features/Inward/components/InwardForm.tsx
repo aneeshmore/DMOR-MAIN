@@ -285,8 +285,8 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
           return;
         }
 
-        if (activeTab === 'PM' && qty < 1) {
-          alert('Purchased Qty for Packing Material must be greater than or equal to 1');
+        if (activeTab === 'PM' && (qty <= 1 || !Number.isInteger(qty))) {
+          alert('Purchased Qty for Packing Material must be a whole number greater than 1');
           return;
         }
 
@@ -381,8 +381,8 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
             return;
           }
 
-          if (activeTab === 'PM' && qty < 1) {
-            alert('Purchased Qty for Packing Material must be greater than or equal to 1');
+          if (activeTab === 'PM' && (qty <= 1 || !Number.isInteger(qty))) {
+            alert('Purchased Qty for Packing Material must be a whole number greater than 1');
             return;
           }
 
@@ -661,9 +661,9 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
                 name="quantity"
                 value={currentItem.quantity}
                 onChange={handleItemChange}
-                min={activeTab === 'PM' ? "1" : "0.001"}
-                step="any"
-                placeholder="1"
+                min={activeTab === 'PM' ? "2" : "0.001"}
+                step={activeTab === 'PM' ? "1" : "any"}
+                placeholder={activeTab === 'PM' ? "2" : "1"}
               />
             </div>
 
