@@ -280,8 +280,18 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
         */
 
         const qty = Number(currentItem.quantity);
-        if (!currentItem.quantity || isNaN(qty) || qty <= 0) {
+        if (!currentItem.quantity || isNaN(qty)) {
           alert('Please enter a valid quantity');
+          return;
+        }
+
+        if (activeTab === 'PM' && qty < 1) {
+          alert('Purchased Qty for Packing Material must be greater than or equal to 1');
+          return;
+        }
+
+        if (activeTab === 'RM' && qty <= 0) {
+          alert('Purchased Qty for Raw Material must be greater than 0');
           return;
         }
 
@@ -366,8 +376,18 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
         try {
           // Validate and create the item object similar to handleAddItem logic
           const qty = Number(currentItem.quantity);
-          if (isNaN(qty) || qty <= 0) {
+          if (isNaN(qty)) {
             alert('Invalid quantity for the pending item.');
+            return;
+          }
+
+          if (activeTab === 'PM' && qty < 1) {
+            alert('Purchased Qty for Packing Material must be greater than or equal to 1');
+            return;
+          }
+
+          if (activeTab === 'RM' && qty <= 0) {
+            alert('Purchased Qty for Raw Material must be greater than 0');
             return;
           }
 
@@ -641,8 +661,8 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
                 name="quantity"
                 value={currentItem.quantity}
                 onChange={handleItemChange}
-                min={activeTab === 'PM' ? "0" : "1"}
-                step={activeTab === 'PM' ? "any" : "1"}
+                min={activeTab === 'PM' ? "1" : "0.001"}
+                step="any"
                 placeholder="1"
               />
             </div>
