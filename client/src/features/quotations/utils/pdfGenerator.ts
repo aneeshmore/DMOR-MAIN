@@ -28,9 +28,9 @@ export async function downloadQuotationPDF(quotationData: QuotationData): Promis
   // Since the QuotationMaker has a complex React-based template,
   // the best way is to open it in a new window with auto-download flag
 
-  // Store data in sessionStorage for the new window to access
+  // Store data in localStorage for the new window to access reliably
   const dataKey = `quotation_download_${Date.now()}_${Math.random()}`;
-  sessionStorage.setItem(
+  localStorage.setItem(
     dataKey,
     JSON.stringify({
       importedData: quotationData,
@@ -63,7 +63,10 @@ export async function downloadInvoicePDF(
   // Try to use a caller-provided window (helps on mobile where popups require a user gesture)
   let storageTarget: Window | null | undefined = targetWindow;
 
-  // If we have a pre-opened window, put data in its sessionStorage; otherwise fall back to current window
+  // Set in localStorage to ensure the new tab can access it regardless of popup blockers or link clicks
+  localStorage.setItem(dataKey, payload);
+
+  // If we have a pre-opened window, put data in its sessionStorage as well
   try {
     if (storageTarget) {
       storageTarget.sessionStorage.setItem(dataKey, payload);
