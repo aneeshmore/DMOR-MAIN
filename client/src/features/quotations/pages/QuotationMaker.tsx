@@ -238,13 +238,13 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
       setData(prev => ({
         ...prev,
         ...imported,
-        // Always use current company details (not from saved quotation)
-        companyName: INITIAL_DATA.companyName,
-        companyAddress: INITIAL_DATA.companyAddress,
-        companyGSTIN: INITIAL_DATA.companyGSTIN,
-        companyState: INITIAL_DATA.companyState,
-        companyCode: INITIAL_DATA.companyCode,
-        companyEmail: INITIAL_DATA.companyEmail,
+        // Only use INITIAL_DATA if the imported does not have them
+        companyName: imported.companyName || INITIAL_DATA.companyName,
+        companyAddress: imported.companyAddress || INITIAL_DATA.companyAddress,
+        companyGSTIN: imported.companyGSTIN || INITIAL_DATA.companyGSTIN,
+        companyState: imported.companyState || INITIAL_DATA.companyState,
+        companyCode: imported.companyCode || INITIAL_DATA.companyCode,
+        companyEmail: imported.companyEmail || INITIAL_DATA.companyEmail,
       }));
 
       // Check for edit mode (updating rejected quotation)
@@ -281,7 +281,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
     const searchParams = new URLSearchParams(location.search);
     const downloadKey = searchParams.get('download');
     if (downloadKey) {
-      const storedData = sessionStorage.getItem(downloadKey);
+      const storedData = sessionStorage.getItem(downloadKey) || localStorage.getItem(downloadKey);
       if (storedData) {
         try {
           const parsed = JSON.parse(storedData);
@@ -289,13 +289,13 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
             setData(prev => ({
               ...prev,
               ...parsed.importedData,
-              // Always use current company details (not from saved quotation)
-              companyName: INITIAL_DATA.companyName,
-              companyAddress: INITIAL_DATA.companyAddress,
-              companyGSTIN: INITIAL_DATA.companyGSTIN,
-              companyState: INITIAL_DATA.companyState,
-              companyCode: INITIAL_DATA.companyCode,
-              companyEmail: INITIAL_DATA.companyEmail,
+              // Only use INITIAL_DATA if the importedData does not have them
+              companyName: parsed.importedData.companyName || INITIAL_DATA.companyName,
+              companyAddress: parsed.importedData.companyAddress || INITIAL_DATA.companyAddress,
+              companyGSTIN: parsed.importedData.companyGSTIN || INITIAL_DATA.companyGSTIN,
+              companyState: parsed.importedData.companyState || INITIAL_DATA.companyState,
+              companyCode: parsed.importedData.companyCode || INITIAL_DATA.companyCode,
+              companyEmail: parsed.importedData.companyEmail || INITIAL_DATA.companyEmail,
             }));
 
             if (parsed.autoDownload) {
@@ -308,6 +308,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
           }
           // Clean up
           sessionStorage.removeItem(downloadKey);
+          localStorage.removeItem(downloadKey);
         } catch (e) {
           console.error('Failed to parse download data', e);
         }

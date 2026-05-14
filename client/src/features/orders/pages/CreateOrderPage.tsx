@@ -246,17 +246,17 @@ const CreateOrderPage: React.FC = () => {
               order.status === 'Dispatched' ||
               order.status === 'Verified' ||
               order.status === 'Ready for Dispatch') && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDownloadInvoice(order)}
-                title="Download Invoice"
-                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-1"
-              >
-                <Download size={14} className="mr-1.5" />
-                Invoice
-              </Button>
-            )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDownloadInvoice(order)}
+                  title="Download Invoice"
+                  className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-1"
+                >
+                  <Download size={14} className="mr-1.5" />
+                  Invoice
+                </Button>
+              )}
             {(order.status === 'Pending' || order.status === 'Rejected') && (
               <Button
                 variant="ghost"
@@ -488,10 +488,10 @@ const CreateOrderPage: React.FC = () => {
                           : selectedOrder.status === 'Ready for Dispatch'
                             ? 'bg-blue-100 text-blue-800 border-blue-200'
                             : selectedOrder.status === 'In Production' ||
-                                selectedOrder.status === 'Scheduled for Production'
+                              selectedOrder.status === 'Scheduled for Production'
                               ? 'bg-purple-100 text-purple-800 border-purple-200'
                               : selectedOrder.status === 'Confirmed' ||
-                                  selectedOrder.status === 'Accepted'
+                                selectedOrder.status === 'Accepted'
                                 ? 'bg-teal-100 text-teal-800 border-teal-200'
                                 : selectedOrder.status === 'Pending'
                                   ? 'bg-orange-100 text-orange-800 border-orange-200'
