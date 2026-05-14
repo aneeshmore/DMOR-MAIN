@@ -142,9 +142,15 @@ export const InwardDashboard: React.FC = () => {
     }
   };
 
-  const filteredInwards = inwards.filter(entry =>
-    activeViewTab === 'ALL' ? true : entry.productType === activeViewTab
-  );
+  const filteredInwards = inwards.filter(entry => {
+    if (activeViewTab !== 'ALL' && entry.productType !== activeViewTab) return false;
+
+    // Apply quantity filters: PM >= 1, RM > 0
+    if (entry.productType === 'PM' && Number(entry.quantity) < 1) return false;
+    if (entry.productType === 'RM' && Number(entry.quantity) <= 0) return false;
+
+    return true;
+  });
 
   return (
     <div className="space-y-6">
