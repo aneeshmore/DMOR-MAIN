@@ -32,6 +32,8 @@ import { crmRoutes } from '../modules/crm/index.js';
 import { cancelOrderRoutes } from '../modules/cancel-order/index.js';
 import { paymentRoutes } from '../modules/payments/index.js';
 import { companyRoutes } from '../modules/company/index.js';
+import { purchaseOrdersRoutes } from '../modules/purchase-orders/index.js';
+import { inwardFromPoRoutes } from '../modules/inward-from-po/index.js';
 
 const router = Router();
 
@@ -88,5 +90,7 @@ router.use('/cancel-order', cancelOrderRoutes);
 router.use('/quotations', quotationsRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/company', companyRoutes);
+router.use('/purchase-orders', purchaseOrdersRoutes);
+router.use('/inward-from-po', inwardFromPoRoutes);
 
 export default router;

@@ -43,6 +43,22 @@ export interface MasterProduct {
   CreatedAt?: string;
 }
 
+export interface Supplier {
+  supplierId: number;
+  supplierName: string;
+  contactPerson?: string;
+  mobileNo?: string;
+  mobileNo2?: string;
+  address?: string;
+  pincode?: string;
+  state?: string;
+  gstNo?: string;
+  creditDays?: number;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Customer {
   CustomerID: number;
   CustomerUUID?: string;
