@@ -1084,9 +1084,21 @@ export class ProductionManagerService {
         if (extraMaterials.length > 0) {
           logger.info('Validating stock for extra materials', { count: extraMaterials.length });
 
-          const materialsToCheck = extraMaterials.map(m => ({
-            materialId: m.materialId,
-            requiredQuantity: parseFloat(m.actualQuantity) || 0,
+          // Group and aggregate by materialId to handle duplicate materials correctly
+          const aggregatedMaterialsMap = new Map();
+          for (const m of extraMaterials) {
+            const mId = m.materialId;
+            const qty = parseFloat(m.actualQuantity) || 0;
+            if (aggregatedMaterialsMap.has(mId)) {
+              aggregatedMaterialsMap.set(mId, aggregatedMaterialsMap.get(mId) + qty);
+            } else {
+              aggregatedMaterialsMap.set(mId, qty);
+            }
+          }
+
+          const materialsToCheck = Array.from(aggregatedMaterialsMap.entries()).map(([materialId, requiredQuantity]) => ({
+            materialId,
+            requiredQuantity,
           }));
 
           const insufficientMaterials =

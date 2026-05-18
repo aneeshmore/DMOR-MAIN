@@ -26,6 +26,7 @@ import {
   Clock,
   Calendar,
   Plus,
+  Trash2,
 } from 'lucide-react';
 import { SearchableSelect, Button } from '@/components/ui';
 import { showToast } from '@/utils/toast';
@@ -228,7 +229,7 @@ export default function ScheduleBatchPage() {
   // Extra Materials State
   const [extraMaterials, setExtraMaterials] = useState<any[]>([]);
   const [selectedExtraMaterialId, setSelectedExtraMaterialId] = useState<number | null>(null);
-  const [extraMaterialQty, setExtraMaterialQty] = useState<number>(0);
+  const [extraMaterialQty, setExtraMaterialQty] = useState<string>('');
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
   // Calculate Total Output Weight
@@ -1217,6 +1218,12 @@ export default function ScheduleBatchPage() {
       setDistributions([]);
       setInsufficientMaterials(new Set());
 
+      // Reset completion/extra materials tracking state
+      setExtraMaterials([]);
+      setSelectedExtraMaterialId(null);
+      setExtraMaterialQty('');
+      setActualMaterials([]);
+
       // Refresh the batches table to show the newly created batch
       await fetchScheduledBatches();
 
@@ -1281,6 +1288,12 @@ export default function ScheduleBatchPage() {
     batchNo: string,
     masterProductName: string
   ) => {
+    // Clear previous temporary tracking state
+    setExtraMaterials([]);
+    setSelectedExtraMaterialId(null);
+    setExtraMaterialQty('');
+    setActualMaterials([]);
+
     setCompletingBatchId(batchId);
     setCompletingBatchNo(batchNo);
     setCompletingMasterProductName(masterProductName); // Set immediately from table data
@@ -1408,7 +1421,8 @@ export default function ScheduleBatchPage() {
       showToast.error('Please select a raw material');
       return;
     }
-    if (!extraMaterialQty || extraMaterialQty <= 0) {
+    const qtyValue = parseFloat(extraMaterialQty);
+    if (!extraMaterialQty || isNaN(qtyValue) || qtyValue <= 0) {
       showToast.error('Please enter a valid quantity');
       return;
     }
@@ -1424,7 +1438,7 @@ export default function ScheduleBatchPage() {
       material.CanBeAddedMultipleTimes || material.canBeAddedMultipleTimes || false;
 
     const availableQty = getAvailableStock(selectedExtraMaterialId);
-    if (extraMaterialQty > availableQty) {
+    if (qtyValue > availableQty) {
       showToast.warning(`Insufficient stock! Available: ${availableQty.toFixed(3)} kg`);
     }
 
@@ -1435,26 +1449,19 @@ export default function ScheduleBatchPage() {
       return;
     }
 
-    // Check if it's already in planned materials (only block if can't add multiple)
-    const inPlanned = actualMaterials.some(m => m.materialId === selectedExtraMaterialId);
-    if (inPlanned && !canAddMultiple) {
-      showToast.error('This material is already in planned materials');
-      return;
-    }
-
     const isWater = material.masterProductName.toLowerCase().includes('water');
 
     const newExtraMaterial = {
       materialId: selectedExtraMaterialId,
       materialName: material.masterProductName,
-      quantity: extraMaterialQty,
+      quantity: qtyValue,
       isExtra: !isWater, // Water is not extra for manual add
       canAddMultiple,
     };
 
     setExtraMaterials(prev => [...prev, newExtraMaterial]);
     setSelectedExtraMaterialId(null);
-    setExtraMaterialQty(0);
+    setExtraMaterialQty('');
     showToast.success('Extra material added');
   };
 
@@ -1622,6 +1629,9 @@ export default function ScheduleBatchPage() {
       setIsCompletingBatch(false);
       setCompletingBatchId(null);
       setExtraMaterials([]); // Reset extra materials
+      setSelectedExtraMaterialId(null);
+      setExtraMaterialQty('');
+      setActualMaterials([]);
       fetchScheduledBatches();
 
       // Optional: Open report modal or redirect
@@ -1859,6 +1869,9 @@ export default function ScheduleBatchPage() {
                       setIsCompletingBatch(false);
                       setCompletingBatchId(null);
                       setExtraMaterials([]);
+                      setSelectedExtraMaterialId(null);
+                      setExtraMaterialQty('');
+                      setActualMaterials([]);
                     }}
                     className="text-white/80 hover:text-white"
                   >
@@ -2013,6 +2026,9 @@ export default function ScheduleBatchPage() {
                             <th className="text-right py-2 px-3 text-[var(--text-secondary)]">
                               Planned Weight
                             </th>
+                            <th className="w-12 text-center py-2 px-3 text-[var(--text-secondary)]">
+                              {/* Actions */}
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[var(--border)]/50">
@@ -2038,6 +2054,7 @@ export default function ScheduleBatchPage() {
                                 >
                                   {mat.plannedQuantity.toFixed(3)}
                                 </td>
+                                <td className="py-2 px-3"></td>
                               </tr>
                             ))}
                           {/* Extra Materials */}
@@ -2046,7 +2063,7 @@ export default function ScheduleBatchPage() {
                             const isInsufficient = mat.quantity > available;
                             return (
                               <tr
-                                key={`extra-${mat.materialId}`}
+                                key={`extra-${mat.materialId}-${index}`}
                                 className={`bg-green-50 dark:bg-green-900/10 ${isInsufficient ? 'bg-red-50 dark:bg-red-900/20' : ''}`}
                               >
                                 <td className="py-2 px-3 text-[var(--text-primary)]">
@@ -2069,6 +2086,16 @@ export default function ScheduleBatchPage() {
                                   className={`py-2 px-3 text-right font-medium ${isInsufficient ? 'text-red-600' : 'text-green-600 dark:text-green-400'}`}
                                 >
                                   {mat.quantity.toFixed(3)}
+                                </td>
+                                <td className="py-2 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveExtraMaterial(index)}
+                                    className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    title="Remove Extra Material"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                  </button>
                                 </td>
                               </tr>
                             );
@@ -2098,12 +2125,6 @@ export default function ScheduleBatchPage() {
 
                                 // If it can be added multiple times, always show it
                                 if (canAddMultiple) return true;
-
-                                // Check if already in planned materials
-                                const inPlanned = actualMaterials.some(
-                                  m => m.materialId === p.masterProductId
-                                );
-                                if (inPlanned) return false;
 
                                 // Check if already in extra materials
                                 const inExtra = extraMaterials.some(
@@ -2135,8 +2156,8 @@ export default function ScheduleBatchPage() {
                             type="number"
                             step="0.001"
                             min="0"
-                            value={extraMaterialQty || ''}
-                            onChange={e => setExtraMaterialQty(parseFloat(e.target.value) || 0)}
+                            value={extraMaterialQty}
+                            onChange={e => setExtraMaterialQty(e.target.value)}
                             onWheel={e => e.preventDefault()}
                             onKeyDown={e => {
                               if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
@@ -2300,6 +2321,9 @@ export default function ScheduleBatchPage() {
                         setIsCompletingBatch(false);
                         setCompletingBatchId(null);
                         setExtraMaterials([]);
+                        setSelectedExtraMaterialId(null);
+                        setExtraMaterialQty('');
+                        setActualMaterials([]);
                       }}
                       className="px-4 py-2 border border-[var(--border)] rounded-lg hover:bg-[var(--surface-hover)] text-[var(--text-primary)]"
                     >
