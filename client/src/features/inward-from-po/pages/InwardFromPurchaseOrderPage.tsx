@@ -622,7 +622,7 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
     },
     {
       accessorKey: 'expectedDeliveryDate',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Expected Delivery" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Dispatch Date" />,
       cell: ({ row }) => {
         if (!row.original.expectedDeliveryDate)
           return <span className="text-[var(--text-secondary)]">—</span>;
