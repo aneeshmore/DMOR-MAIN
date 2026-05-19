@@ -54,6 +54,7 @@ export interface Supplier {
   state?: string;
   gstNo?: string;
   creditDays?: number;
+  paymentTerms?: string;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;

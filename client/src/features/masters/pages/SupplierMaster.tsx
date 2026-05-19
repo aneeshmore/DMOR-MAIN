@@ -52,7 +52,7 @@ const emptyForm: Partial<Supplier> = {
   pincode: '',
   state: '',
   gstNo: '',
-  creditDays: undefined,
+  paymentTerms: '',
 };
 
 const SupplierForm = ({
@@ -75,7 +75,8 @@ const SupplierForm = ({
     pincode: item?.pincode || '',
     state: item?.state || '',
     gstNo: item?.gstNo || '',
-    creditDays: item?.creditDays ?? undefined,
+    paymentTerms:
+      (item?.paymentTerms ?? item?.creditDays !== undefined) ? String(item?.creditDays ?? '') : '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isFetchingState, setIsFetchingState] = useState(false);
@@ -93,7 +94,10 @@ const SupplierForm = ({
       pincode: item?.pincode || '',
       state: item?.state || '',
       gstNo: item?.gstNo || '',
-      creditDays: item?.creditDays ?? undefined,
+      paymentTerms:
+        (item?.paymentTerms ?? item?.creditDays !== undefined)
+          ? String(item?.creditDays ?? '')
+          : '',
     });
     setErrors({});
   }, [item]);
@@ -140,7 +144,10 @@ const SupplierForm = ({
       if (
         val.trim() &&
         existingSuppliers.some(
-          s => s.mobileNo && s.mobileNo === val.trim() && s.supplierId !== item?.supplierId
+          s =>
+            ((s.mobileNo && s.mobileNo === val.trim()) ||
+              (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
+            s.supplierId !== item?.supplierId
         )
       ) {
         setFieldError('mobileNo', 'Mobile number already used by another supplier');
@@ -152,6 +159,19 @@ const SupplierForm = ({
       const err = validateMobileNo(val);
       if (err) {
         setFieldError('mobileNo2', err);
+        return;
+      }
+      // Uniqueness check
+      if (
+        val.trim() &&
+        existingSuppliers.some(
+          s =>
+            ((s.mobileNo && s.mobileNo === val.trim()) ||
+              (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
+            s.supplierId !== item?.supplierId
+        )
+      ) {
+        setFieldError('mobileNo2', 'Mobile number already used by another supplier');
       } else {
         clearFieldError('mobileNo2');
       }
@@ -243,8 +263,8 @@ const SupplierForm = ({
       if (
         existingSuppliers.some(
           s =>
-            s.mobileNo &&
-            s.mobileNo === formData.mobileNo!.trim() &&
+            ((s.mobileNo && s.mobileNo === formData.mobileNo!.trim()) ||
+              (s.mobileNo2 && s.mobileNo2 === formData.mobileNo!.trim())) &&
             s.supplierId !== item?.supplierId
         )
       ) {
@@ -256,6 +276,18 @@ const SupplierForm = ({
       const err = validateMobileNo(formData.mobileNo2);
       if (err) {
         setFieldError('mobileNo2', err);
+        return;
+      }
+      // Uniqueness check
+      if (
+        existingSuppliers.some(
+          s =>
+            ((s.mobileNo && s.mobileNo === formData.mobileNo2!.trim()) ||
+              (s.mobileNo2 && s.mobileNo2 === formData.mobileNo2!.trim())) &&
+            s.supplierId !== item?.supplierId
+        )
+      ) {
+        setFieldError('mobileNo2', 'Mobile number already used by another supplier');
         return;
       }
     }
@@ -296,7 +328,7 @@ const SupplierForm = ({
       pincode: formData.pincode?.trim() || undefined,
       state: formData.state?.trim() || undefined,
       gstNo: formData.gstNo?.trim() || undefined,
-      creditDays: formData.creditDays !== undefined ? Number(formData.creditDays) : undefined,
+      paymentTerms: formData.paymentTerms?.trim() || undefined,
     } as Supplier);
   };
 
@@ -373,21 +405,19 @@ const SupplierForm = ({
           />
         </div>
 
-        {/* Credit Days */}
+        {/* Payment Terms */}
         <div>
           <Input
-            label="Credit Days"
-            type="number"
-            value={formData.creditDays !== undefined ? String(formData.creditDays) : ''}
+            label="Payment Terms"
+            value={formData.paymentTerms || ''}
             onChange={e =>
               setFormData(prev => ({
                 ...prev,
-                creditDays: e.target.value !== '' ? Number(e.target.value) : undefined,
+                paymentTerms: e.target.value,
               }))
             }
-            placeholder="e.g. 30"
-            min={0}
-            error={errors.creditDays}
+            placeholder="e.g. 30 days / Net 30 / Immediate"
+            error={errors.paymentTerms}
           />
         </div>
 
@@ -498,7 +528,7 @@ export default function SupplierMaster() {
         pincode: pendingItem.pincode || undefined,
         state: pendingItem.state || undefined,
         gstNo: pendingItem.gstNo || undefined,
-        creditDays: pendingItem.creditDays !== undefined ? pendingItem.creditDays : undefined,
+        paymentTerms: pendingItem.paymentTerms || undefined,
       };
       logger.info('Creating supplier:', createData);
       const response = await supplierApi.create(createData as any);
@@ -533,7 +563,7 @@ export default function SupplierMaster() {
         pincode: pendingItem.pincode || undefined,
         state: pendingItem.state || undefined,
         gstNo: pendingItem.gstNo || undefined,
-        creditDays: pendingItem.creditDays !== undefined ? pendingItem.creditDays : undefined,
+        paymentTerms: pendingItem.paymentTerms || undefined,
       };
       logger.info('Updating supplier:', { id: pendingItem.supplierId, data: updateData });
       const response = await supplierApi.update(pendingItem.supplierId, updateData as any);
@@ -739,10 +769,10 @@ export default function SupplierMaster() {
                 <p>{pendingItem.gstNo}</p>
               </div>
             )}
-            {pendingItem?.creditDays !== undefined && (
+            {pendingItem?.paymentTerms && (
               <div>
-                <span className="font-semibold text-[var(--text-secondary)]">Credit Days:</span>
-                <p>{pendingItem.creditDays}</p>
+                <span className="font-semibold text-[var(--text-secondary)]">Payment Terms:</span>
+                <p>{pendingItem.paymentTerms}</p>
               </div>
             )}
           </div>
@@ -813,10 +843,10 @@ export default function SupplierMaster() {
                 <p>{pendingItem.gstNo}</p>
               </div>
             )}
-            {pendingItem?.creditDays !== undefined && (
+            {pendingItem?.paymentTerms && (
               <div>
-                <span className="font-semibold text-[var(--text-secondary)]">Credit Days:</span>
-                <p>{pendingItem.creditDays}</p>
+                <span className="font-semibold text-[var(--text-secondary)]">Payment Terms:</span>
+                <p>{pendingItem.paymentTerms}</p>
               </div>
             )}
           </div>
