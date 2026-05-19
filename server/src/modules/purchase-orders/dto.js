@@ -28,6 +28,7 @@ export class PurchaseOrderItemDTO {
     this.unit = item.unit || null;
     this.unitPrice = item.unitPrice || item.unit_price || 0;
     this.totalPrice = item.totalPrice || item.total_price || 0;
+    this.gst = item.gst !== undefined && item.gst !== null ? parseFloat(item.gst) : null;
     this.createdAt = item.createdAt || item.created_at;
     this.updatedAt = item.updatedAt || item.updated_at;
   }

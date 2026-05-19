@@ -16,6 +16,7 @@ import {
 } from '../api/inwardFromPoApi';
 import {
   purchaseOrdersApi,
+  PurchaseOrder,
   PurchaseOrderWithItems,
 } from '@/features/purchase-orders/api/purchaseOrdersApi';
 import { SearchableSelect } from '@/components/ui';
@@ -37,6 +38,7 @@ interface ProductOption {
   productType: string;
   unitId?: number;
   purchaseCost?: number;
+  gst?: number | null;
 }
 
 interface UnitOption {
@@ -50,6 +52,8 @@ interface CreateInwardPoFormProps {
   products: ProductOption[];
   units: UnitOption[];
   onSuccess: () => void;
+  selectedPoId: number | '';
+  setSelectedPoId: React.Dispatch<React.SetStateAction<number | ''>>;
 }
 
 const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
@@ -57,8 +61,9 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
   products,
   units,
   onSuccess,
+  selectedPoId,
+  setSelectedPoId,
 }) => {
-  const [selectedPoId, setSelectedPoId] = useState<number | ''>('');
   const [poDetails, setPoDetails] = useState<PurchaseOrderWithItems | null>(null);
 
   const [billNo, setBillNo] = useState('');
@@ -261,23 +266,11 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
       {/* PO Details & Item Mapping Table */}
       {poDetails && (
         <div className="space-y-4 animate-fade-in">
-          <div className="p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border border-indigo-100 rounded-lg grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+          <div className="p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border border-indigo-100 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-[var(--text-secondary)]">Vendor:</span>
               <p className="font-semibold text-[var(--text-primary)]">
                 {poDetails.supplierName || '—'}
-              </p>
-            </div>
-            <div>
-              <span className="text-[var(--text-secondary)]">PO Date:</span>
-              <p className="font-semibold text-[var(--text-primary)]">
-                {poDetails.orderDate?.slice(0, 10)}
-              </p>
-            </div>
-            <div>
-              <span className="text-[var(--text-secondary)]">Expected Delivery:</span>
-              <p className="font-semibold text-[var(--text-primary)]">
-                {poDetails.expectedDeliveryDate?.slice(0, 10) || '—'}
               </p>
             </div>
             <div>
@@ -293,7 +286,7 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
               Map PO Items to Inventory
             </h3>
             <div className="border border-[var(--border)] rounded-lg overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[700px]">
+              <table className="w-full text-sm min-w-[800px]">
                 <thead className="bg-[var(--surface-secondary,var(--surface))]">
                   <tr>
                     <th className="text-left p-3 font-medium">PO Item Description</th>
@@ -302,6 +295,7 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                     <th className="text-left p-3 font-medium min-w-[220px]">
                       Map to Stock Product
                     </th>
+                    <th className="text-left p-3 font-medium">GST (%)</th>
                     <th className="text-right p-3 font-medium w-24">Received Qty</th>
                     <th className="text-left p-3 font-medium w-32">Stock Unit</th>
                   </tr>
@@ -313,6 +307,11 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                       receivedQuantity: 0,
                       unitId: 0,
                     };
+                    const matchedProd = products.find(
+                      p => p.masterProductId === mapVal.masterProductId
+                    );
+                    const itemGst =
+                      item.gst !== undefined && item.gst !== null ? item.gst : matchedProd?.gst;
                     return (
                       <tr key={item.itemId} className="border-t border-[var(--border)]">
                         <td className="p-3 font-medium">{item.itemDescription}</td>
@@ -341,6 +340,15 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                             <p className="text-xs text-red-500 mt-0.5">
                               {errors[`map_${item.itemId}`]}
                             </p>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {itemGst !== undefined && itemGst !== null ? (
+                            <span className="font-semibold text-teal-600 bg-teal-50 px-2 py-1 rounded border border-teal-100 text-xs">
+                              {itemGst}%
+                            </span>
+                          ) : (
+                            <span className="text-[var(--text-secondary)] text-xs">—</span>
                           )}
                         </td>
                         <td className="p-2">
@@ -399,13 +407,31 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
   );
 };
 
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const cls: Record<string, string> = {
+    Pending: 'bg-orange-100 text-orange-800 border-orange-200',
+    Confirmed: 'bg-teal-100 text-teal-800 border-teal-200',
+    Received: 'bg-green-100 text-green-800 border-green-200',
+    'Partially Received': 'bg-blue-100 text-blue-800 border-blue-200',
+  };
+  return (
+    <Badge
+      variant={status === 'Cancelled' ? 'destructive' : 'secondary'}
+      className={cls[status] || ''}
+    >
+      {status}
+    </Badge>
+  );
+};
+
 // ── Main Page ──────────────────────────────────────────────────
 const InwardFromPurchaseOrderPage: React.FC = () => {
-  const [inwardList, setInwardList] = useState<InwardFromPo[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [poOptions, setPoOptions] = useState<PoOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPoId, setSelectedPoId] = useState<number | ''>('');
 
   // View modal
   const [viewOpen, setViewOpen] = useState(false);
@@ -415,10 +441,9 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
   const loadPageData = useCallback(async () => {
     try {
       setLoading(true);
-      const [inwards, pos, prods, rawUnits] = await Promise.all([
-        inwardFromPoApi.getAll(),
+      const [pos, prods, rawUnits] = await Promise.all([
         apiClient
-          .get<{ success: boolean; data: PoOption[] }>('/purchase-orders?limit=100')
+          .get<{ success: boolean; data: any[] }>('/purchase-orders?limit=100')
           .then(res => res.data.data),
         apiClient
           .get<{ success: boolean; data: any[] }>('/catalog/master-products?limit=500')
@@ -426,7 +451,7 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
         unitApi.getAll().then(res => res.data),
       ]);
 
-      setInwardList(inwards);
+      setPurchaseOrders(pos || []);
       // Filter PO options to show Pending/Confirmed/Partial POs
       setPoOptions(
         (pos || []).filter(
@@ -441,6 +466,7 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
           productType: p.productType,
           unitId: p.unitId,
           purchaseCost: p.purchaseCost,
+          gst: p.gst || p.GST || null,
         }))
       );
 
@@ -461,40 +487,12 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
     loadPageData();
   }, [loadPageData]);
 
-  const handleView = useCallback(async (inward: InwardFromPo) => {
-    try {
-      setViewLoading(true);
-      setViewOpen(true);
-      const full = await inwardFromPoApi.getById(inward.inwardPoId);
-      setSelectedInward(full);
-    } catch {
-      showToast.error('Failed to load details');
-      setViewOpen(false);
-    } finally {
-      setViewLoading(false);
-    }
-  }, []);
-
-  const handleDelete = useCallback(async (inward: InwardFromPo) => {
-    if (!window.confirm('Delete this inward record? This does not auto-revert stock levels.'))
-      return;
-    try {
-      await inwardFromPoApi.delete(inward.inwardPoId);
-      setInwardList(prev => prev.filter(i => i.inwardPoId !== inward.inwardPoId));
-      showToast.success('Inward record deleted');
-    } catch {
-      showToast.error('Failed to delete inward');
-    }
-  }, []);
-
-  const columns: ColumnDef<InwardFromPo>[] = [
+  const columns: ColumnDef<PurchaseOrder>[] = [
     {
       accessorKey: 'poNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="PO Number" />,
       cell: ({ row }) => (
-        <span className="font-mono font-medium text-[var(--primary)]">
-          {row.original.poNumber || '—'}
-        </span>
+        <span className="font-mono font-medium text-[var(--primary)]">{row.original.poNumber}</span>
       ),
     },
     {
@@ -503,58 +501,87 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
       cell: ({ row }) => <span className="font-medium">{row.original.supplierName || '—'}</span>,
     },
     {
-      accessorKey: 'billNo',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Bill No" />,
-      cell: ({ row }) => <span>{row.original.billNo || '—'}</span>,
-    },
-    {
-      accessorKey: 'inwardDate',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Inward Date" />,
-      cell: ({ row }) => {
-        try {
-          return format(new Date(row.original.inwardDate), 'dd MMM yyyy');
-        } catch {
-          return row.original.inwardDate;
-        }
-      },
-    },
-    {
-      accessorKey: 'totalCost',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Total Cost" className="justify-end" />
-      ),
+      id: 'material',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Material" />,
       cell: ({ row }) => (
-        <div className="text-right font-medium">
-          ₹{parseFloat(row.original.totalCost?.toString() || '0').toFixed(2)}
+        <div className="flex flex-col gap-1">
+          {row.original.items?.map((item: any, idx: number) => (
+            <div key={idx} className="whitespace-nowrap font-medium text-xs">
+              {item.itemDescription || '—'}
+            </div>
+          ))}
         </div>
       ),
     },
     {
-      id: 'actions',
-      header: 'Actions',
+      id: 'qty',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Qty" className="justify-end" />
+      ),
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1 text-right">
+          {row.original.items?.map((item: any, idx: number) => (
+            <div key={idx} className="font-mono text-xs">
+              {item.quantity !== undefined && item.quantity !== null
+                ? Number(item.quantity).toFixed(2)
+                : '—'}
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'unit',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Unit" />,
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          {row.original.items?.map((item: any, idx: number) => (
+            <div key={idx} className="text-[var(--text-secondary)] text-xs">
+              {item.unit || '—'}
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'orderDate',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Order Date" />,
       cell: ({ row }) => {
-        const inward = row.original;
-        return (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleView(inward)}
-              className="text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
-            >
-              <Eye size={14} className="mr-1" /> View
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDelete(inward)}
-              className="text-red-500 hover:text-red-600 hover:bg-red-50 ml-1"
-            >
-              <Trash2 size={14} />
-            </Button>
-          </div>
-        );
+        try {
+          return format(new Date(row.original.orderDate), 'dd MMM yyyy');
+        } catch {
+          return row.original.orderDate;
+        }
       },
+    },
+    {
+      accessorKey: 'expectedDeliveryDate',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Expected Delivery" />,
+      cell: ({ row }) => {
+        if (!row.original.expectedDeliveryDate)
+          return <span className="text-[var(--text-secondary)]">—</span>;
+        try {
+          return format(new Date(row.original.expectedDeliveryDate), 'dd MMM yyyy');
+        } catch {
+          return row.original.expectedDeliveryDate;
+        }
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    },
+    {
+      accessorKey: 'totalAmount',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Amount" className="justify-end" />
+      ),
+      cell: ({ row }) => (
+        <div className="text-right font-medium">
+          ₹{parseFloat(row.original.totalAmount?.toString() || '0').toFixed(2)}
+        </div>
+      ),
     },
   ];
 
@@ -571,6 +598,8 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
           products={products}
           units={units}
           onSuccess={loadPageData}
+          selectedPoId={selectedPoId}
+          setSelectedPoId={setSelectedPoId}
         />
 
         <div className="space-y-4">
@@ -583,8 +612,12 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
             <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden shadow-sm">
               <DataTable
                 columns={columns}
-                data={inwardList}
-                searchPlaceholder="Search PO inwards…"
+                data={purchaseOrders}
+                searchPlaceholder="Search purchase orders…"
+                onRowClick={row => {
+                  setSelectedPoId(row.original.purchaseOrderId);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
             </div>
           )}

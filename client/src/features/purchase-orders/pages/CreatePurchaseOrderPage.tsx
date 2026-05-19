@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
-import { Button, Modal, Input } from '@/components/ui';
+import { Button, Modal, Input, SearchableSelect } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye, Trash2, Plus, X, Download } from 'lucide-react';
@@ -17,6 +17,7 @@ import {
 import apiClient from '@/api/client';
 import { masterProductApi } from '@/features/master-products/api';
 import { unitApi } from '@/features/masters/api/unitApi';
+import { companyApi } from '@/features/company/api/companyApi';
 
 // ── Supplier type (local) ──────────────────────────────────────
 interface SupplierOption {
@@ -44,11 +45,15 @@ const StatusBadge: React.FC<{ status: PurchaseOrder['status'] }> = ({ status }) 
 };
 
 // ── Empty line item ────────────────────────────────────────────
-const emptyItem = (): Omit<PurchaseOrderItem, 'itemId' | 'purchaseOrderId' | 'totalPrice'> => ({
+const emptyItem = (): Omit<
+  PurchaseOrderItem,
+  'itemId' | 'purchaseOrderId' | 'totalPrice' | 'gst'
+> & { gst?: number | '' | null } => ({
   itemDescription: '',
   quantity: 1,
   unit: '',
   unitPrice: 0,
+  gst: '',
 });
 
 // ── Create PO Form ─────────────────────────────────────────────
@@ -71,9 +76,12 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   const [orderDate, setOrderDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [factoryAddressDefault, setFactoryAddressDefault] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<
-    Omit<PurchaseOrderItem, 'itemId' | 'purchaseOrderId' | 'totalPrice'>[]
+    (Omit<PurchaseOrderItem, 'itemId' | 'purchaseOrderId' | 'totalPrice' | 'gst'> & {
+      gst?: number | '' | null;
+    })[]
   >([emptyItem()]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -122,24 +130,53 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       setNotes(editingPO.notes || '');
       setItems(
         editingPO.items.length > 0
-          ? editingPO.items.map(i => ({
-              itemDescription: i.itemDescription,
-              quantity: Number(i.quantity),
-              unit: i.unit || '',
-              unitPrice: Number(i.unitPrice),
-            }))
+          ? editingPO.items.map(i => {
+              const mp = masterProducts.find(p => p.masterProductName === i.itemDescription);
+              return {
+                itemDescription: i.itemDescription,
+                quantity: Number(i.quantity),
+                unit: i.unit || '',
+                unitPrice: Number(i.unitPrice),
+                gst: mp && mp.gst !== undefined && mp.gst !== null ? mp.gst : '',
+              };
+            })
           : [emptyItem()]
       );
     } else {
       setSupplierId('');
       setOrderDate(format(new Date(), 'yyyy-MM-dd'));
       setExpectedDeliveryDate('');
-      setDeliveryAddress('');
+      setDeliveryAddress(factoryAddressDefault);
       setNotes('');
       setItems([emptyItem()]);
       setErrors({});
     }
-  }, [editingPO]);
+  }, [editingPO, masterProducts, factoryAddressDefault]);
+
+  // Load Company Details for default Delivery Address
+  useEffect(() => {
+    let isMounted = true;
+    const loadCompanyInfo = async () => {
+      try {
+        const res = await companyApi.get();
+        if (res.data && res.data.data) {
+          const factoryAddr = res.data.data.factoryAddress || '';
+          if (isMounted) {
+            setFactoryAddressDefault(factoryAddr);
+            if (!isEditing) {
+              setDeliveryAddress(factoryAddr);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load company factory address:', err);
+      }
+    };
+    loadCompanyInfo();
+    return () => {
+      isMounted = false;
+    };
+  }, [isEditing]);
 
   const totalAmount = items.reduce((sum, i) => sum + Number(i.quantity) * Number(i.unitPrice), 0);
 
@@ -172,9 +209,31 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       }
     }
 
+    if (!expectedDeliveryDate) {
+      errs.expectedDeliveryDate = 'Dispatch Date is required';
+    }
+
+    if (!deliveryAddress.trim()) {
+      errs.deliveryAddress = 'Delivery Address is required';
+    }
+
+    if (!notes.trim()) {
+      errs.notes = 'Notes is required';
+    }
+
     items.forEach((item, idx) => {
-      if (!item.itemDescription.trim()) errs[`item_desc_${idx}`] = 'Description required';
-      if (Number(item.quantity) <= 0) errs[`item_qty_${idx}`] = 'Qty must be > 0';
+      if (!item.itemDescription.trim()) {
+        errs[`item_desc_${idx}`] = 'Description required';
+      }
+      if (Number(item.quantity) <= 0) {
+        errs[`item_qty_${idx}`] = 'Qty must be > 0';
+      }
+      if (!item.unit || !item.unit.trim()) {
+        errs[`item_unit_${idx}`] = 'Unit is required';
+      }
+      if (Number(item.unitPrice) <= 0) {
+        errs[`item_price_${idx}`] = 'Unit price must be > 0';
+      }
     });
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -209,7 +268,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         setSupplierId('');
         setOrderDate(format(new Date(), 'yyyy-MM-dd'));
         setExpectedDeliveryDate('');
-        setDeliveryAddress('');
+        setDeliveryAddress(factoryAddressDefault);
         setNotes('');
         setItems([emptyItem()]);
         setErrors({});
@@ -276,6 +335,8 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
             type="date"
             value={expectedDeliveryDate}
             onChange={e => setExpectedDeliveryDate(e.target.value)}
+            required
+            error={errors.expectedDeliveryDate}
           />
         </div>
 
@@ -286,6 +347,8 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
             value={deliveryAddress}
             onChange={e => setDeliveryAddress(e.target.value)}
             placeholder="Enter delivery address"
+            required
+            error={errors.deliveryAddress}
           />
         </div>
 
@@ -295,7 +358,9 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
             label="Notes"
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            placeholder="Optional notes"
+            placeholder="Enter notes"
+            required
+            error={errors.notes}
           />
         </div>
       </div>
@@ -309,7 +374,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
           </Button>
         </div>
 
-        <div className="border border-[var(--border)] rounded-lg overflow-hidden overflow-x-auto">
+        <div className="border border-[var(--border)] rounded-lg overflow-visible">
           <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-[var(--surface-secondary,var(--surface))]">
               <tr>
@@ -317,6 +382,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                 <th className="text-left p-3 font-medium">Description *</th>
                 <th className="text-right p-3 font-medium">Qty *</th>
                 <th className="text-left p-3 font-medium">Unit</th>
+                <th className="text-right p-3 font-medium">GST (%)</th>
                 <th className="text-right p-3 font-medium">Unit Price (₹)</th>
                 <th className="text-right p-3 font-medium">Total (₹)</th>
                 <th className="p-3"></th>
@@ -326,41 +392,60 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
               {items.map((item, idx) => (
                 <tr key={idx} className="border-t border-[var(--border)]">
                   <td className="p-2 text-[var(--text-secondary)]">{idx + 1}</td>
-                  <td className="p-2 min-w-[200px]">
-                    <select
-                      className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                      value={item.itemDescription}
-                      onChange={e => {
-                        const selectedName = e.target.value;
+                  <td className="p-2 min-w-[200px] relative focus-within:z-50">
+                    <SearchableSelect
+                      options={[
+                        ...(item.itemDescription &&
+                        !masterProducts.some(p => p.masterProductName === item.itemDescription)
+                          ? [
+                              {
+                                id: `custom-${item.itemDescription}`,
+                                label: item.itemDescription,
+                                value: item.itemDescription,
+                              },
+                            ]
+                          : []),
+                        ...masterProducts.map(p => ({
+                          id: p.masterProductId,
+                          label: p.masterProductName,
+                          subLabel: `(${p.productType})`,
+                          value: p.masterProductName,
+                        })),
+                      ]}
+                      value={item.itemDescription || undefined}
+                      onChange={value => {
+                        const selectedName = value || '';
                         updateItem(idx, 'itemDescription', selectedName);
 
                         // Auto-populate matching unit if defaultUnitId exists
                         const mp = masterProducts.find(p => p.masterProductName === selectedName);
-                        if (mp && mp.defaultUnitId) {
-                          const matchingUnit = unitsList.find(
-                            u => (u.UnitID ?? u.unitId) === mp.defaultUnitId
+                        if (mp) {
+                          // Auto-populate GST
+                          updateItem(
+                            idx,
+                            'gst',
+                            mp.gst !== undefined && mp.gst !== null ? mp.gst : ''
                           );
-                          if (matchingUnit) {
-                            updateItem(
-                              idx,
-                              'unit',
-                              matchingUnit.UnitName ?? matchingUnit.unitName ?? ''
+
+                          if (mp.defaultUnitId) {
+                            const matchingUnit = unitsList.find(
+                              u => (u.UnitID ?? u.unitId) === mp.defaultUnitId
                             );
+                            if (matchingUnit) {
+                              updateItem(
+                                idx,
+                                'unit',
+                                matchingUnit.UnitName ?? matchingUnit.unitName ?? ''
+                              );
+                            }
                           }
+                        } else {
+                          updateItem(idx, 'gst', '');
                         }
                       }}
-                    >
-                      <option value="">Select product…</option>
-                      {item.itemDescription &&
-                        !masterProducts.some(p => p.masterProductName === item.itemDescription) && (
-                          <option value={item.itemDescription}>{item.itemDescription}</option>
-                        )}
-                      {masterProducts.map(p => (
-                        <option key={p.masterProductId} value={p.masterProductName}>
-                          {p.masterProductName} ({p.productType})
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select product…"
+                      className="w-full"
+                    />
                     {errors[`item_desc_${idx}`] && (
                       <p className="text-xs text-red-500 mt-0.5">{errors[`item_desc_${idx}`]}</p>
                     )}
@@ -399,6 +484,21 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                         );
                       })}
                     </select>
+                    {errors[`item_unit_${idx}`] && (
+                      <p className="text-xs text-red-500 mt-0.5">{errors[`item_unit_${idx}`]}</p>
+                    )}
+                  </td>
+                  <td className="p-2 w-24">
+                    <input
+                      className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-highlight)] text-[var(--text-secondary)] text-sm text-right focus:outline-none cursor-not-allowed"
+                      type="text"
+                      value={
+                        item.gst !== undefined && item.gst !== null && String(item.gst) !== ''
+                          ? `${item.gst}%`
+                          : '—'
+                      }
+                      readOnly
+                    />
                   </td>
                   <td className="p-2 w-32">
                     <input
@@ -409,6 +509,9 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                       value={item.unitPrice}
                       onChange={e => updateItem(idx, 'unitPrice', e.target.value)}
                     />
+                    {errors[`item_price_${idx}`] && (
+                      <p className="text-xs text-red-500 mt-0.5">{errors[`item_price_${idx}`]}</p>
+                    )}
                   </td>
                   <td className="p-2 text-right font-medium w-28">
                     ₹{(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}
@@ -428,7 +531,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
             </tbody>
             <tfoot className="bg-[var(--surface-secondary,var(--surface))]">
               <tr className="border-t-2 border-[var(--border)]">
-                <td colSpan={5} className="p-3 text-right font-semibold">
+                <td colSpan={6} className="p-3 text-right font-semibold">
                   Total Amount:
                 </td>
                 <td className="p-3 text-right font-bold text-[var(--primary)]">

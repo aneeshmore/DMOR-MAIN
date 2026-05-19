@@ -8,6 +8,7 @@ export interface PurchaseOrderItem {
   unit?: string;
   unitPrice: number;
   totalPrice?: number;
+  gst?: number | null;
 }
 
 export interface PurchaseOrder {

@@ -1,6 +1,11 @@
 import { eq, desc, sql } from 'drizzle-orm';
 import db from '../../db/index.js';
-import { purchaseOrders, purchaseOrderItems, suppliers } from '../../db/schema/index.js';
+import {
+  purchaseOrders,
+  purchaseOrderItems,
+  suppliers,
+  masterProducts,
+} from '../../db/schema/index.js';
 import logger from '../../config/logger.js';
 
 // Ensure tables exist at startup (idempotent)
@@ -125,7 +130,23 @@ export class PurchaseOrdersRepository {
   async getItems(purchaseOrderId) {
     await ensureTables();
     return await db
-      .select()
+      .select({
+        itemId: purchaseOrderItems.itemId,
+        purchaseOrderId: purchaseOrderItems.purchaseOrderId,
+        itemDescription: purchaseOrderItems.itemDescription,
+        quantity: purchaseOrderItems.quantity,
+        unit: purchaseOrderItems.unit,
+        unitPrice: purchaseOrderItems.unitPrice,
+        totalPrice: purchaseOrderItems.totalPrice,
+        createdAt: purchaseOrderItems.createdAt,
+        updatedAt: purchaseOrderItems.updatedAt,
+        gst: sql`(
+          SELECT ${masterProducts.gst}
+          FROM ${masterProducts}
+          WHERE LOWER(${masterProducts.masterProductName}) = LOWER(${purchaseOrderItems.itemDescription})
+          LIMIT 1
+        )`,
+      })
       .from(purchaseOrderItems)
       .where(eq(purchaseOrderItems.purchaseOrderId, purchaseOrderId));
   }
