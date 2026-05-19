@@ -15,6 +15,8 @@ import {
   CreatePurchaseOrderInput,
 } from '../api/purchaseOrdersApi';
 import apiClient from '@/api/client';
+import { masterProductApi } from '@/features/master-products/api';
+import { unitApi } from '@/features/masters/api/unitApi';
 
 // ── Supplier type (local) ──────────────────────────────────────
 interface SupplierOption {
@@ -75,6 +77,40 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   >([emptyItem()]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [masterProducts, setMasterProducts] = useState<any[]>([]);
+  const [unitsList, setUnitsList] = useState<any[]>([]);
+  const [loadingMasterData, setLoadingMasterData] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadMasterData = async () => {
+      try {
+        setLoadingMasterData(true);
+        const mpResponse = await masterProductApi.getAll();
+        const allMps = mpResponse.success && mpResponse.data ? mpResponse.data : [];
+        const filteredMps = allMps.filter(p => p.productType === 'RM' || p.productType === 'PM');
+
+        const unitsResponse = await unitApi.getAll();
+        const allUnits = unitsResponse.success && unitsResponse.data ? unitsResponse.data : [];
+
+        if (isMounted) {
+          setMasterProducts(filteredMps);
+          setUnitsList(allUnits);
+        }
+      } catch (err) {
+        console.error('Failed to load master products or units:', err);
+      } finally {
+        if (isMounted) {
+          setLoadingMasterData(false);
+        }
+      }
+    };
+    loadMasterData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Populate form when editing
   useEffect(() => {
@@ -265,12 +301,40 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                 <tr key={idx} className="border-t border-[var(--border)]">
                   <td className="p-2 text-[var(--text-secondary)]">{idx + 1}</td>
                   <td className="p-2 min-w-[200px]">
-                    <input
+                    <select
                       className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                       value={item.itemDescription}
-                      onChange={e => updateItem(idx, 'itemDescription', e.target.value)}
-                      placeholder="Item description"
-                    />
+                      onChange={e => {
+                        const selectedName = e.target.value;
+                        updateItem(idx, 'itemDescription', selectedName);
+
+                        // Auto-populate matching unit if defaultUnitId exists
+                        const mp = masterProducts.find(p => p.masterProductName === selectedName);
+                        if (mp && mp.defaultUnitId) {
+                          const matchingUnit = unitsList.find(
+                            u => (u.UnitID ?? u.unitId) === mp.defaultUnitId
+                          );
+                          if (matchingUnit) {
+                            updateItem(
+                              idx,
+                              'unit',
+                              matchingUnit.UnitName ?? matchingUnit.unitName ?? ''
+                            );
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">Select product…</option>
+                      {item.itemDescription &&
+                        !masterProducts.some(p => p.masterProductName === item.itemDescription) && (
+                          <option value={item.itemDescription}>{item.itemDescription}</option>
+                        )}
+                      {masterProducts.map(p => (
+                        <option key={p.masterProductId} value={p.masterProductName}>
+                          {p.masterProductName} ({p.productType})
+                        </option>
+                      ))}
+                    </select>
                     {errors[`item_desc_${idx}`] && (
                       <p className="text-xs text-red-500 mt-0.5">{errors[`item_desc_${idx}`]}</p>
                     )}
@@ -289,12 +353,26 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                     )}
                   </td>
                   <td className="p-2 w-24">
-                    <input
+                    <select
                       className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                       value={item.unit || ''}
                       onChange={e => updateItem(idx, 'unit', e.target.value)}
-                      placeholder="kg / L"
-                    />
+                    >
+                      <option value="">Unit…</option>
+                      {item.unit &&
+                        !unitsList.some(u => (u.UnitName ?? u.unitName) === item.unit) && (
+                          <option value={item.unit}>{item.unit}</option>
+                        )}
+                      {unitsList.map(u => {
+                        const uName = u.UnitName ?? u.unitName ?? '';
+                        const uId = u.UnitID ?? u.unitId ?? 0;
+                        return (
+                          <option key={uId} value={uName}>
+                            {uName}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </td>
                   <td className="p-2 w-32">
                     <input
