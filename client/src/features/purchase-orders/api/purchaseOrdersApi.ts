@@ -24,6 +24,7 @@ export interface PurchaseOrder {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  items?: PurchaseOrderItem[];
 }
 
 export interface PurchaseOrderWithItems extends PurchaseOrder {

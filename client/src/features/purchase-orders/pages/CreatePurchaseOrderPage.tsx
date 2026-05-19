@@ -143,10 +143,35 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
 
   const totalAmount = items.reduce((sum, i) => sum + Number(i.quantity) * Number(i.unitPrice), 0);
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const getMinDate = () => {
+    if (isEditing && editingPO && editingPO.orderDate) {
+      const originalDate = editingPO.orderDate.slice(0, 10);
+      return originalDate < todayStr ? originalDate : todayStr;
+    }
+    return todayStr;
+  };
+
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!supplierId) errs.supplierId = 'Vendor is required';
-    if (!orderDate) errs.orderDate = 'Order date is required';
+
+    if (!orderDate) {
+      errs.orderDate = 'Order date is required';
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selected = new Date(orderDate);
+      selected.setHours(0, 0, 0, 0);
+      if (selected < today) {
+        const isOriginalDate =
+          isEditing && editingPO && editingPO.orderDate?.slice(0, 10) === orderDate;
+        if (!isOriginalDate) {
+          errs.orderDate = 'Order date cannot be in the past';
+        }
+      }
+    }
+
     items.forEach((item, idx) => {
       if (!item.itemDescription.trim()) errs[`item_desc_${idx}`] = 'Description required';
       if (Number(item.quantity) <= 0) errs[`item_qty_${idx}`] = 'Qty must be > 0';
@@ -240,6 +265,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
             onChange={e => setOrderDate(e.target.value)}
             required
             error={errors.orderDate}
+            min={getMinDate()}
           />
         </div>
 
@@ -590,6 +616,49 @@ const CreatePurchaseOrderPage: React.FC = () => {
       accessorKey: 'supplierName',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Vendor" />,
       cell: ({ row }) => <span className="font-medium">{row.original.supplierName || '—'}</span>,
+    },
+    {
+      id: 'material',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Material" />,
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          {row.original.items?.map((item, idx) => (
+            <div key={idx} className="whitespace-nowrap font-medium text-xs">
+              {item.itemDescription || '—'}
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'qty',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Qty" className="justify-end" />
+      ),
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1 text-right">
+          {row.original.items?.map((item, idx) => (
+            <div key={idx} className="font-mono text-xs">
+              {item.quantity !== undefined && item.quantity !== null
+                ? Number(item.quantity).toFixed(2)
+                : '—'}
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'unit',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Unit" />,
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          {row.original.items?.map((item, idx) => (
+            <div key={idx} className="text-[var(--text-secondary)] text-xs">
+              {item.unit || '—'}
+            </div>
+          ))}
+        </div>
+      ),
     },
     {
       accessorKey: 'orderDate',

@@ -11,7 +11,13 @@ export class PurchaseOrdersService {
   async getAllPurchaseOrders(limit, offset, status) {
     try {
       const pos = await this.repository.findAll({ limit, offset, status });
-      return pos.map(po => new PurchaseOrderDTO(po));
+      const posWithItems = await Promise.all(
+        pos.map(async po => {
+          const items = await this.repository.getItems(po.purchaseOrderId);
+          return new PurchaseOrderDTO(po, items);
+        })
+      );
+      return posWithItems;
     } catch (error) {
       logger.error('Error in getAllPurchaseOrders service:', error);
       throw error;

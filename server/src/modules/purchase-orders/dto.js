@@ -1,7 +1,7 @@
 // DTOs for Purchase Orders module
 
 export class PurchaseOrderDTO {
-  constructor(po) {
+  constructor(po, items = []) {
     this.purchaseOrderId = po.purchaseOrderId || po.purchase_order_id;
     this.poNumber = po.poNumber || po.po_number;
     this.supplierId = po.supplierId || po.supplier_id;
@@ -15,6 +15,7 @@ export class PurchaseOrderDTO {
     this.isActive = po.isActive ?? po.is_active ?? true;
     this.createdAt = po.createdAt || po.created_at;
     this.updatedAt = po.updatedAt || po.updated_at;
+    this.items = (po.items || items || []).map(i => new PurchaseOrderItemDTO(i));
   }
 }
 
