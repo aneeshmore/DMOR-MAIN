@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const createInwardFromPoSchema = z.object({
   purchaseOrderId: z.number().int().positive('Purchase Order is required'),
   supplierId: z.number().int().positive('Supplier is required'),
-  billNo: z.string().max(50).optional().or(z.literal('')),
+  billNo: z.string().min(1, 'Bill No is required').max(50),
   inwardDate: z.string().optional(),
   notes: z.string().optional(),
   items: z
@@ -15,6 +15,9 @@ export const createInwardFromPoSchema = z.object({
         unit: z.string().max(50).optional(),
         unitPrice: z.number().nonnegative().optional().default(0),
         totalCost: z.number().nonnegative().optional().default(0),
+        masterProductId: z.number().int().nullable().optional(),
+        productId: z.number().int().nullable().optional(),
+        unitId: z.number().int().nullable().optional(),
       })
     )
     .min(1, 'At least one item is required'),
@@ -33,6 +36,9 @@ export const updateInwardFromPoSchema = z.object({
         unit: z.string().max(50).optional(),
         unitPrice: z.number().nonnegative().optional(),
         totalCost: z.number().nonnegative().optional(),
+        masterProductId: z.number().int().nullable().optional(),
+        productId: z.number().int().nullable().optional(),
+        unitId: z.number().int().nullable().optional(),
       })
     )
     .optional(),

@@ -9,6 +9,8 @@ export interface PurchaseOrderItem {
   unitPrice: number;
   totalPrice?: number;
   gst?: number | null;
+  totalReceived?: number;
+  remainingQuantity?: number;
 }
 
 export interface PurchaseOrder {

@@ -24,13 +24,15 @@ export class PurchaseOrderItemDTO {
     this.itemId = item.itemId || item.item_id;
     this.purchaseOrderId = item.purchaseOrderId || item.purchase_order_id;
     this.itemDescription = item.itemDescription || item.item_description;
-    this.quantity = item.quantity;
+    this.quantity = Number(item.quantity);
     this.unit = item.unit || null;
-    this.unitPrice = item.unitPrice || item.unit_price || 0;
-    this.totalPrice = item.totalPrice || item.total_price || 0;
+    this.unitPrice = Number(item.unitPrice || item.unit_price || 0);
+    this.totalPrice = Number(item.totalPrice || item.total_price || 0);
     this.gst = item.gst !== undefined && item.gst !== null ? parseFloat(item.gst) : null;
     this.createdAt = item.createdAt || item.created_at;
     this.updatedAt = item.updatedAt || item.updated_at;
+    this.totalReceived = Number(item.totalReceived || 0);
+    this.remainingQuantity = Math.max(0, this.quantity - this.totalReceived);
   }
 }
 

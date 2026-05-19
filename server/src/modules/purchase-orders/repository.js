@@ -146,6 +146,11 @@ export class PurchaseOrdersRepository {
           WHERE LOWER(master_product_name) = LOWER(${purchaseOrderItems.itemDescription})
           LIMIT 1
         )`,
+        totalReceived: sql`(
+          SELECT COALESCE(SUM(received_quantity), 0)
+          FROM app.inward_from_po_items
+          WHERE purchase_order_item_id = ${purchaseOrderItems.itemId}
+        )`,
       })
       .from(purchaseOrderItems)
       .where(eq(purchaseOrderItems.purchaseOrderId, purchaseOrderId));

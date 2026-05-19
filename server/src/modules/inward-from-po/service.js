@@ -39,6 +39,11 @@ export class InwardFromPoService {
 
     const { items: itemsData, ...headerInfo } = payload;
 
+    // Fetch PO to get orderDate
+    const poRepository = new PurchaseOrdersRepository();
+    const po = await poRepository.findById(headerInfo.purchaseOrderId);
+    const orderDate = po ? po.orderDate : null;
+
     // Calculate total cost
     const totalCost = itemsData.reduce((sum, item) => {
       return sum + parseFloat(item.receivedQuantity) * parseFloat(item.unitPrice || 0);
@@ -74,6 +79,27 @@ export class InwardFromPoService {
 
       createdItems.push(createdItem);
 
+      // Propagate entry to the standard material_inward table for dashboard display
+      let createdInward = null;
+      try {
+        createdInward = await this.inwardRepository.createInward({
+          masterProductId: item.masterProductId,
+          productId: item.productId || null,
+          supplierId: headerInfo.supplierId,
+          billNo: headerInfo.billNo || '',
+          inwardDate: orderDate
+            ? new Date(orderDate)
+            : new Date(headerInfo.inwardDate || new Date()),
+          quantity: String(qty),
+          unitId: item.unitId || null,
+          unitPrice: String(price),
+          totalCost: String(itemCost.toFixed(2)),
+          notes: headerInfo.notes || null,
+        });
+      } catch (inwardError) {
+        logger.error('Failed to create material_inward entry:', inwardError);
+      }
+
       // Now, update stock in database!
       // Reuse the established InwardRepository.updateMasterProductStock to handle product stock and transaction logging!
       if (item.masterProductId) {
@@ -83,7 +109,7 @@ export class InwardFromPoService {
             qty, // quantity to add
             price, // purchase cost / unit price
             item.productId || null, // SKU ID for FG
-            createdHeader.inward_po_id // Pass ID to log inventory transactions
+            createdInward ? createdInward.inwardId : createdHeader.inward_po_id // Pass ID to log inventory transactions
           );
 
           // Auto-clear low-stock shortage notifications exactly like standard Inward module

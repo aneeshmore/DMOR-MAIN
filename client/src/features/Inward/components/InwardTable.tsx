@@ -91,8 +91,8 @@ export const InwardTable: React.FC<InwardTableProps> = ({ data, onEdit, onDelete
   // Helper to get material type label
   const getMaterialTypeLabel = (type: string) => {
     if (type === 'FG') return 'Finished Good';
-    if (type === 'RM') return 'Raw Material';
-    if (type === 'PM') return 'Packaging Material';
+    if (type === 'RM') return 'RAW MATERIAL';
+    if (type === 'PM') return 'PACKAGING MATERIAL';
     return '-';
   };
 

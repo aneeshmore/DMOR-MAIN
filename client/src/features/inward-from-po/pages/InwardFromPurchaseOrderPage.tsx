@@ -105,9 +105,11 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                 p.masterProductName.trim().toLowerCase() ===
                 item.itemDescription.trim().toLowerCase()
             );
+            const remaining =
+              item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
             initialMap[item.itemId!] = {
               masterProductId: match ? match.masterProductId : 0,
-              receivedQuantity: Number(item.quantity),
+              receivedQuantity: Number(remaining),
               unitId: match?.unitId || 0,
             };
           });
@@ -125,9 +127,13 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
     const errs: Record<string, string> = {};
     if (!selectedPoId) errs.selectedPoId = 'Purchase Order is required';
     if (!inwardDate) errs.inwardDate = 'Inward date is required';
+    if (!billNo || !billNo.trim()) errs.billNo = 'Bill No is required';
 
     if (poDetails) {
       poDetails.items.forEach(item => {
+        const remaining =
+          item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
+        if (Number(remaining) <= 0) return; // skip fully-received items
         const mapping = itemMappings[item.itemId!];
         if (!mapping || !mapping.masterProductId) {
           errs[`map_${item.itemId}`] = 'Map to inventory product';
@@ -152,20 +158,25 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
         billNo: billNo || undefined,
         inwardDate: new Date(inwardDate).toISOString(),
         notes: notes || undefined,
-        items: poDetails!.items.map(item => {
-          const mapping = itemMappings[item.itemId!];
-          const matchedProd = products.find(p => p.masterProductId === mapping.masterProductId);
-          return {
-            purchaseOrderItemId: item.itemId,
-            itemDescription: item.itemDescription,
-            receivedQuantity: Number(mapping.receivedQuantity),
-            unit: item.unit || undefined,
-            unitPrice: Number(item.unitPrice),
-            totalCost: Number(mapping.receivedQuantity) * Number(item.unitPrice),
-            masterProductId: mapping.masterProductId,
-            unitId: mapping.unitId || matchedProd?.unitId || undefined,
-          };
-        }),
+        items: poDetails!.items
+          .filter(item => {
+            const mapping = itemMappings[item.itemId!];
+            return mapping && Number(mapping.receivedQuantity) > 0;
+          })
+          .map(item => {
+            const mapping = itemMappings[item.itemId!];
+            const matchedProd = products.find(p => p.masterProductId === mapping.masterProductId);
+            return {
+              purchaseOrderItemId: item.itemId,
+              itemDescription: item.itemDescription,
+              receivedQuantity: Number(mapping.receivedQuantity),
+              unit: item.unit || undefined,
+              unitPrice: Number(item.unitPrice),
+              totalCost: Number(mapping.receivedQuantity) * Number(item.unitPrice),
+              masterProductId: mapping.masterProductId,
+              unitId: mapping.unitId || matchedProd?.unitId || undefined,
+            };
+          }),
       };
 
       await inwardFromPoApi.create(payload);
@@ -244,7 +255,9 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
             label="Bill No"
             value={billNo}
             onChange={e => setBillNo(e.target.value)}
-            placeholder="Optional bill number"
+            placeholder="Enter bill number"
+            required
+            error={errors.billNo}
           />
         </div>
 
@@ -288,96 +301,112 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {poDetails.items.map(item => {
-                    const mapVal = itemMappings[item.itemId!] || {
-                      masterProductId: 0,
-                      receivedQuantity: 0,
-                      unitId: 0,
-                    };
-                    const matchedProd = products.find(
-                      p => p.masterProductId === mapVal.masterProductId
-                    );
-                    const itemGst =
-                      item.gst !== undefined && item.gst !== null ? item.gst : matchedProd?.gst;
-                    return (
-                      <tr key={item.itemId} className="border-t border-[var(--border)]">
-                        <td className="p-3 font-medium">{item.itemDescription}</td>
-                        <td className="p-3 text-right">{Number(item.quantity).toFixed(2)}</td>
-                        <td className="p-3">{item.unit || '—'}</td>
-                        <td className="p-2">
-                          <select
-                            className="w-full px-2 py-1.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                            value={mapVal.masterProductId}
-                            onChange={e =>
-                              handleMappingChange(
-                                item.itemId!,
-                                'masterProductId',
-                                Number(e.target.value)
-                              )
-                            }
-                          >
-                            <option value={0}>Select inventory product…</option>
-                            {products.map(p => (
-                              <option key={p.masterProductId} value={p.masterProductId}>
-                                [{p.productType}] {p.masterProductName}
-                              </option>
-                            ))}
-                          </select>
-                          {errors[`map_${item.itemId}`] && (
-                            <p className="text-xs text-red-500 mt-0.5">
-                              {errors[`map_${item.itemId}`]}
-                            </p>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {itemGst !== undefined && itemGst !== null ? (
-                            <span className="font-semibold text-teal-600 bg-teal-50 px-2 py-1 rounded border border-teal-100 text-xs">
-                              {itemGst}%
-                            </span>
-                          ) : (
-                            <span className="text-[var(--text-secondary)] text-xs">—</span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="number"
-                            className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm text-right focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                            min={0.01}
-                            step={0.01}
-                            value={mapVal.receivedQuantity}
-                            onChange={e =>
-                              handleMappingChange(
-                                item.itemId!,
-                                'receivedQuantity',
-                                Number(e.target.value)
-                              )
-                            }
-                          />
-                          {errors[`qty_${item.itemId}`] && (
-                            <p className="text-xs text-red-500 mt-0.5">
-                              {errors[`qty_${item.itemId}`]}
-                            </p>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          <select
-                            className="w-full px-2 py-1.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                            value={mapVal.unitId}
-                            onChange={e =>
-                              handleMappingChange(item.itemId!, 'unitId', Number(e.target.value))
-                            }
-                          >
-                            <option value={0}>Default</option>
-                            {units.map(u => (
-                              <option key={u.UnitID} value={u.UnitID}>
-                                {u.UnitName}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {poDetails.items
+                    .filter(item => {
+                      const remaining =
+                        item.remainingQuantity !== undefined
+                          ? item.remainingQuantity
+                          : item.quantity;
+                      return Number(remaining) > 0;
+                    })
+                    .map(item => {
+                      const mapVal = itemMappings[item.itemId!] || {
+                        masterProductId: 0,
+                        receivedQuantity: 0,
+                        unitId: 0,
+                      };
+                      const matchedProd = products.find(
+                        p => p.masterProductId === mapVal.masterProductId
+                      );
+                      const itemGst =
+                        item.gst !== undefined && item.gst !== null ? item.gst : matchedProd?.gst;
+                      return (
+                        <tr key={item.itemId} className="border-t border-[var(--border)]">
+                          <td className="p-3 font-medium">{item.itemDescription}</td>
+                          <td className="p-3 text-right">
+                            <div>{Number(item.quantity).toFixed(2)}</div>
+                            {item.remainingQuantity !== undefined &&
+                              item.remainingQuantity < item.quantity && (
+                                <div className="text-xs text-amber-600 font-semibold">
+                                  Pending: {Number(item.remainingQuantity).toFixed(2)}
+                                </div>
+                              )}
+                          </td>
+                          <td className="p-3">{item.unit || '—'}</td>
+                          <td className="p-2">
+                            <select
+                              className="w-full px-2 py-1.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                              value={mapVal.masterProductId}
+                              onChange={e =>
+                                handleMappingChange(
+                                  item.itemId!,
+                                  'masterProductId',
+                                  Number(e.target.value)
+                                )
+                              }
+                            >
+                              <option value={0}>Select inventory product…</option>
+                              {products.map(p => (
+                                <option key={p.masterProductId} value={p.masterProductId}>
+                                  [{p.productType}] {p.masterProductName}
+                                </option>
+                              ))}
+                            </select>
+                            {errors[`map_${item.itemId}`] && (
+                              <p className="text-xs text-red-500 mt-0.5">
+                                {errors[`map_${item.itemId}`]}
+                              </p>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {itemGst !== undefined && itemGst !== null ? (
+                              <span className="font-semibold text-teal-600 bg-teal-50 px-2 py-1 rounded border border-teal-100 text-xs">
+                                {itemGst}%
+                              </span>
+                            ) : (
+                              <span className="text-[var(--text-secondary)] text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm text-right focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                              min={0.01}
+                              step={0.01}
+                              value={mapVal.receivedQuantity}
+                              onChange={e =>
+                                handleMappingChange(
+                                  item.itemId!,
+                                  'receivedQuantity',
+                                  Number(e.target.value)
+                                )
+                              }
+                            />
+                            {errors[`qty_${item.itemId}`] && (
+                              <p className="text-xs text-red-500 mt-0.5">
+                                {errors[`qty_${item.itemId}`]}
+                              </p>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <select
+                              className="w-full px-2 py-1.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                              value={mapVal.unitId}
+                              onChange={e =>
+                                handleMappingChange(item.itemId!, 'unitId', Number(e.target.value))
+                              }
+                            >
+                              <option value={0}>Default</option>
+                              {units.map(u => (
+                                <option key={u.UnitID} value={u.UnitID}>
+                                  {u.UnitName}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
@@ -454,10 +483,16 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
       ]);
 
       setPurchaseOrders(pos || []);
-      // Filter PO options to show Pending/Confirmed/Partial POs
+      // Filter PO options to show Pending/Confirmed/Partial POs that have remaining items
       setPoOptions(
         (pos || []).filter(
-          p => p.status === 'Pending' || p.status === 'Confirmed' || p.status === 'Partial'
+          p =>
+            (p.status === 'Pending' || p.status === 'Confirmed' || p.status === 'Partial') &&
+            p.items?.some((item: any) => {
+              const remaining =
+                item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
+              return Number(remaining) > 0;
+            })
         )
       );
 
@@ -510,45 +545,69 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
     {
       id: 'material',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Material" />,
-      cell: ({ row }) => (
-        <div className="flex flex-col gap-1">
-          {row.original.items?.map((item: any, idx: number) => (
-            <div key={idx} className="whitespace-nowrap font-medium text-xs">
-              {item.itemDescription || '—'}
-            </div>
-          ))}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const pendingItems =
+          row.original.items?.filter((item: any) => {
+            const remaining =
+              item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
+            return Number(remaining) > 0;
+          }) || [];
+        return (
+          <div className="flex flex-col gap-1">
+            {pendingItems.map((item: any, idx: number) => (
+              <div key={idx} className="whitespace-nowrap font-medium text-xs">
+                {item.itemDescription || '—'}
+              </div>
+            ))}
+          </div>
+        );
+      },
     },
     {
       id: 'qty',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Qty" className="justify-end" />
       ),
-      cell: ({ row }) => (
-        <div className="flex flex-col gap-1 text-right">
-          {row.original.items?.map((item: any, idx: number) => (
-            <div key={idx} className="font-mono text-xs">
-              {item.quantity !== undefined && item.quantity !== null
-                ? Number(item.quantity).toFixed(2)
-                : '—'}
-            </div>
-          ))}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const pendingItems =
+          row.original.items?.filter((item: any) => {
+            const remaining =
+              item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
+            return Number(remaining) > 0;
+          }) || [];
+        return (
+          <div className="flex flex-col gap-1 text-right">
+            {pendingItems.map((item: any, idx: number) => (
+              <div key={idx} className="font-mono text-xs">
+                {item.remainingQuantity !== undefined
+                  ? Number(item.remainingQuantity).toFixed(2)
+                  : Number(item.quantity).toFixed(2)}
+              </div>
+            ))}
+          </div>
+        );
+      },
     },
     {
       id: 'unit',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Unit" />,
-      cell: ({ row }) => (
-        <div className="flex flex-col gap-1">
-          {row.original.items?.map((item: any, idx: number) => (
-            <div key={idx} className="text-[var(--text-secondary)] text-xs">
-              {item.unit || '—'}
-            </div>
-          ))}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const pendingItems =
+          row.original.items?.filter((item: any) => {
+            const remaining =
+              item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
+            return Number(remaining) > 0;
+          }) || [];
+        return (
+          <div className="flex flex-col gap-1">
+            {pendingItems.map((item: any, idx: number) => (
+              <div key={idx} className="text-[var(--text-secondary)] text-xs">
+                {item.unit || '—'}
+              </div>
+            ))}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'orderDate',
@@ -619,7 +678,17 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
             <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden shadow-sm">
               <DataTable
                 columns={columns}
-                data={purchaseOrders}
+                data={purchaseOrders.filter(
+                  po =>
+                    ['Pending', 'Confirmed', 'Partial'].includes(po.status as string) &&
+                    po.items?.some((item: any) => {
+                      const remaining =
+                        item.remainingQuantity !== undefined
+                          ? item.remainingQuantity
+                          : item.quantity;
+                      return Number(remaining) > 0;
+                    })
+                )}
                 searchPlaceholder="Search purchase orders…"
                 onRowClick={row => {
                   setSelectedPoId(row.original.purchaseOrderId);
