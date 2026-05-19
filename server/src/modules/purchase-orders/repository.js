@@ -141,9 +141,9 @@ export class PurchaseOrdersRepository {
         createdAt: purchaseOrderItems.createdAt,
         updatedAt: purchaseOrderItems.updatedAt,
         gst: sql`(
-          SELECT ${masterProducts.gst}
-          FROM ${masterProducts}
-          WHERE LOWER(${masterProducts.masterProductName}) = LOWER(${purchaseOrderItems.itemDescription})
+          SELECT gst
+          FROM app.master_products
+          WHERE LOWER(master_product_name) = LOWER(${purchaseOrderItems.itemDescription})
           LIMIT 1
         )`,
       })

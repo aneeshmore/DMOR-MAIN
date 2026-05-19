@@ -101,7 +101,9 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
           full.items.forEach(item => {
             // Find closest product name match (case-insensitive)
             const match = products.find(
-              p => p.masterProductName.toLowerCase() === item.itemDescription.toLowerCase()
+              p =>
+                p.masterProductName.trim().toLowerCase() ===
+                item.itemDescription.trim().toLowerCase()
             );
             initialMap[item.itemId!] = {
               masterProductId: match ? match.masterProductId : 0,
@@ -266,21 +268,6 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
       {/* PO Details & Item Mapping Table */}
       {poDetails && (
         <div className="space-y-4 animate-fade-in">
-          <div className="p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border border-indigo-100 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-[var(--text-secondary)]">Vendor:</span>
-              <p className="font-semibold text-[var(--text-primary)]">
-                {poDetails.supplierName || '—'}
-              </p>
-            </div>
-            <div>
-              <span className="text-[var(--text-secondary)]">PO Total:</span>
-              <p className="font-bold text-[var(--primary)]">
-                ₹{Number(poDetails.totalAmount).toFixed(2)}
-              </p>
-            </div>
-          </div>
-
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
               Map PO Items to Inventory
@@ -396,6 +383,21 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
             </div>
           </div>
 
+          <div className="p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border border-indigo-100 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-[var(--text-secondary)]">Vendor:</span>
+              <p className="font-semibold text-[var(--text-primary)]">
+                {poDetails.supplierName || '—'}
+              </p>
+            </div>
+            <div>
+              <span className="text-[var(--text-secondary)]">PO Total:</span>
+              <p className="font-bold text-[var(--primary)]">
+                ₹{Number(poDetails.totalAmount).toFixed(2)}
+              </p>
+            </div>
+          </div>
+
           <div className="flex justify-end pt-2 border-t border-[var(--border)]">
             <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
               {submitting ? 'Saving Inward…' : 'Receive Material & Update Stock'}
@@ -466,7 +468,12 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
           productType: p.productType,
           unitId: p.unitId,
           purchaseCost: p.purchaseCost,
-          gst: p.gst || p.GST || null,
+          gst:
+            p.gst !== undefined && p.gst !== null
+              ? Number(p.gst)
+              : p.GST !== undefined && p.GST !== null
+                ? Number(p.GST)
+                : null,
         }))
       );
 
