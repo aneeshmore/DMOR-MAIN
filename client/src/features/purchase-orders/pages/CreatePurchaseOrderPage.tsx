@@ -85,6 +85,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   >([emptyItem()]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const tempValuesRef = React.useRef<Record<string, string | number>>({});
 
   const [masterProducts, setMasterProducts] = useState<any[]>([]);
   const [unitsList, setUnitsList] = useState<any[]>([]);
@@ -481,6 +482,16 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                       step={0.01}
                       value={item.quantity}
                       onChange={e => updateItem(idx, 'quantity', e.target.value)}
+                      onFocus={() => {
+                        tempValuesRef.current[`${idx}_quantity`] = item.quantity;
+                        updateItem(idx, 'quantity', '');
+                      }}
+                      onBlur={e => {
+                        if (e.target.value === '') {
+                          const prev = tempValuesRef.current[`${idx}_quantity`];
+                          updateItem(idx, 'quantity', prev !== undefined ? prev : 1);
+                        }
+                      }}
                     />
                     {errors[`item_qty_${idx}`] && (
                       <p className="text-xs text-red-500 mt-0.5">{errors[`item_qty_${idx}`]}</p>
@@ -531,6 +542,16 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                       step={0.01}
                       value={item.unitPrice}
                       onChange={e => updateItem(idx, 'unitPrice', e.target.value)}
+                      onFocus={() => {
+                        tempValuesRef.current[`${idx}_unitPrice`] = item.unitPrice;
+                        updateItem(idx, 'unitPrice', '');
+                      }}
+                      onBlur={e => {
+                        if (e.target.value === '') {
+                          const prev = tempValuesRef.current[`${idx}_unitPrice`];
+                          updateItem(idx, 'unitPrice', prev !== undefined ? prev : 0);
+                        }
+                      }}
                     />
                     {errors[`item_price_${idx}`] && (
                       <p className="text-xs text-red-500 mt-0.5">{errors[`item_price_${idx}`]}</p>
