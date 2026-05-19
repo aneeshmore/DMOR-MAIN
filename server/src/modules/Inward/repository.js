@@ -21,6 +21,19 @@ const mapInward = row => {
 };
 
 export class InwardRepository {
+  async findByBillNo(billNo) {
+    if (!billNo) return null;
+    const result = await db
+      .select({
+        inwardId: materialInward.inwardId,
+        billNo: materialInward.billNo,
+      })
+      .from(materialInward)
+      .where(sql`LOWER(TRIM(${materialInward.billNo})) = LOWER(TRIM(${billNo}))`)
+      .limit(1);
+    return result[0] || null;
+  }
+
   async findAllInwards(filters = {}) {
     try {
       let query = db

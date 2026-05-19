@@ -51,6 +51,7 @@ interface CreateInwardPoFormProps {
   pos: PoOption[];
   products: ProductOption[];
   units: UnitOption[];
+  inwards: any[];
   onSuccess: () => void;
   selectedPoId: number | '';
   setSelectedPoId: React.Dispatch<React.SetStateAction<number | ''>>;
@@ -60,6 +61,7 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
   pos,
   products,
   units,
+  inwards,
   onSuccess,
   selectedPoId,
   setSelectedPoId,
@@ -100,17 +102,42 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
           const initialMap: typeof itemMappings = {};
           full.items.forEach(item => {
             // Find closest product name match (case-insensitive)
-            const match = products.find(
-              p =>
-                p.masterProductName.trim().toLowerCase() ===
-                item.itemDescription.trim().toLowerCase()
-            );
+            const match =
+              products.find(
+                p =>
+                  p.masterProductName.trim().toLowerCase() ===
+                  item.itemDescription.trim().toLowerCase()
+              ) ||
+              products.find(
+                p =>
+                  p.masterProductName
+                    .trim()
+                    .toLowerCase()
+                    .includes(item.itemDescription.trim().toLowerCase()) ||
+                  item.itemDescription
+                    .trim()
+                    .toLowerCase()
+                    .includes(p.masterProductName.trim().toLowerCase())
+              );
             const remaining =
               item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
+
+            // Find matching unit in master units list by name
+            const matchingUnit =
+              units.find(
+                u => item.unit && u.UnitName.trim().toLowerCase() === item.unit.trim().toLowerCase()
+              ) ||
+              units.find(
+                u =>
+                  item.unit &&
+                  (u.UnitName.trim().toLowerCase().includes(item.unit.trim().toLowerCase()) ||
+                    item.unit.trim().toLowerCase().includes(u.UnitName.trim().toLowerCase()))
+              );
+
             initialMap[item.itemId!] = {
-              masterProductId: match ? match.masterProductId : 0,
+              masterProductId: match ? match.masterProductId || 0 : 0,
               receivedQuantity: Number(remaining),
-              unitId: match?.unitId || 0,
+              unitId: matchingUnit ? matchingUnit.UnitID : match?.unitId || 0,
             };
           });
           setItemMappings(initialMap);
@@ -121,13 +148,24 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
       setPoDetails(null);
       setItemMappings({});
     }
-  }, [selectedPoId, products]);
+  }, [selectedPoId, products, units]);
 
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!selectedPoId) errs.selectedPoId = 'Purchase Order is required';
     if (!inwardDate) errs.inwardDate = 'Inward date is required';
-    if (!billNo || !billNo.trim()) errs.billNo = 'Bill No is required';
+
+    if (!billNo || !billNo.trim()) {
+      errs.billNo = 'Bill No is required';
+    } else {
+      const trimmedBill = billNo.trim().toLowerCase();
+      const duplicate = (inwards || []).find(
+        inv => inv.billNo && inv.billNo.trim().toLowerCase() === trimmedBill
+      );
+      if (duplicate) {
+        errs.billNo = 'Bill No already exists';
+      }
+    }
 
     if (poDetails) {
       poDetails.items.forEach(item => {
@@ -254,7 +292,27 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
           <Input
             label="Bill No"
             value={billNo}
-            onChange={e => setBillNo(e.target.value)}
+            onChange={e => {
+              const val = e.target.value;
+              setBillNo(val);
+              if (!val || !val.trim()) {
+                setErrors(prev => ({ ...prev, billNo: 'Bill No is required' }));
+              } else {
+                const trimmedBill = val.trim().toLowerCase();
+                const duplicate = (inwards || []).find(
+                  inv => inv.billNo && inv.billNo.trim().toLowerCase() === trimmedBill
+                );
+                if (duplicate) {
+                  setErrors(prev => ({ ...prev, billNo: 'Bill No already exists' }));
+                } else {
+                  setErrors(prev => {
+                    const next = { ...prev };
+                    delete next.billNo;
+                    return next;
+                  });
+                }
+              }
+            }}
             placeholder="Enter bill number"
             required
             error={errors.billNo}
@@ -461,6 +519,7 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
   const [poOptions, setPoOptions] = useState<PoOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
+  const [inwards, setInwards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPoId, setSelectedPoId] = useState<number | ''>('');
 
@@ -472,7 +531,7 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
   const loadPageData = useCallback(async () => {
     try {
       setLoading(true);
-      const [pos, prods, rawUnits] = await Promise.all([
+      const [pos, prods, rawUnits, rawInwards] = await Promise.all([
         apiClient
           .get<{ success: boolean; data: any[] }>('/purchase-orders?limit=100')
           .then(res => res.data.data),
@@ -480,8 +539,10 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
           .get<{ success: boolean; data: any[] }>('/catalog/master-products?limit=500')
           .then(res => res.data.data),
         unitApi.getAll().then(res => res.data),
+        apiClient.get<{ success: boolean; data: any[] }>('/inward').then(res => res.data.data),
       ]);
 
+      setInwards(rawInwards || []);
       setPurchaseOrders(pos || []);
       // Filter PO options to show Pending/Confirmed/Partial POs that have remaining items
       setPoOptions(
@@ -498,10 +559,10 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
 
       setProducts(
         (prods || []).map(p => ({
-          masterProductId: p.masterProductId,
+          masterProductId: p.masterProductId || p.productId || 0,
           masterProductName: p.masterProductName || p.productName || 'Unknown',
-          productType: p.productType,
-          unitId: p.unitId,
+          productType: p.productType || '',
+          unitId: p.unitId || p.defaultUnitId || 0,
           purchaseCost: p.purchaseCost,
           gst:
             p.gst !== undefined && p.gst !== null
@@ -663,6 +724,7 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
           pos={poOptions}
           products={products}
           units={units}
+          inwards={inwards}
           onSuccess={loadPageData}
           selectedPoId={selectedPoId}
           setSelectedPoId={setSelectedPoId}

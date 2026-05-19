@@ -3,7 +3,7 @@ import { InwardRepository } from '../Inward/repository.js';
 import { NotificationsService } from '../notifications/service.js';
 import { InventoryRepository } from '../inventory/repository.js';
 import { PurchaseOrdersRepository } from '../purchase-orders/repository.js';
-import { AppError } from '../../utils/AppError.js';
+import { AppError, ValidationError } from '../../utils/AppError.js';
 import logger from '../../config/logger.js';
 import { sql } from 'drizzle-orm';
 import db from '../../db/index.js';
@@ -38,6 +38,14 @@ export class InwardFromPoService {
     logger.info('Creating Inward from Purchase Order:', payload);
 
     const { items: itemsData, ...headerInfo } = payload;
+
+    // Check if billNo already exists
+    if (headerInfo.billNo) {
+      const existingBill = await this.inwardRepository.findByBillNo(headerInfo.billNo);
+      if (existingBill) {
+        throw new ValidationError('Bill No already exists');
+      }
+    }
 
     // Fetch PO to get orderDate
     const poRepository = new PurchaseOrdersRepository();
