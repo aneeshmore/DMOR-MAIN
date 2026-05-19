@@ -189,6 +189,14 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
     return todayStr;
   };
 
+  const getMinDispatchDate = () => {
+    if (isEditing && editingPO && editingPO.expectedDeliveryDate) {
+      const originalDate = editingPO.expectedDeliveryDate.slice(0, 10);
+      return originalDate < todayStr ? originalDate : todayStr;
+    }
+    return todayStr;
+  };
+
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!supplierId) errs.supplierId = 'Vendor is required';
@@ -211,6 +219,20 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
 
     if (!expectedDeliveryDate) {
       errs.expectedDeliveryDate = 'Dispatch Date is required';
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selected = new Date(expectedDeliveryDate);
+      selected.setHours(0, 0, 0, 0);
+      if (selected < today) {
+        const isOriginalDate =
+          isEditing &&
+          editingPO &&
+          editingPO.expectedDeliveryDate?.slice(0, 10) === expectedDeliveryDate;
+        if (!isOriginalDate) {
+          errs.expectedDeliveryDate = 'Dispatch date cannot be in the past';
+        }
+      }
     }
 
     if (!deliveryAddress.trim()) {
@@ -337,6 +359,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
             onChange={e => setExpectedDeliveryDate(e.target.value)}
             required
             error={errors.expectedDeliveryDate}
+            min={getMinDispatchDate()}
           />
         </div>
 
@@ -776,7 +799,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
     },
     {
       accessorKey: 'expectedDeliveryDate',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Expected Delivery" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Dispatch Date" />,
       cell: ({ row }) => {
         if (!row.original.expectedDeliveryDate)
           return <span className="text-[var(--text-secondary)]">—</span>;

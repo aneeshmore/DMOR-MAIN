@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { Input, Button, Modal } from '@/components/ui';
 import { ColumnDef } from '@tanstack/react-table';
+import { companyApi } from '@/features/company/api/companyApi';
 
 // ============================================================
 // Validation helpers
@@ -66,6 +67,7 @@ const SupplierForm = ({
   onCancel: () => void;
   existingSuppliers: Supplier[];
 }) => {
+  const [defaultAddress, setDefaultAddress] = useState('');
   const [formData, setFormData] = useState<Partial<Supplier>>({
     supplierName: item?.supplierName || '',
     contactPerson: item?.contactPerson || '',
@@ -85,12 +87,37 @@ const SupplierForm = ({
   const isEditMode = !!item?.supplierId;
 
   useEffect(() => {
+    let isMounted = true;
+    const loadCompanyAddress = async () => {
+      try {
+        const res = await companyApi.get();
+        if (res.data && res.data.data) {
+          const factoryAddr = res.data.data.factoryAddress || '';
+          if (isMounted) {
+            setDefaultAddress(factoryAddr);
+            setFormData(prev => ({
+              ...prev,
+              address: prev.address || factoryAddr,
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load company factory address:', err);
+      }
+    };
+    loadCompanyAddress();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     setFormData({
       supplierName: item?.supplierName || '',
       contactPerson: item?.contactPerson || '',
       mobileNo: item?.mobileNo || '',
       mobileNo2: item?.mobileNo2 || '',
-      address: item?.address || '',
+      address: item?.address || defaultAddress,
       pincode: item?.pincode || '',
       state: item?.state || '',
       gstNo: item?.gstNo || '',
@@ -100,7 +127,7 @@ const SupplierForm = ({
           : '',
     });
     setErrors({});
-  }, [item]);
+  }, [item, defaultAddress]);
 
   const setFieldError = (field: string, msg: string) =>
     setErrors(prev => ({ ...prev, [field]: msg }));
@@ -141,16 +168,16 @@ const SupplierForm = ({
         return;
       }
       // Uniqueness check
-      if (
-        val.trim() &&
-        existingSuppliers.some(
-          s =>
-            ((s.mobileNo && s.mobileNo === val.trim()) ||
-              (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
-            s.supplierId !== item?.supplierId
-        )
-      ) {
-        setFieldError('mobileNo', 'Mobile number already used by another supplier');
+      const dup = val.trim()
+        ? existingSuppliers.find(
+            s =>
+              ((s.mobileNo && s.mobileNo === val.trim()) ||
+                (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
+              s.supplierId !== item?.supplierId
+          )
+        : null;
+      if (dup) {
+        setFieldError('mobileNo', `Mobile number already used by another ${dup.supplierName}`);
       } else {
         clearFieldError('mobileNo');
       }
@@ -162,16 +189,16 @@ const SupplierForm = ({
         return;
       }
       // Uniqueness check
-      if (
-        val.trim() &&
-        existingSuppliers.some(
-          s =>
-            ((s.mobileNo && s.mobileNo === val.trim()) ||
-              (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
-            s.supplierId !== item?.supplierId
-        )
-      ) {
-        setFieldError('mobileNo2', 'Mobile number already used by another supplier');
+      const dup = val.trim()
+        ? existingSuppliers.find(
+            s =>
+              ((s.mobileNo && s.mobileNo === val.trim()) ||
+                (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
+              s.supplierId !== item?.supplierId
+          )
+        : null;
+      if (dup) {
+        setFieldError('mobileNo2', `Mobile number already used by another ${dup.supplierName}`);
       } else {
         clearFieldError('mobileNo2');
       }
@@ -183,16 +210,16 @@ const SupplierForm = ({
         return;
       }
       // Uniqueness check
-      if (
-        val.trim() &&
-        existingSuppliers.some(
-          s =>
-            s.gstNo &&
-            s.gstNo.toUpperCase() === val.trim().toUpperCase() &&
-            s.supplierId !== item?.supplierId
-        )
-      ) {
-        setFieldError('gstNo', 'GST number already used by another supplier');
+      const dup = val.trim()
+        ? existingSuppliers.find(
+            s =>
+              s.gstNo &&
+              s.gstNo.toUpperCase() === val.trim().toUpperCase() &&
+              s.supplierId !== item?.supplierId
+          )
+        : null;
+      if (dup) {
+        setFieldError('gstNo', `GST already used by another ${dup.supplierName}`);
       } else {
         clearFieldError('gstNo');
       }
@@ -260,15 +287,14 @@ const SupplierForm = ({
         return;
       }
       // Uniqueness check
-      if (
-        existingSuppliers.some(
-          s =>
-            ((s.mobileNo && s.mobileNo === formData.mobileNo!.trim()) ||
-              (s.mobileNo2 && s.mobileNo2 === formData.mobileNo!.trim())) &&
-            s.supplierId !== item?.supplierId
-        )
-      ) {
-        setFieldError('mobileNo', 'Mobile number already used by another supplier');
+      const dup = existingSuppliers.find(
+        s =>
+          ((s.mobileNo && s.mobileNo === formData.mobileNo!.trim()) ||
+            (s.mobileNo2 && s.mobileNo2 === formData.mobileNo!.trim())) &&
+          s.supplierId !== item?.supplierId
+      );
+      if (dup) {
+        setFieldError('mobileNo', `Mobile number already used by another ${dup.supplierName}`);
         return;
       }
     }
@@ -279,15 +305,14 @@ const SupplierForm = ({
         return;
       }
       // Uniqueness check
-      if (
-        existingSuppliers.some(
-          s =>
-            ((s.mobileNo && s.mobileNo === formData.mobileNo2!.trim()) ||
-              (s.mobileNo2 && s.mobileNo2 === formData.mobileNo2!.trim())) &&
-            s.supplierId !== item?.supplierId
-        )
-      ) {
-        setFieldError('mobileNo2', 'Mobile number already used by another supplier');
+      const dup = existingSuppliers.find(
+        s =>
+          ((s.mobileNo && s.mobileNo === formData.mobileNo2!.trim()) ||
+            (s.mobileNo2 && s.mobileNo2 === formData.mobileNo2!.trim())) &&
+          s.supplierId !== item?.supplierId
+      );
+      if (dup) {
+        setFieldError('mobileNo2', `Mobile number already used by another ${dup.supplierName}`);
         return;
       }
     }
@@ -298,15 +323,14 @@ const SupplierForm = ({
         return;
       }
       // Uniqueness check
-      if (
-        existingSuppliers.some(
-          s =>
-            s.gstNo &&
-            s.gstNo.toUpperCase() === formData.gstNo!.trim().toUpperCase() &&
-            s.supplierId !== item?.supplierId
-        )
-      ) {
-        setFieldError('gstNo', 'GST number already used by another supplier');
+      const dup = existingSuppliers.find(
+        s =>
+          s.gstNo &&
+          s.gstNo.toUpperCase() === formData.gstNo!.trim().toUpperCase() &&
+          s.supplierId !== item?.supplierId
+      );
+      if (dup) {
+        setFieldError('gstNo', `GST already used by another ${dup.supplierName}`);
         return;
       }
     }
