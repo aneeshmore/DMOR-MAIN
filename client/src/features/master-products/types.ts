@@ -20,6 +20,7 @@ export interface Product {
   FillingDensity?: number; // Editable density for filling calculations
   IsFdSyncWithDensity?: boolean; // If true, filling density syncs with master density
   IncentiveAmount?: number;
+  gst?: number;
   CreatedAt?: string;
   UpdatedAt?: string;
 }
@@ -42,6 +43,7 @@ export interface MasterProduct {
   description?: string;
   defaultUnitId?: number;
   isActive: boolean;
+  gst?: number;
   createdAt?: string;
   updatedAt?: string;
 

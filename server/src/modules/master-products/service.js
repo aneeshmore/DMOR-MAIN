@@ -35,6 +35,10 @@ export class MasterProductsService {
         productType: masterProductData.ProductType,
         description: masterProductData.Description,
         defaultUnitId: masterProductData.DefaultUnitID,
+        gst:
+          masterProductData.GST !== undefined && masterProductData.GST !== null
+            ? masterProductData.GST.toString()
+            : null,
         isActive: true,
       });
 
@@ -98,6 +102,8 @@ export class MasterProductsService {
     if (updateData.DefaultUnitID !== undefined)
       updateFields.defaultUnitId = updateData.DefaultUnitID;
     if (updateData.IsActive !== undefined) updateFields.isActive = updateData.IsActive;
+    if (updateData.GST !== undefined)
+      updateFields.gst = updateData.GST !== null ? updateData.GST.toString() : null;
 
     if (Object.keys(updateFields).length > 0) {
       await this.repository.updateMasterProduct(masterProductId, updateFields);
@@ -228,7 +234,7 @@ export class MasterProductsService {
       const pmMasters = await this.repository.findAllMasterProducts({ productType: 'PM' });
 
       // 3. Format RM/PM to match Product structure
-      const formatMaster = (mp) => ({
+      const formatMaster = mp => ({
         productId: mp.masterProduct?.masterProductId,
         ProductID: mp.masterProduct?.masterProductId,
         productName: mp.masterProduct?.masterProductName,
@@ -241,7 +247,9 @@ export class MasterProductsService {
             ? mp.rmDetails?.availableQty || 0
             : mp.pmDetails?.availableQty || 0,
         availableWeightKg:
-          mp.masterProduct?.productType === 'RM' ? parseFloat(mp.rmDetails?.availableQty || 0) : null,
+          mp.masterProduct?.productType === 'RM'
+            ? parseFloat(mp.rmDetails?.availableQty || 0)
+            : null,
         minStockLevel: mp.masterProduct?.minStockLevel || 0,
         isActive: mp.masterProduct?.isActive,
       });
@@ -268,7 +276,8 @@ export class MasterProductsService {
         ProductType: mp.masterProduct?.productType,
         availableQuantity:
           productType === 'RM' ? mp.rmDetails?.availableQty || 0 : mp.pmDetails?.availableQty || 0,
-        availableWeightKg: productType === 'RM' ? parseFloat(mp.rmDetails?.availableQty || 0) : null,
+        availableWeightKg:
+          productType === 'RM' ? parseFloat(mp.rmDetails?.availableQty || 0) : null,
         minStockLevel: mp.masterProduct?.minStockLevel || 0,
         isActive: mp.masterProduct?.isActive,
       }));

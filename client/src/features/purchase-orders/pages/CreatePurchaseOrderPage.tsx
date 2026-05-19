@@ -210,7 +210,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         {/* Expected Delivery Date */}
         <div>
           <Input
-            label="Expected Delivery Date"
+            label="Dispatch Date"
             type="date"
             value={expectedDeliveryDate}
             onChange={e => setExpectedDeliveryDate(e.target.value)}

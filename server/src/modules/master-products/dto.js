@@ -12,6 +12,11 @@ export class MasterProductDTO {
     this.description = masterProduct.description;
     this.defaultUnitId = masterProduct.defaultUnitId || masterProduct.default_unit_id;
     this.isActive = masterProduct.isActive ?? masterProduct.is_active ?? true;
+    this.gst =
+      masterProduct.gst !== undefined && masterProduct.gst !== null
+        ? parseFloat(masterProduct.gst)
+        : null;
+    this.GST = this.gst;
     this.createdAt = masterProduct.createdAt || masterProduct.created_at;
     this.updatedAt = masterProduct.updatedAt || masterProduct.updated_at;
 
@@ -163,6 +168,11 @@ export class ProductDTO {
     if (masterProduct) {
       this.MasterProductName = masterProduct.masterProductName || masterProduct.master_product_name;
       this.masterProductName = this.MasterProductName;
+      this.gst =
+        masterProduct.gst !== undefined && masterProduct.gst !== null
+          ? parseFloat(masterProduct.gst)
+          : null;
+      this.GST = this.gst;
     }
 
     if (unit) {

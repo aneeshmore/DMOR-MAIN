@@ -31,6 +31,11 @@ export const createMasterProductSchema = z.object({
   // PM-specific fields
   Capacity: z.number().min(0).optional().nullable(),
   // StockQuantity is shared with RM above
+
+  GST: z.preprocess(
+    val => (val === '' || val === undefined ? null : Number(val)),
+    z.number().min(0).max(100).nullable().optional()
+  ),
 });
 
 export const updateMasterProductSchema = z.object({
@@ -38,6 +43,10 @@ export const updateMasterProductSchema = z.object({
   Description: z.string().optional().nullable(),
   DefaultUnitID: z.number().int().positive().optional().nullable(),
   IsActive: z.boolean().optional(),
+  GST: z.preprocess(
+    val => (val === '' || val === undefined ? null : Number(val)),
+    z.number().min(0).max(100).nullable().optional()
+  ),
 
   // FG-specific fields
   DefaultPackagingType: z.string().max(100).optional().nullable(),
