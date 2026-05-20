@@ -14,6 +14,7 @@ import { downloadInvoicePDF } from '@/features/quotations/utils/pdfGenerator';
 import { QuotationData } from '@/features/quotations/types';
 import { companyApi } from '@/features/company/api/companyApi';
 import { decodeHtml } from '@/utils/stringUtils';
+import { apiClient } from '@/api/client';
 
 import { Edit as EditIcon } from 'lucide-react';
 
@@ -246,17 +247,17 @@ const CreateOrderPage: React.FC = () => {
               order.status === 'Dispatched' ||
               order.status === 'Verified' ||
               order.status === 'Ready for Dispatch') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDownloadInvoice(order)}
-                  title="Download Invoice"
-                  className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-1"
-                >
-                  <Download size={14} className="mr-1.5" />
-                  Invoice
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDownloadInvoice(order)}
+                title="Download Invoice"
+                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-1"
+              >
+                <Download size={14} className="mr-1.5" />
+                Invoice
+              </Button>
+            )}
             {(order.status === 'Pending' || order.status === 'Rejected') && (
               <Button
                 variant="ghost"
@@ -305,7 +306,20 @@ const CreateOrderPage: React.FC = () => {
         companyApi.get().catch(() => ({ data: null })),
       ]);
 
-      const c: any = companyRes.data || {};
+      const c: any = companyRes?.data?.data || companyRes?.data || {};
+
+      const cid = order.customerId || fullOrder.customerId;
+      let customerDetails: any = null;
+      if (cid) {
+        try {
+          const custRes = await apiClient.get<{ success: boolean; data: any }>(
+            `/masters/customers/${cid}`
+          );
+          customerDetails = custRes.data?.data || custRes.data;
+        } catch (e) {
+          console.error('Failed to fetch customer details', e);
+        }
+      }
 
       // Map Order to QuotationData structure for the Invoice generator
       const invoiceData: QuotationData = {
@@ -331,7 +345,7 @@ const CreateOrderPage: React.FC = () => {
         companyPhone: c.contactNumber || '',
         companyEmail: c.email || '',
         companyGSTIN: c.gstNumber || '',
-        companyState: '', // Need to add to company info
+        companyState: c.state || '', // Need to add to company info
         companyCode: '', // Need to add to company info
 
         bankName: c.bankName || '',
@@ -339,9 +353,11 @@ const CreateOrderPage: React.FC = () => {
         ifsc: c.ifscCode || '',
         branch: c.branch || '',
 
-        buyerName: fullOrder.companyName || fullOrder.customerName,
-        buyerAddress: fullOrder.deliveryAddress,
-        buyerGSTIN: '', // Would need to fetch customer details for this if not in order
+        buyerName:
+          fullOrder.companyName || fullOrder.customerName || customerDetails?.CompanyName || '',
+        buyerAddress: fullOrder.deliveryAddress || customerDetails?.Address || '',
+        buyerGSTIN: customerDetails?.GSTNumber || '', // Would need to fetch customer details for this if not in order
+        buyerState: customerDetails?.State || '',
 
         items: (fullOrder.orderDetails || []).map((item: OrderDetail, index: number) => ({
           id: index + 1,
@@ -488,10 +504,10 @@ const CreateOrderPage: React.FC = () => {
                           : selectedOrder.status === 'Ready for Dispatch'
                             ? 'bg-blue-100 text-blue-800 border-blue-200'
                             : selectedOrder.status === 'In Production' ||
-                              selectedOrder.status === 'Scheduled for Production'
+                                selectedOrder.status === 'Scheduled for Production'
                               ? 'bg-purple-100 text-purple-800 border-purple-200'
                               : selectedOrder.status === 'Confirmed' ||
-                                selectedOrder.status === 'Accepted'
+                                  selectedOrder.status === 'Accepted'
                                 ? 'bg-teal-100 text-teal-800 border-teal-200'
                                 : selectedOrder.status === 'Pending'
                                   ? 'bg-orange-100 text-orange-800 border-orange-200'

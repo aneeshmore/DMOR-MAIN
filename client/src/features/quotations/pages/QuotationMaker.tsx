@@ -357,6 +357,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
               companyLogo: c.logoUrl || prev.companyLogo,
               companyAddress: c.address || prev.companyAddress,
               companyGSTIN: c.gstNumber || prev.companyGSTIN,
+              companyState: c.state || prev.companyState,
               companyEmail: c.email || prev.companyEmail,
               companyPhone: c.contactNumber || prev.companyPhone,
               companyPAN: c.panNumber || prev.companyPAN,
@@ -524,6 +525,48 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
   const finalSGST = data.sgstTotal ?? totalSGST;
 
   const finalTotal = totalAmount + finalCGST + finalSGST;
+
+  const firstItem = data.items[0];
+
+  const getIsSameState = () => {
+    const compState = data.companyState || '';
+    const companyGSTIN = data.companyGSTIN || '';
+    const buyerState = (data as any).buyerState || '';
+    const buyerGSTIN = data.buyerGSTIN || '';
+
+    const compGSTPrefix = companyGSTIN.trim().slice(0, 2);
+    const suppGSTPrefix = buyerGSTIN.trim().slice(0, 2);
+    const hasValidGSTPrefixes = /^\d{2}$/.test(compGSTPrefix) && /^\d{2}$/.test(suppGSTPrefix);
+
+    if (hasValidGSTPrefixes) {
+      return compGSTPrefix === suppGSTPrefix;
+    }
+
+    if (compState && buyerState) {
+      return compState.trim().toLowerCase() === buyerState.trim().toLowerCase();
+    }
+
+    // Default fallback: if we have customer ID and customers are loaded
+    if (data.customerId && customers.length > 0) {
+      const cust = customers.find(c => c.CustomerID === data.customerId);
+      if (cust) {
+        const custState = cust.State || '';
+        const custGST = cust.GSTNumber || '';
+        const custGSTPrefix = custGST.trim().slice(0, 2);
+        const hasValidCustGST = /^\d{2}$/.test(custGSTPrefix);
+        if (/^\d{2}$/.test(compGSTPrefix) && hasValidCustGST) {
+          return compGSTPrefix === custGSTPrefix;
+        }
+        if (compState && custState) {
+          return compState.trim().toLowerCase() === custState.trim().toLowerCase();
+        }
+      }
+    }
+
+    return true; // Default to same state (CGST+SGST)
+  };
+
+  const isSameState = getIsSameState();
 
   const isMobile = () =>
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -963,8 +1006,8 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                   Ready for Download
                 </h3>
                 <p className="text-[var(--text-secondary)] mb-8">
-                  Your PDF should start downloading automatically. If it doesn't, click the button
-                  below.
+                  Your PDF should start downloading automatically. If it doesn&apos;t, click the
+                  button below.
                 </p>
                 <div className="flex flex-col gap-3">
                   <Button
@@ -1444,30 +1487,57 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                 <div className="p-1 px-4 text-right italic">Sub Total</div>
                 <div className="p-1 text-right">{totalAmount.toFixed(2)}</div>
               </div>
-              <div className="grid grid-cols-[1fr_144px] divide-x divide-black border-b border-black">
-                <div className="p-1 px-4 text-right italic">CGST 9%</div>
-                <div className="p-1 text-right">
-                  <EditableInput
-                    isPdfMode={isPdfMode}
-                    readOnly={true}
-                    value={finalCGST.toFixed(2)}
-                    onChange={v => updateField('cgstTotal', parseFloat(v) || 0)}
-                    className="text-right"
-                  />
+              {isSameState ? (
+                <>
+                  <div className="grid grid-cols-[1fr_144px] divide-x divide-black border-b border-black">
+                    <div className="p-1 px-4 text-right italic">
+                      CGST {firstItem?.cgstRate ?? 9}%
+                    </div>
+                    <div className="p-1 text-right">
+                      <EditableInput
+                        isPdfMode={isPdfMode}
+                        readOnly={true}
+                        value={finalCGST.toFixed(2)}
+                        onChange={v => updateField('cgstTotal', parseFloat(v) || 0)}
+                        className="text-right"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-[1fr_144px] divide-x divide-black">
+                    <div className="p-1 px-4 text-right italic">
+                      SGST {firstItem?.sgstRate ?? 9}%
+                    </div>
+                    <div className="p-1 text-right">
+                      <EditableInput
+                        isPdfMode={isPdfMode}
+                        readOnly={true}
+                        value={finalSGST.toFixed(2)}
+                        onChange={v => updateField('sgstTotal', parseFloat(v) || 0)}
+                        className="text-right"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-[1fr_144px] divide-x divide-black">
+                  <div className="p-1 px-4 text-right italic">
+                    IGST {(firstItem?.cgstRate ?? 9) + (firstItem?.sgstRate ?? 9)}%
+                  </div>
+                  <div className="p-1 text-right">
+                    <EditableInput
+                      isPdfMode={isPdfMode}
+                      readOnly={true}
+                      value={(finalCGST + finalSGST).toFixed(2)}
+                      onChange={v => {
+                        const totalIGSTVal = parseFloat(v) || 0;
+                        updateField('cgstTotal', totalIGSTVal / 2);
+                        updateField('sgstTotal', totalIGSTVal / 2);
+                      }}
+                      className="text-right"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-[1fr_144px] divide-x divide-black">
-                <div className="p-1 px-4 text-right italic">SGST 9%</div>
-                <div className="p-1 text-right">
-                  <EditableInput
-                    isPdfMode={isPdfMode}
-                    readOnly={true}
-                    value={finalSGST.toFixed(2)}
-                    onChange={v => updateField('sgstTotal', parseFloat(v) || 0)}
-                    className="text-right"
-                  />
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="border border-black grid grid-cols-[1fr_auto] divide-x divide-black font-bold text-[9pt]">
@@ -1475,7 +1545,9 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
               <div className="p-1 w-[144px] text-right">
                 ₹ {finalTotal.toFixed(2)}
                 <br />
-                <span className="text-[7.5pt] text-gray-600 italic">(Incl. 18% GST)</span>
+                <span className="text-[7.5pt] text-gray-600 italic">
+                  (Incl. {(firstItem?.cgstRate ?? 9) + (firstItem?.sgstRate ?? 9)}% GST)
+                </span>
               </div>
             </div>
           </div>

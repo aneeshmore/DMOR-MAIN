@@ -44,6 +44,7 @@ export interface QuotationData {
   buyerName?: string;
   buyerAddress?: string;
   buyerGSTIN?: string;
+  buyerState?: string;
 
   // Customer address (for Create Order integration)
   customerAddress?: string;
