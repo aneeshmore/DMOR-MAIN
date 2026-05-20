@@ -18,6 +18,8 @@ import apiClient from '@/api/client';
 import { masterProductApi } from '@/features/master-products/api';
 import { unitApi } from '@/features/masters/api/unitApi';
 import { companyApi } from '@/features/company/api/companyApi';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 // ── Supplier type (local) ──────────────────────────────────────
 interface SupplierOption {
@@ -681,72 +683,477 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const downloadPO = useCallback(async (po: PurchaseOrder) => {
     try {
       showToast.loading('Preparing PO…', 'po-dl');
-      const full = await purchaseOrdersApi.getById(po.purchaseOrderId);
+      const [full, companyRes] = await Promise.all([
+        purchaseOrdersApi.getById(po.purchaseOrderId),
+        companyApi.get().catch(() => null),
+      ]);
+
+      let supplierDetails: any = null;
+      if (full.supplierId) {
+        try {
+          const suppRes = await apiClient.get<{ success: boolean; data: any }>(
+            `/suppliers/${full.supplierId}`
+          );
+          supplierDetails = suppRes.data.data || suppRes.data;
+        } catch (e) {
+          console.error('Failed to fetch supplier details', e);
+        }
+      }
+
+      let masterProducts: any[] = [];
+      try {
+        const mpRes = await masterProductApi.getAll();
+        masterProducts = mpRes.success && mpRes.data ? mpRes.data : [];
+      } catch (e) {
+        console.error('Failed to fetch master products', e);
+      }
+
       showToast.dismiss('po-dl');
 
-      const itemRows = (full.items || [])
-        .map(
-          (item, idx) => `
-        <tr>
-          <td style="padding:8px;border:1px solid #e2e8f0">${idx + 1}</td>
-          <td style="padding:8px;border:1px solid #e2e8f0">${item.itemDescription}</td>
-          <td style="padding:8px;border:1px solid #e2e8f0;text-align:right">${Number(item.quantity).toFixed(4)}</td>
-          <td style="padding:8px;border:1px solid #e2e8f0">${item.unit || '-'}</td>
-          <td style="padding:8px;border:1px solid #e2e8f0;text-align:right">&#8377;${Number(item.unitPrice).toFixed(2)}</td>
-          <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:600">&#8377;${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}</td>
-        </tr>`
-        )
+      // Helper to format invoice date
+      const formatInvoiceDate = (dateStr?: string | null) => {
+        if (!dateStr) return '—';
+        try {
+          const d = new Date(dateStr);
+          const day = String(d.getDate()).padStart(2, '0');
+          const months = [
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+          ];
+          const month = months[d.getMonth()];
+          const year = String(d.getFullYear()).slice(-2);
+          return `${day}-${month}-${year}`;
+        } catch {
+          return dateStr;
+        }
+      };
+
+      // Helper to get state code
+      const getStateCode = (stateName: string) => {
+        const s = (stateName || '').toLowerCase();
+        if (s.includes('maharashtra')) return '27';
+        if (s.includes('delhi')) return '07';
+        if (s.includes('gujarat')) return '24';
+        if (s.includes('karnataka')) return '29';
+        if (s.includes('tamil nadu')) return '33';
+        return '';
+      };
+
+      // Helper to convert number to Indian words
+      const numberToIndianWords = (num: number) => {
+        const a = [
+          '',
+          'One',
+          'Two',
+          'Three',
+          'Four',
+          'Five',
+          'Six',
+          'Seven',
+          'Eight',
+          'Nine',
+          'Ten',
+          'Eleven',
+          'Twelve',
+          'Thirteen',
+          'Fourteen',
+          'Fifteen',
+          'Sixteen',
+          'Seventeen',
+          'Eighteen',
+          'Nineteen',
+        ];
+        const b = [
+          '',
+          '',
+          'Twenty',
+          'Thirty',
+          'Forty',
+          'Fifty',
+          'Sixty',
+          'Seventy',
+          'Eighty',
+          'Ninety',
+        ];
+
+        function numToWords(n: number): string {
+          if (n < 20) return a[n];
+          if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
+          if (n < 1000)
+            return (
+              a[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + numToWords(n % 100) : '')
+            );
+          if (n < 100000)
+            return (
+              numToWords(Math.floor(n / 1000)) +
+              ' Thousand' +
+              (n % 1000 !== 0 ? ' ' + numToWords(n % 1000) : '')
+            );
+          if (n < 10000000)
+            return (
+              numToWords(Math.floor(n / 100000)) +
+              ' Lakh' +
+              (n % 100000 !== 0 ? ' ' + numToWords(n % 100000) : '')
+            );
+          return (
+            numToWords(Math.floor(n / 10000000)) +
+            ' Crore' +
+            (n % 10000000 !== 0 ? ' ' + numToWords(n % 10000000) : '')
+          );
+        }
+
+        const rounded = Math.round(num);
+        if (rounded === 0) return 'Zero';
+        return numToWords(rounded) + ' Only';
+      };
+
+      const supplierName = supplierDetails?.supplierName || full.supplierName || '—';
+      const supplierAddress = supplierDetails?.address || '—';
+      const supplierGSTIN = supplierDetails?.gstNo || '—';
+      const supplierState = supplierDetails?.state || '—';
+      const supplierStateCode = getStateCode(supplierState);
+
+      const companyData: any = companyRes?.data?.data || {};
+      const companyName = companyData.companyName || 'Dmor Polymers Private Limited';
+      const companyAddress =
+        companyData.address ||
+        companyData.companyAddress ||
+        'Office No. 403 & 404, "Ambegaon Valley", In Front of Swaminarayan Temple, Ambegaon Khurd, Pune - 411046';
+      const companyGSTIN = companyData.gstNumber || companyData.companyGSTIN || '27AAGCD5732R1Z1';
+      const companyPAN = companyData.panNumber || companyData.companyPAN || 'AAGCD5732R';
+      const companyState = companyData.state || 'Maharashtra';
+      const companyStateCode = getStateCode(companyState);
+
+      const isSameState = companyState.trim().toLowerCase() === supplierState.trim().toLowerCase();
+
+      const orderDateFormatted = formatInvoiceDate(full.orderDate);
+      const deliveryDateFormatted = formatInvoiceDate(full.expectedDeliveryDate);
+
+      const paymentTerms = supplierDetails?.creditDays ? `${supplierDetails.creditDays} Days` : '—';
+      const termsOfDelivery = [full.notes, full.deliveryAddress].filter(Boolean).join('\n');
+
+      let taxableAmount = 0;
+      let totalCGST = 0;
+      let totalSGST = 0;
+      let totalIGST = 0;
+      let totalQuantity = 0;
+
+      const taxGroups: Record<number, number> = {};
+
+      const itemRowsHtml = (full.items || [])
+        .map((item, idx) => {
+          const mp = masterProducts.find((p: any) => p.masterProductName === item.itemDescription);
+          const gstRate = mp && mp.gst !== undefined && mp.gst !== null ? Number(mp.gst) : 18;
+          const qty = Number(item.quantity);
+          const rate = Number(item.unitPrice);
+          const amount = qty * rate;
+
+          taxableAmount += amount;
+          totalQuantity += qty;
+
+          taxGroups[gstRate] = (taxGroups[gstRate] || 0) + amount;
+
+          return `
+            <tr>
+              <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${idx + 1}</td>
+              <td style="width: 45%; border-right: 1px solid #000; padding: 5px 6px; vertical-align: top; font-weight: bold;">${item.itemDescription}</td>
+              <td style="width: 10%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${deliveryDateFormatted}</td>
+              <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top; font-weight: bold; white-space: nowrap;">${qty.toFixed(4)} ${item.unit || ''}</td>
+              <td style="width: 10%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top;">${rate.toFixed(2)}</td>
+              <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${item.unit || ''}</td>
+              <td style="width: 3%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">&nbsp;</td>
+              <td style="width: 10%; text-align: right; padding: 5px 6px; vertical-align: top; font-weight: bold;">${amount.toFixed(2)}</td>
+            </tr>
+          `;
+        })
         .join('');
 
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-        <title>Purchase Order - ${full.poNumber}</title>
-        <style>
-          body{font-family:Arial,sans-serif;font-size:13px;color:#1a202c;margin:0;padding:24px}
-          h1{margin:0;font-size:22px;color:#4f46e5}
-          .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e2e8f0}
-          .badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e}
-          .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
-          .info-block label{font-size:11px;color:#718096;text-transform:uppercase;letter-spacing:.5px}
-          .info-block p{margin:2px 0 0;font-weight:600}
-          table{width:100%;border-collapse:collapse;margin-bottom:16px}
-          thead{background:#f7fafc}
-          th{padding:8px;border:1px solid #e2e8f0;text-align:left;font-size:12px}
-          tfoot td{background:#f7fafc;font-weight:700}
-          .total-row td{background:#eef2ff;color:#4f46e5}
-          @media print{body{padding:0}}
-        </style></head><body>
-        <div class="header">
-          <div><h1>Purchase Order</h1><div style="font-size:18px;font-weight:700;color:#4f46e5;margin-top:4px">${full.poNumber}</div></div>
-          <div style="text-align:right"><span class="badge">${full.status}</span><br/>
-            <small style="color:#718096">Date: ${full.orderDate?.slice(0, 10) || '-'}</small>
+      const taxRowsHtmlList: string[] = [];
+      Object.entries(taxGroups).forEach(([rateStr, amount]) => {
+        const rate = Number(rateStr);
+        const taxVal = amount * (rate / 100);
+        if (isSameState) {
+          const cgst = taxVal / 2;
+          const sgst = taxVal / 2;
+          totalCGST += cgst;
+          totalSGST += sgst;
+          taxRowsHtmlList.push(`
+            <tr>
+              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 45%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input CGST @ ${rate / 2}%</td>
+              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate / 2}%</td>
+              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 3%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 10%; text-align: right; padding: 4px 6px; font-weight: bold;">${cgst.toFixed(2)}</td>
+            </tr>
+          `);
+          taxRowsHtmlList.push(`
+            <tr>
+              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 45%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input SGST @ ${rate / 2}%</td>
+              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate / 2}%</td>
+              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 3%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 10%; text-align: right; padding: 4px 6px; font-weight: bold;">${sgst.toFixed(2)}</td>
+            </tr>
+          `);
+        } else {
+          totalIGST += taxVal;
+          taxRowsHtmlList.push(`
+            <tr>
+              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 45%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input IGST @ ${rate}%</td>
+              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate}%</td>
+              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 3%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 10%; text-align: right; padding: 4px 6px; font-weight: bold;">${taxVal.toFixed(2)}</td>
+            </tr>
+          `);
+        }
+      });
+
+      const rawTotal = taxableAmount + totalCGST + totalSGST + totalIGST;
+      const finalTotal = Math.round(rawTotal);
+      const roundingOff = finalTotal - rawTotal;
+
+      if (roundingOff !== 0) {
+        taxRowsHtmlList.push(`
+          <tr>
+            <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td style="width: 45%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Rounding Off</td>
+            <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td style="width: 3%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td style="width: 10%; text-align: right; padding: 4px 6px; font-weight: bold;">${roundingOff.toFixed(2)}</td>
+          </tr>
+        `);
+      }
+
+      const taxRowsHtml = taxRowsHtmlList.join('');
+      const amountInWords = numberToIndianWords(finalTotal);
+
+      // Compute precise heights for A4 framing
+      // Target viewport dimensions of main-table in pixel representation of A4 (794x1123 minus 80px margins = 714px width, 1043px height)
+      // Headers, company details and details block totals about 370px.
+      // Total amount block, declarations and footer totals about 195px.
+      // Table Header = 28px. Table Footer/Total row = 28px.
+      // Total height remaining for body rows, tax rows, and spacer row is:
+      // 1043 - 370 - 195 - 28 - 28 = 422px (use 420 for safety).
+      const itemsCount = full.items?.length || 1;
+      const taxRowsCount = taxRowsHtmlList.length;
+      const occupiedHeight = (itemsCount + taxRowsCount) * 24;
+      const spacerHeight = Math.max(50, 420 - occupiedHeight);
+
+      // Create temporary offscreen element for high definition A4 rendering
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.width = '794px';
+      container.style.height = '1123px';
+      container.style.boxSizing = 'border-box';
+      container.style.backgroundColor = '#ffffff';
+      container.style.zIndex = '-9999';
+
+      container.innerHTML = `
+        <div style="width: 794px; height: 1123px; padding: 40px; box-sizing: border-box; background: #ffffff;">
+          <div style="border: 2px solid #000; width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; background: #ffffff;">
+            <div>
+              <div style="text-align: center; font-size: 14px; font-weight: bold; border-bottom: 2px solid #000; padding: 6px 0; text-transform: uppercase; letter-spacing: 1px; font-family: Arial, sans-serif;">
+                Purchase Order
+              </div>
+
+              <table style="width: 100%; border-bottom: 2px solid #000; border-collapse: collapse; font-family: Arial, sans-serif;">
+                <tr>
+                  <td style="width: 50%; border-right: 1px solid #000; padding: 0; vertical-align: top;">
+                    <div style="padding: 8px; border-bottom: 1px solid #000; min-height: 115px; box-sizing: border-box;">
+                      <div style="font-size: 8px; color: #555; font-style: italic; margin-bottom: 2px;">Invoice To</div>
+                      <div style="font-size: 11px; font-weight: bold;">${companyName}</div>
+                      <div style="white-space: pre-wrap; margin-top: 2px; line-height: 1.3; font-size: 10px;">${companyAddress}</div>
+                      <div style="margin-top: 4px; font-size: 10px;"><strong>GSTIN/UIN:</strong> ${companyGSTIN}</div>
+                      <div style="font-size: 10px;"><strong>State Name:</strong> ${companyState}${companyStateCode ? `, Code : ${companyStateCode}` : ''}</div>
+                    </div>
+                    <div style="padding: 8px; min-height: 115px; box-sizing: border-box;">
+                      <div style="font-size: 8px; color: #555; font-style: italic; margin-bottom: 2px;">Supplier (Bill from)</div>
+                      <div style="font-size: 11px; font-weight: bold;">${supplierName}</div>
+                      <div style="white-space: pre-wrap; margin-top: 2px; line-height: 1.3; font-size: 10px;">${supplierAddress}</div>
+                      <div style="margin-top: 4px; font-size: 10px;"><strong>GSTIN/UIN:</strong> ${supplierGSTIN}</div>
+                      <div style="font-size: 10px;"><strong>State Name:</strong> ${supplierState}${supplierStateCode ? `, Code : ${supplierStateCode}` : ''}</div>
+                    </div>
+                  </td>
+
+                  <td style="width: 50%; padding: 0; vertical-align: top;">
+                    <table style="width: 100%; border-collapse: collapse; border: none;">
+                      <tr>
+                        <td style="width: 50%; border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
+                          <div style="font-size: 8px; color: #555;">Po No.</div>
+                          <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${full.poNumber}</div>
+                        </td>
+                        <td style="width: 50%; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
+                          <div style="font-size: 8px; color: #555;">Dated</div>
+                          <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${orderDateFormatted}</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="width: 50%; border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
+                          <div style="font-size: 8px; color: #555;">Mode/Terms of Payment</div>
+                          <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${paymentTerms}</div>
+                        </td>
+                        <td style="width: 50%; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
+                          <div style="font-size: 8px; color: #555;">Other References</div>
+                          <div style="font-size: 10px; margin-top: 2px;">—</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="width: 50%; border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
+                          <div style="font-size: 8px; color: #555;">Reference No. & Date</div>
+                          <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${full.poNumber}</div>
+                        </td>
+                        <td style="width: 50%; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
+                          <div style="font-size: 8px; color: #555;">Destination</div>
+                          <div style="font-size: 10px; margin-top: 2px;">—</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colspan="2" style="border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
+                          <div style="font-size: 8px; color: #555;">Dispatched through</div>
+                          <div style="font-size: 10px; margin-top: 2px;">—</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colspan="2" style="padding: 6px; min-height: 62px; box-sizing: border-box; vertical-align: top;">
+                          <div style="font-size: 8px; color: #555;">Terms of Delivery</div>
+                          <div style="font-size: 10px; font-weight: bold; white-space: pre-wrap; margin-top: 2px; line-height: 1.3;">${termsOfDelivery || '—'}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif;">
+                <thead>
+                  <tr style="border-bottom: 1px solid #000; font-weight: bold; text-align: center; background: #ffffff;">
+                    <th style="width: 5%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px;">SI No.</th>
+                    <th style="width: 45%; border-right: 1px solid #000; padding: 6px 4px; text-align: left; font-size: 10px;">Description of Goods</th>
+                    <th style="width: 10%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px;">Due on</th>
+                    <th style="width: 12%; border-right: 1px solid #000; padding: 6px 4px; text-align: right; font-size: 10px;">Quantity</th>
+                    <th style="width: 10%; border-right: 1px solid #000; padding: 6px 4px; text-align: right; font-size: 10px;">Rate</th>
+                    <th style="width: 5%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px;">per</th>
+                    <th style="width: 3%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px;">Disc. %</th>
+                    <th style="width: 10%; padding: 6px 4px; text-align: right; font-size: 10px;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemRowsHtml}
+                  ${taxRowsHtml}
+                  <tr style="height: ${spacerHeight}px;">
+                    <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                    <td style="width: 45%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                    <td style="width: 10%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                    <td style="width: 12%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                    <td style="width: 10%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                    <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                    <td style="width: 3%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                    <td style="width: 10%; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                  </tr>
+                  <tr style="font-weight: bold; border-bottom: 2px solid #000; font-size: 10px;">
+                    <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 45%; border-right: 1px solid #000; text-align: right; padding: 6px;">Total</td>
+                    <td style="width: 10%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 6px; white-space: nowrap;">${totalQuantity.toFixed(4)} ${full.items?.[0]?.unit || ''}</td>
+                    <td style="width: 10%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 3%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 10%; text-align: right; padding: 6px;">₹ ${finalTotal.toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; margin-top: auto;">
+              <tr>
+                <td colspan="2" style="padding: 8px 10px; border-bottom: 1px solid #000; font-size: 10px;">
+                  <div style="font-size: 8px; color: #555; font-style: italic;">Amount Chargeable (in words)</div>
+                  <div style="font-size: 11px; font-weight: bold; margin-top: 3px;">INR ${amountInWords}</div>
+                </td>
+              </tr>
+              <tr style="height: 110px;">
+                <td style="width: 55%; border-right: 1px solid #000; padding: 8px 10px; vertical-align: top; font-size: 10px;">
+                  <div style="margin-bottom: 12px; font-size: 10px;">
+                    <strong>Company's PAN</strong> : <span style="font-weight: bold;">${companyPAN}</span>
+                  </div>
+                  <div>
+                    <strong style="font-size: 9px;">Declaration:</strong>
+                    <div style="font-size: 9px; line-height: 1.4; color: #333; margin-top: 3px;">
+                      We declare that this purchase order shows the actual price of the goods described and that all particulars are true and correct.
+                    </div>
+                  </div>
+                </td>
+                <td style="width: 45%; padding: 8px 10px; text-align: right; vertical-align: top; font-size: 10px; position: relative; height: 110px; box-sizing: border-box;">
+                  <div style="font-size: 10px; font-weight: bold;">for ${companyName}</div>
+                  <div style="font-size: 9px; font-weight: bold; color: #444; position: absolute; bottom: 12px; right: 10px;">Authorised Signatory</div>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2" style="text-align: center; border-top: 1px solid #000; padding: 8px 0 10px 0; font-size: 8px; line-height: 1.4;">
+                  <div style="font-weight: bold; font-style: normal; color: #000; letter-spacing: 0.5px;">GENERATED BY MOREX TECHNOLOGIES</div>
+                </td>
+              </tr>
+            </table>
           </div>
         </div>
-        <div class="info-grid">
-          <div class="info-block"><label>Vendor</label><p>${full.supplierName || '-'}</p></div>
-          <div class="info-block"><label>Expected Delivery</label><p>${full.expectedDeliveryDate?.slice(0, 10) || '-'}</p></div>
-          ${full.deliveryAddress ? `<div class="info-block" style="grid-column:span 2"><label>Delivery Address</label><p>${full.deliveryAddress}</p></div>` : ''}
-        </div>
-        <table>
-          <thead><tr>
-            <th>#</th><th>Description</th><th style="text-align:right">Qty</th>
-            <th>Unit</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th>
-          </tr></thead>
-          <tbody>${itemRows}</tbody>
-          <tfoot><tr class="total-row">
-            <td colspan="5" style="padding:10px;border:1px solid #e2e8f0;text-align:right">Total Amount</td>
-            <td style="padding:10px;border:1px solid #e2e8f0;text-align:right">&#8377;${Number(full.totalAmount).toFixed(2)}</td>
-          </tr></tfoot>
-        </table>
-        ${full.notes ? `<div style="background:#f7fafc;padding:12px;border-radius:8px"><strong>Notes:</strong> ${full.notes}</div>` : ''}
-        <script>window.onload=()=>{window.print();}</script>
-      </body></html>`;
+      `;
 
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-      }
-    } catch {
+      showToast.loading('Generating PDF…', 'po-dl');
+      document.body.appendChild(container);
+
+      // Give browser time to complete rendering layout inside offscreen div
+      await new Promise(r => setTimeout(r, 600));
+
+      const canvas = await html2canvas(container, {
+        scale: 2.5, // Ultra sharp scale factor
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      document.body.removeChild(container);
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      pdf.save(`PO-${full.poNumber}.pdf`);
+
+      showToast.dismiss('po-dl');
+      showToast.success('Purchase Order PDF downloaded successfully');
+    } catch (err: any) {
+      console.error(err);
+      showToast.dismiss('po-dl');
       showToast.error('Failed to download purchase order');
     }
   }, []);
