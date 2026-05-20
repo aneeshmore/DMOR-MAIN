@@ -30,14 +30,15 @@ async function ensureSupplierColumns() {
   }
 }
 
+const quoteIdentifier = value => `"${String(value).replace(/"/g, '""')}"`;
+
 export class SuppliersRepository {
   async findAll(filters = {}) {
     await ensureSupplierColumns();
     let query = db.select().from(suppliers);
 
-    if (filters.isActive !== undefined) {
-      query = query.where(eq(suppliers.isActive, filters.isActive));
-    }
+    const isActive = filters.isActive !== undefined ? filters.isActive : true;
+    query = query.where(eq(suppliers.isActive, isActive));
 
     return await query.orderBy(suppliers.supplierName);
   }
@@ -62,6 +63,103 @@ export class SuppliersRepository {
       .limit(1);
 
     return result[0] || null;
+  }
+
+  async tableExists(schemaName, tableName) {
+    const result = await db.execute(sql`
+      SELECT to_regclass(${`${schemaName}.${tableName}`}) AS table_name
+    `);
+    const rows = result.rows || result;
+    return Boolean(rows[0]?.table_name);
+  }
+
+  async countRowsBySupplierId(tableName, supplierId) {
+    const exists = await this.tableExists('app', tableName);
+    if (!exists) return 0;
+
+    const result = await db.execute(
+      sql.raw(
+        `SELECT COUNT(*)::int AS count FROM app.${quoteIdentifier(tableName)} WHERE supplier_id = ${Number(supplierId)}`
+      )
+    );
+    const rows = result.rows || result;
+    return Number(rows[0]?.count || 0);
+  }
+
+  async findSupplierDependencies(supplierId) {
+    const dependencies = [];
+
+    const knownReferences = [
+      {
+        key: 'purchaseOrders',
+        tableName: 'purchase_orders',
+        label: 'Purchase Orders',
+        message: 'Vendor cannot be deleted because Purchase Orders exist.',
+      },
+      {
+        key: 'inwardFromPo',
+        tableName: 'inward_from_po',
+        label: 'Inward From Purchase Order',
+        message: 'Vendor cannot be deleted because Inward From Purchase Order records exist.',
+      },
+      {
+        key: 'materialInward',
+        tableName: 'material_inward',
+        label: 'Inward Logs',
+        message: 'Vendor cannot be deleted because Inward Logs exist.',
+      },
+    ];
+
+    for (const reference of knownReferences) {
+      const count = await this.countRowsBySupplierId(reference.tableName, supplierId);
+      if (count > 0) {
+        dependencies.push({ ...reference, count });
+      }
+    }
+
+    const fkResult = await db.execute(sql`
+      SELECT
+        tc.table_schema,
+        tc.table_name,
+        kcu.column_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage ccu
+        ON ccu.constraint_name = tc.constraint_name
+       AND ccu.table_schema = tc.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND ccu.table_schema = 'app'
+        AND ccu.table_name = 'suppliers'
+        AND ccu.column_name = 'supplier_id'
+    `);
+    const fkRows = fkResult.rows || fkResult;
+    const knownTables = new Set(knownReferences.map(reference => reference.tableName));
+
+    for (const row of fkRows) {
+      if (row.table_schema !== 'app' || knownTables.has(row.table_name)) continue;
+
+      const countResult = await db.execute(
+        sql.raw(
+          `SELECT COUNT(*)::int AS count FROM ${quoteIdentifier(row.table_schema)}.${quoteIdentifier(row.table_name)} WHERE ${quoteIdentifier(row.column_name)} = ${Number(supplierId)}`
+        )
+      );
+      const rows = countResult.rows || countResult;
+      const count = Number(rows[0]?.count || 0);
+
+      if (count > 0) {
+        dependencies.push({
+          key: row.table_name,
+          tableName: row.table_name,
+          label: row.table_name,
+          message: 'Vendor is linked with operational records and cannot be deleted.',
+          count,
+        });
+      }
+    }
+
+    return dependencies;
   }
 
   async create(supplierData) {

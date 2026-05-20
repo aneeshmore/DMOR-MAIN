@@ -521,9 +521,10 @@ export default function SupplierMaster() {
         pincode: pendingItem.pincode || undefined,
         state: pendingItem.state || undefined,
         gstNo: pendingItem.gstNo || undefined,
-        creditDays: (pendingItem.paymentTerms && !isNaN(parseInt(pendingItem.paymentTerms, 10)))
-          ? parseInt(pendingItem.paymentTerms, 10)
-          : undefined,
+        creditDays:
+          pendingItem.paymentTerms && !isNaN(parseInt(pendingItem.paymentTerms, 10))
+            ? parseInt(pendingItem.paymentTerms, 10)
+            : undefined,
       };
       logger.info('Creating supplier:', createData);
       const response = await supplierApi.create(createData as any);
@@ -558,9 +559,10 @@ export default function SupplierMaster() {
         pincode: pendingItem.pincode || undefined,
         state: pendingItem.state || undefined,
         gstNo: pendingItem.gstNo || undefined,
-        creditDays: (pendingItem.paymentTerms && !isNaN(parseInt(pendingItem.paymentTerms, 10)))
-          ? parseInt(pendingItem.paymentTerms, 10)
-          : undefined,
+        creditDays:
+          pendingItem.paymentTerms && !isNaN(parseInt(pendingItem.paymentTerms, 10))
+            ? parseInt(pendingItem.paymentTerms, 10)
+            : undefined,
       };
       logger.info('Updating supplier:', { id: pendingItem.supplierId, data: updateData });
       const response = await supplierApi.update(pendingItem.supplierId, updateData as any);
@@ -603,11 +605,16 @@ export default function SupplierMaster() {
 
     try {
       logger.info('Deleting supplier:', { id });
-      await supplierApi.delete(id);
+      const response = await supplierApi.delete(id);
+      if (!response.success) {
+        showToast.error(response.error || 'Failed to delete supplier');
+        return;
+      }
       setSuppliers(prev => prev.filter(s => s.supplierId !== id));
       showToast.success('Supplier deleted successfully');
     } catch (error) {
       logger.error('Failed to delete supplier:', error);
+      showToast.error('Failed to delete supplier');
     }
   };
 

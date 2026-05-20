@@ -132,6 +132,12 @@ export class PurchaseOrdersService {
     if (!existing) {
       throw new AppError('Purchase order not found', 404);
     }
+
+    const dependencies = await this.repository.findPurchaseOrderDependencies(purchaseOrderId);
+    if (dependencies.length > 0) {
+      throw new AppError(dependencies[0].message, 400);
+    }
+
     await this.repository.delete(purchaseOrderId);
     logger.info('Purchase order soft-deleted', { purchaseOrderId });
   }

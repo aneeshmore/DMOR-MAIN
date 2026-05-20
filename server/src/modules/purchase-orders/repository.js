@@ -1,4 +1,4 @@
-import { eq, desc, sql } from 'drizzle-orm';
+import { and, eq, desc, sql } from 'drizzle-orm';
 import db from '../../db/index.js';
 import {
   purchaseOrders,
@@ -56,6 +56,8 @@ async function ensureTables() {
   }
 }
 
+const quoteIdentifier = value => `"${String(value).replace(/"/g, '""')}"`;
+
 export class PurchaseOrdersRepository {
   async getNextPoNumber() {
     const now = new Date();
@@ -100,9 +102,10 @@ export class PurchaseOrdersRepository {
       .from(purchaseOrders)
       .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.supplierId));
 
-    if (status) {
-      query = query.where(eq(purchaseOrders.status, status));
-    }
+    const conditions = [eq(purchaseOrders.isActive, true)];
+    if (status) conditions.push(eq(purchaseOrders.status, status));
+
+    query = query.where(and(...conditions));
 
     return await query.orderBy(desc(purchaseOrders.createdAt)).limit(limit).offset(offset);
   }
@@ -128,10 +131,123 @@ export class PurchaseOrdersRepository {
       })
       .from(purchaseOrders)
       .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.supplierId))
-      .where(eq(purchaseOrders.purchaseOrderId, purchaseOrderId))
+      .where(
+        and(eq(purchaseOrders.purchaseOrderId, purchaseOrderId), eq(purchaseOrders.isActive, true))
+      )
       .limit(1);
 
     return result[0] || null;
+  }
+
+  async tableExists(schemaName, tableName) {
+    const result = await db.execute(sql`
+      SELECT to_regclass(${`${schemaName}.${tableName}`}) AS table_name
+    `);
+    const rows = result.rows || result;
+    return Boolean(rows[0]?.table_name);
+  }
+
+  async countRowsByColumn(tableName, columnName, value) {
+    const exists = await this.tableExists('app', tableName);
+    if (!exists) return 0;
+
+    const result = await db.execute(
+      sql.raw(
+        `SELECT COUNT(*)::int AS count FROM app.${quoteIdentifier(tableName)} WHERE ${quoteIdentifier(columnName)} = ${Number(value)}`
+      )
+    );
+    const rows = result.rows || result;
+    return Number(rows[0]?.count || 0);
+  }
+
+  async countInwardPoItemsByPurchaseOrderId(purchaseOrderId) {
+    const inwardItemsTableExists = await this.tableExists('app', 'inward_from_po_items');
+    const poItemsTableExists = await this.tableExists('app', 'purchase_order_items');
+    if (!inwardItemsTableExists || !poItemsTableExists) return 0;
+
+    const result = await db.execute(sql`
+      SELECT COUNT(*)::int AS count
+      FROM app.inward_from_po_items ipoi
+      INNER JOIN app.purchase_order_items poi
+        ON poi.item_id = ipoi.purchase_order_item_id
+      WHERE poi.purchase_order_id = ${purchaseOrderId}
+    `);
+    const rows = result.rows || result;
+    return Number(rows[0]?.count || 0);
+  }
+
+  async findPurchaseOrderDependencies(purchaseOrderId) {
+    const dependencies = [];
+
+    const inwardFromPoCount = await this.countRowsByColumn(
+      'inward_from_po',
+      'purchase_order_id',
+      purchaseOrderId
+    );
+    if (inwardFromPoCount > 0) {
+      dependencies.push({
+        key: 'inwardFromPo',
+        tableName: 'inward_from_po',
+        label: 'Inward From Purchase Order',
+        message: 'Purchase Order cannot be deleted because inward entries exist.',
+        count: inwardFromPoCount,
+      });
+    }
+
+    const inwardItemCount = await this.countInwardPoItemsByPurchaseOrderId(purchaseOrderId);
+    if (inwardItemCount > 0 && inwardFromPoCount === 0) {
+      dependencies.push({
+        key: 'inwardFromPoItems',
+        tableName: 'inward_from_po_items',
+        label: 'Inward Logs',
+        message: 'Purchase Order cannot be deleted because inward entries exist.',
+        count: inwardItemCount,
+      });
+    }
+
+    const fkResult = await db.execute(sql`
+      SELECT
+        tc.table_schema,
+        tc.table_name,
+        kcu.column_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage ccu
+        ON ccu.constraint_name = tc.constraint_name
+       AND ccu.table_schema = tc.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND ccu.table_schema = 'app'
+        AND ccu.table_name = 'purchase_orders'
+        AND ccu.column_name = 'purchase_order_id'
+    `);
+    const fkRows = fkResult.rows || fkResult;
+    const knownTables = new Set(['purchase_order_items', 'inward_from_po']);
+
+    for (const row of fkRows) {
+      if (row.table_schema !== 'app' || knownTables.has(row.table_name)) continue;
+
+      const countResult = await db.execute(
+        sql.raw(
+          `SELECT COUNT(*)::int AS count FROM ${quoteIdentifier(row.table_schema)}.${quoteIdentifier(row.table_name)} WHERE ${quoteIdentifier(row.column_name)} = ${Number(purchaseOrderId)}`
+        )
+      );
+      const rows = countResult.rows || countResult;
+      const count = Number(rows[0]?.count || 0);
+
+      if (count > 0) {
+        dependencies.push({
+          key: row.table_name,
+          tableName: row.table_name,
+          label: row.table_name,
+          message: 'Purchase Order is already used in operational records.',
+          count,
+        });
+      }
+    }
+
+    return dependencies;
   }
 
   async getItems(purchaseOrderId) {

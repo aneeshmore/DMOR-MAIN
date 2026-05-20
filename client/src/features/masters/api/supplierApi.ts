@@ -10,7 +10,7 @@ interface ApiResponse<T> {
 export const supplierApi = {
   getAll: async (): Promise<ApiResponse<Supplier[]>> => {
     try {
-      const { data } = await apiClient.get('/suppliers');
+      const { data } = await apiClient.get('/suppliers?isActive=true');
       return { success: true, data: data.data ?? data };
     } catch (err: any) {
       return {
@@ -51,7 +51,7 @@ export const supplierApi = {
     } catch (err: any) {
       return {
         success: false,
-        error: err?.message || 'Failed to delete supplier',
+        error: err?.message || err?.data?.message || 'Failed to delete supplier',
       };
     }
   },

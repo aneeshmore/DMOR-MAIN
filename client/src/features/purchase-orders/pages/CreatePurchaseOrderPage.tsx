@@ -712,8 +712,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
       await purchaseOrdersApi.delete(po.purchaseOrderId);
       setPurchaseOrders(prev => prev.filter(p => p.purchaseOrderId !== po.purchaseOrderId));
       showToast.success('Purchase order deleted');
-    } catch {
-      showToast.error('Failed to delete purchase order');
+    } catch (err: any) {
+      showToast.error(err?.message || 'Failed to delete purchase order');
     }
   }, []);
 
