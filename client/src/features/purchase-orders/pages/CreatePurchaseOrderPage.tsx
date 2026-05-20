@@ -76,7 +76,9 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
 
   const [supplierId, setSupplierId] = useState<number | ''>('');
   const [orderDate, setOrderDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState(
+    format(new Date(), 'yyyy-MM-dd')
+  );
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [factoryAddressDefault, setFactoryAddressDefault] = useState('');
   const [notes, setNotes] = useState('');
@@ -148,7 +150,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
     } else {
       setSupplierId('');
       setOrderDate(format(new Date(), 'yyyy-MM-dd'));
-      setExpectedDeliveryDate('');
+      setExpectedDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
       setDeliveryAddress(factoryAddressDefault);
       setNotes('');
       setItems([emptyItem()]);
@@ -292,7 +294,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         // Reset form
         setSupplierId('');
         setOrderDate(format(new Date(), 'yyyy-MM-dd'));
-        setExpectedDeliveryDate('');
+        setExpectedDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
         setDeliveryAddress(factoryAddressDefault);
         setNotes('');
         setItems([emptyItem()]);
@@ -834,7 +836,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const companyState = companyData.state || 'Maharashtra';
       const companyStateCode = getStateCode(companyState);
 
-      const isSameState = companyState.trim().toLowerCase() === supplierState.trim().toLowerCase();
+      // Determine if supplier and company are in the same state by comparing state code prefixes from GSTINs or state names
+      const compGSTPrefix = companyGSTIN.trim().slice(0, 2);
+      const suppGSTPrefix = supplierGSTIN.trim().slice(0, 2);
+      const hasValidGSTPrefixes = /^\d{2}$/.test(compGSTPrefix) && /^\d{2}$/.test(suppGSTPrefix);
+
+      const isSameState = hasValidGSTPrefixes
+        ? compGSTPrefix === suppGSTPrefix
+        : companyState.trim().toLowerCase() === supplierState.trim().toLowerCase();
 
       const orderDateFormatted = formatInvoiceDate(full.orderDate);
       const deliveryDateFormatted = formatInvoiceDate(full.expectedDeliveryDate);
