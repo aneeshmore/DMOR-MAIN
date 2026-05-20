@@ -26,6 +26,7 @@ export const purchaseOrders = appSchema.table('purchase_orders', {
   expectedDeliveryDate: date('expected_delivery_date'),
   status: varchar('status', { length: 50 }).default('Pending').notNull(),
   totalAmount: numeric('total_amount', { precision: 14, scale: 2 }).default('0'),
+  deliveryTerms: text('delivery_terms'),
   notes: text('notes'),
   deliveryAddress: text('delivery_address'),
   isActive: boolean('is_active').default(true),

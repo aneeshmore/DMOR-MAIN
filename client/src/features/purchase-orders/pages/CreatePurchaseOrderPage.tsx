@@ -82,6 +82,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   );
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [factoryAddressDefault, setFactoryAddressDefault] = useState('');
+  const [deliveryTerms, setDeliveryTerms] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<
     (Omit<PurchaseOrderItem, 'itemId' | 'purchaseOrderId' | 'totalPrice' | 'gst'> & {
@@ -111,7 +112,9 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
 
         const tncResponse = await tncApi.getAllTnc().catch(() => null);
         const allTnc = tncResponse && tncResponse.data ? tncResponse.data : [];
-        const filteredTnc = allTnc.filter((t: any) => t.type === 'Delivery' || t.type?.toLowerCase() === 'delivery');
+        const filteredTnc = allTnc.filter(
+          (t: any) => t.type === 'Delivery' || t.type?.toLowerCase() === 'delivery'
+        );
 
         if (isMounted) {
           setMasterProducts(filteredMps);
@@ -139,7 +142,8 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       setOrderDate(editingPO.orderDate?.slice(0, 10) || format(new Date(), 'yyyy-MM-dd'));
       setExpectedDeliveryDate(editingPO.expectedDeliveryDate?.slice(0, 10) || '');
       setDeliveryAddress(editingPO.deliveryAddress || '');
-      setNotes(editingPO.notes || '');
+      setDeliveryTerms(editingPO.deliveryTerms || editingPO.notes || '');
+      setNotes(editingPO.deliveryTerms ? editingPO.notes || '' : '');
       setItems(
         editingPO.items.length > 0
           ? editingPO.items.map(i => {
@@ -159,6 +163,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       setOrderDate(format(new Date(), 'yyyy-MM-dd'));
       setExpectedDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
       setDeliveryAddress(factoryAddressDefault);
+      setDeliveryTerms('');
       setNotes('');
       setItems([emptyItem()]);
       setErrors({});
@@ -251,8 +256,8 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       errs.deliveryAddress = 'Delivery Address is required';
     }
 
-    if (!notes.trim()) {
-      errs.notes = 'Delivery Terms are required';
+    if (!deliveryTerms.trim()) {
+      errs.deliveryTerms = 'Delivery Terms are required';
     }
 
     items.forEach((item, idx) => {
@@ -282,6 +287,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         orderDate,
         expectedDeliveryDate: expectedDeliveryDate || null,
         deliveryAddress: deliveryAddress || null,
+        deliveryTerms: deliveryTerms || null,
         notes: notes || null,
         items: items.map(i => ({
           itemDescription: i.itemDescription.trim(),
@@ -303,6 +309,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         setOrderDate(format(new Date(), 'yyyy-MM-dd'));
         setExpectedDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
         setDeliveryAddress(factoryAddressDefault);
+        setDeliveryTerms('');
         setNotes('');
         setItems([emptyItem()]);
         setErrors({});
@@ -394,8 +401,8 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
           </label>
           <select
             className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
+            value={deliveryTerms}
+            onChange={e => setDeliveryTerms(e.target.value)}
           >
             <option value="">Select delivery term…</option>
             {deliveryTermsList.map((t, idx) => (
@@ -404,7 +411,20 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
               </option>
             ))}
           </select>
-          {errors.notes && <p className="text-xs text-red-500 mt-1">{errors.notes}</p>}
+          {errors.deliveryTerms && (
+            <p className="text-xs text-red-500 mt-1">{errors.deliveryTerms}</p>
+          )}
+        </div>
+
+        {/* Notes */}
+        <div className="md:col-span-2 lg:col-span-3">
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Notes</label>
+          <textarea
+            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] min-h-[80px]"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Enter notes"
+          />
         </div>
       </div>
 
@@ -712,6 +732,12 @@ const CreatePurchaseOrderPage: React.FC = () => {
             `/suppliers/${full.supplierId}`
           );
           supplierDetails = suppRes.data.data || suppRes.data;
+          console.log('🔍 SUPPLIER API RESPONSE:', {
+            supplierId: full.supplierId,
+            creditDays: supplierDetails?.creditDays,
+            paymentTerms: supplierDetails?.paymentTerms,
+            fullSupplier: supplierDetails,
+          });
         } catch (e) {
           console.error('Failed to fetch supplier details', e);
         }
@@ -863,8 +889,20 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const orderDateFormatted = formatInvoiceDate(full.orderDate);
       const deliveryDateFormatted = formatInvoiceDate(full.expectedDeliveryDate);
 
-      const paymentTerms = supplierDetails?.paymentTerms || (supplierDetails?.creditDays ? `${supplierDetails.creditDays} Days` : '—');
-      const termsOfDelivery = full.notes || '—';
+      const paymentTerms =
+        supplierDetails?.paymentTerms ||
+        (supplierDetails?.creditDays != null && supplierDetails?.creditDays !== ''
+          ? `${supplierDetails.creditDays} Days`
+          : '—');
+
+      console.log('📝 INVOICE PAYMENT TERMS LOGIC:', {
+        supplierPaymentTerms: supplierDetails?.paymentTerms,
+        supplierCreditDays: supplierDetails?.creditDays,
+        resolvedPaymentTerms: paymentTerms,
+      });
+
+      const termsOfDelivery = full.deliveryTerms || full.notes || '—';
+      const poNotes = full.deliveryTerms ? full.notes || '' : '';
       const factoryAddress = companyData.factoryAddress || '—';
 
       let taxableAmount = 0;
@@ -1044,7 +1082,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                         </td>
                         <td style="width: 50%; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
                           <div style="font-size: 8px; color: #555;">Other References</div>
-                          <div style="font-size: 10px; margin-top: 2px;">—</div>
+                          <div style="font-size: 10px; margin-top: 2px; white-space: pre-wrap; line-height: 1.3;">${poNotes || '—'}</div>
                         </td>
                       </tr>
                       <tr>
@@ -1053,7 +1091,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                           <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${full.poNumber}</div>
                         </td>
                         <td style="width: 50%; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
-                          <div style="font-size: 8px; color: #555;">Destination</div>
+                          <div style="font-size: 8px; color: #555;">Dispatched through </div>
                           <div style="font-size: 10px; margin-top: 2px;">—</div>
                         </td>
                       </tr>
@@ -1417,6 +1455,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       <span className="ml-2 font-medium">{selectedPO.deliveryAddress}</span>
                     </div>
                   )}
+                  {(selectedPO.deliveryTerms || selectedPO.notes) && (
+                    <div className="col-span-2">
+                      <span className="text-[var(--text-secondary)]">Delivery Terms:</span>{' '}
+                      <span className="ml-2 font-medium">
+                        {selectedPO.deliveryTerms || selectedPO.notes}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1464,7 +1510,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                 </div>
               </div>
 
-              {selectedPO.notes && (
+              {selectedPO.deliveryTerms && selectedPO.notes && (
                 <div className="bg-[var(--surface-secondary,var(--surface))] p-4 rounded-lg">
                   <h4 className="font-semibold text-[var(--text-primary)] mb-2">Notes</h4>
                   <p className="text-sm">{selectedPO.notes}</p>

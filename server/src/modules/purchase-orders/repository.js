@@ -23,12 +23,17 @@ async function ensureTables() {
         expected_delivery_date DATE,
         status            VARCHAR(50) NOT NULL DEFAULT 'Pending',
         total_amount      NUMERIC(14,2) DEFAULT 0,
+        delivery_terms    TEXT,
         notes             TEXT,
         delivery_address  TEXT,
         is_active         BOOLEAN DEFAULT TRUE,
         created_at        TIMESTAMPTZ DEFAULT NOW(),
         updated_at        TIMESTAMPTZ DEFAULT NOW()
       )
+    `);
+    await db.execute(sql`
+      ALTER TABLE app.purchase_orders
+      ADD COLUMN IF NOT EXISTS delivery_terms TEXT
     `);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS app.purchase_order_items (
@@ -85,6 +90,7 @@ export class PurchaseOrdersRepository {
         expectedDeliveryDate: purchaseOrders.expectedDeliveryDate,
         status: purchaseOrders.status,
         totalAmount: purchaseOrders.totalAmount,
+        deliveryTerms: purchaseOrders.deliveryTerms,
         notes: purchaseOrders.notes,
         deliveryAddress: purchaseOrders.deliveryAddress,
         isActive: purchaseOrders.isActive,
@@ -113,6 +119,7 @@ export class PurchaseOrdersRepository {
         expectedDeliveryDate: purchaseOrders.expectedDeliveryDate,
         status: purchaseOrders.status,
         totalAmount: purchaseOrders.totalAmount,
+        deliveryTerms: purchaseOrders.deliveryTerms,
         notes: purchaseOrders.notes,
         deliveryAddress: purchaseOrders.deliveryAddress,
         isActive: purchaseOrders.isActive,

@@ -10,6 +10,11 @@ export class SupplierDTO {
     this.state = data.state || null;
     this.gstNo = data.gstNo || data.gst_no || null;
     this.creditDays = data.creditDays ?? data.credit_days ?? null;
+    // Derive paymentTerms from creditDays for invoice generation
+    // Use != null to distinguish from 0 (zero credit days is valid)
+    this.paymentTerms =
+      data.paymentTerms ||
+      (this.creditDays != null && this.creditDays !== '' ? `${this.creditDays} Days` : null);
     this.isActive = data.isActive ?? data.is_active ?? true;
     this.createdAt = data.createdAt || data.created_at;
     this.updatedAt = data.updatedAt || data.updated_at;

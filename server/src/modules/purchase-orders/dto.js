@@ -10,6 +10,7 @@ export class PurchaseOrderDTO {
     this.expectedDeliveryDate = po.expectedDeliveryDate || po.expected_delivery_date || null;
     this.status = po.status;
     this.totalAmount = po.totalAmount || po.total_amount || 0;
+    this.deliveryTerms = po.deliveryTerms || po.delivery_terms || null;
     this.notes = po.notes || null;
     this.deliveryAddress = po.deliveryAddress || po.delivery_address || null;
     this.isActive = po.isActive ?? po.is_active ?? true;

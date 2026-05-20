@@ -52,6 +52,7 @@ export class PurchaseOrdersService {
       orderDate: poInfo.orderDate,
       expectedDeliveryDate: poInfo.expectedDeliveryDate || null,
       status: poInfo.status || 'Pending',
+      deliveryTerms: poInfo.deliveryTerms || null,
       totalAmount: totalAmount.toFixed(2),
       notes: poInfo.notes || null,
       deliveryAddress: poInfo.deliveryAddress || null,
@@ -93,6 +94,7 @@ export class PurchaseOrdersService {
     if (poInfo.expectedDeliveryDate !== undefined)
       updatePayload.expectedDeliveryDate = poInfo.expectedDeliveryDate;
     if (poInfo.status !== undefined) updatePayload.status = poInfo.status;
+    if (poInfo.deliveryTerms !== undefined) updatePayload.deliveryTerms = poInfo.deliveryTerms;
     if (poInfo.notes !== undefined) updatePayload.notes = poInfo.notes;
     if (poInfo.deliveryAddress !== undefined)
       updatePayload.deliveryAddress = poInfo.deliveryAddress;

@@ -22,6 +22,7 @@ export interface PurchaseOrder {
   expectedDeliveryDate?: string | null;
   status: 'Pending' | 'Confirmed' | 'Received' | 'Partially Received' | 'Cancelled';
   totalAmount: number;
+  deliveryTerms?: string | null;
   notes?: string | null;
   deliveryAddress?: string | null;
   isActive: boolean;
@@ -39,6 +40,7 @@ export interface CreatePurchaseOrderInput {
   orderDate: string;
   expectedDeliveryDate?: string | null;
   status?: PurchaseOrder['status'];
+  deliveryTerms?: string | null;
   notes?: string | null;
   deliveryAddress?: string | null;
   items: Omit<PurchaseOrderItem, 'itemId' | 'purchaseOrderId' | 'totalPrice'>[];
