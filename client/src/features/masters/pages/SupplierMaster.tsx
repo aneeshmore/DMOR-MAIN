@@ -8,7 +8,6 @@ import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { Input, Button, Modal } from '@/components/ui';
 import { ColumnDef } from '@tanstack/react-table';
-import { companyApi } from '@/features/company/api/companyApi';
 
 // ============================================================
 // Validation helpers
@@ -67,7 +66,6 @@ const SupplierForm = ({
   onCancel: () => void;
   existingSuppliers: Supplier[];
 }) => {
-  const [defaultAddress, setDefaultAddress] = useState('');
   const [formData, setFormData] = useState<Partial<Supplier>>({
     supplierName: item?.supplierName || '',
     contactPerson: item?.contactPerson || '',
@@ -77,8 +75,7 @@ const SupplierForm = ({
     pincode: item?.pincode || '',
     state: item?.state || '',
     gstNo: item?.gstNo || '',
-    paymentTerms:
-      (item?.paymentTerms ?? item?.creditDays !== undefined) ? String(item?.creditDays ?? '') : '',
+    paymentTerms: item?.creditDays ? `${item.creditDays} Days` : '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isFetchingState, setIsFetchingState] = useState(false);
@@ -87,47 +84,19 @@ const SupplierForm = ({
   const isEditMode = !!item?.supplierId;
 
   useEffect(() => {
-    let isMounted = true;
-    const loadCompanyAddress = async () => {
-      try {
-        const res = await companyApi.get();
-        if (res.data && res.data.data) {
-          const factoryAddr = res.data.data.factoryAddress || '';
-          if (isMounted) {
-            setDefaultAddress(factoryAddr);
-            setFormData(prev => ({
-              ...prev,
-              address: prev.address || factoryAddr,
-            }));
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load company factory address:', err);
-      }
-    };
-    loadCompanyAddress();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
     setFormData({
       supplierName: item?.supplierName || '',
       contactPerson: item?.contactPerson || '',
       mobileNo: item?.mobileNo || '',
       mobileNo2: item?.mobileNo2 || '',
-      address: item?.address || defaultAddress,
+      address: item?.address || '',
       pincode: item?.pincode || '',
       state: item?.state || '',
       gstNo: item?.gstNo || '',
-      paymentTerms:
-        (item?.paymentTerms ?? item?.creditDays !== undefined)
-          ? String(item?.creditDays ?? '')
-          : '',
+      paymentTerms: item?.creditDays ? `${item.creditDays} Days` : '',
     });
     setErrors({});
-  }, [item, defaultAddress]);
+  }, [item]);
 
   const setFieldError = (field: string, msg: string) =>
     setErrors(prev => ({ ...prev, [field]: msg }));
@@ -552,7 +521,9 @@ export default function SupplierMaster() {
         pincode: pendingItem.pincode || undefined,
         state: pendingItem.state || undefined,
         gstNo: pendingItem.gstNo || undefined,
-        paymentTerms: pendingItem.paymentTerms || undefined,
+        creditDays: (pendingItem.paymentTerms && !isNaN(parseInt(pendingItem.paymentTerms, 10)))
+          ? parseInt(pendingItem.paymentTerms, 10)
+          : undefined,
       };
       logger.info('Creating supplier:', createData);
       const response = await supplierApi.create(createData as any);
@@ -587,7 +558,9 @@ export default function SupplierMaster() {
         pincode: pendingItem.pincode || undefined,
         state: pendingItem.state || undefined,
         gstNo: pendingItem.gstNo || undefined,
-        paymentTerms: pendingItem.paymentTerms || undefined,
+        creditDays: (pendingItem.paymentTerms && !isNaN(parseInt(pendingItem.paymentTerms, 10)))
+          ? parseInt(pendingItem.paymentTerms, 10)
+          : undefined,
       };
       logger.info('Updating supplier:', { id: pendingItem.supplierId, data: updateData });
       const response = await supplierApi.update(pendingItem.supplierId, updateData as any);

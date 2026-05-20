@@ -18,6 +18,7 @@ import apiClient from '@/api/client';
 import { masterProductApi } from '@/features/master-products/api';
 import { unitApi } from '@/features/masters/api/unitApi';
 import { companyApi } from '@/features/company/api/companyApi';
+import { tncApi } from '@/features/tnc/api/tncApi';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -94,6 +95,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   const [masterProducts, setMasterProducts] = useState<any[]>([]);
   const [unitsList, setUnitsList] = useState<any[]>([]);
   const [loadingMasterData, setLoadingMasterData] = useState(false);
+  const [deliveryTermsList, setDeliveryTermsList] = useState<any[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -107,9 +109,14 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         const unitsResponse = await unitApi.getAll();
         const allUnits = unitsResponse.success && unitsResponse.data ? unitsResponse.data : [];
 
+        const tncResponse = await tncApi.getAllTnc().catch(() => null);
+        const allTnc = tncResponse && tncResponse.data ? tncResponse.data : [];
+        const filteredTnc = allTnc.filter((t: any) => t.type === 'Delivery' || t.type?.toLowerCase() === 'delivery');
+
         if (isMounted) {
           setMasterProducts(filteredMps);
           setUnitsList(allUnits);
+          setDeliveryTermsList(filteredTnc);
         }
       } catch (err) {
         console.error('Failed to load master products or units:', err);
@@ -245,7 +252,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
     }
 
     if (!notes.trim()) {
-      errs.notes = 'Notes is required';
+      errs.notes = 'Delivery Terms are required';
     }
 
     items.forEach((item, idx) => {
@@ -380,16 +387,24 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
           />
         </div>
 
-        {/* Notes */}
+        {/* Delivery Terms Dropdown */}
         <div>
-          <Input
-            label="Notes"
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
+            Delivery Terms <span className="text-red-500">*</span>
+          </label>
+          <select
+            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            placeholder="Enter notes"
-            required
-            error={errors.notes}
-          />
+          >
+            <option value="">Select delivery term…</option>
+            {deliveryTermsList.map((t, idx) => (
+              <option key={idx} value={t.description}>
+                {t.description}
+              </option>
+            ))}
+          </select>
+          {errors.notes && <p className="text-xs text-red-500 mt-1">{errors.notes}</p>}
         </div>
       </div>
 
@@ -848,8 +863,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const orderDateFormatted = formatInvoiceDate(full.orderDate);
       const deliveryDateFormatted = formatInvoiceDate(full.expectedDeliveryDate);
 
-      const paymentTerms = supplierDetails?.creditDays ? `${supplierDetails.creditDays} Days` : '—';
-      const termsOfDelivery = [full.notes, full.deliveryAddress].filter(Boolean).join('\n');
+      const paymentTerms = supplierDetails?.paymentTerms || (supplierDetails?.creditDays ? `${supplierDetails.creditDays} Days` : '—');
+      const termsOfDelivery = full.notes || '—';
+      const factoryAddress = companyData.factoryAddress || '—';
 
       let taxableAmount = 0;
       let totalCGST = 0;
@@ -1043,14 +1059,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       </tr>
                       <tr>
                         <td colspan="2" style="border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
-                          <div style="font-size: 8px; color: #555;">Dispatched through</div>
-                          <div style="font-size: 10px; margin-top: 2px;">—</div>
+                          <div style="font-size: 8px; color: #555;">Terms of Delivery</div>
+                          <div style="font-size: 10px; font-weight: bold; white-space: pre-wrap; margin-top: 2px; line-height: 1.3;">${termsOfDelivery || '—'}</div>
                         </td>
                       </tr>
                       <tr>
                         <td colspan="2" style="padding: 6px; min-height: 62px; box-sizing: border-box; vertical-align: top;">
-                          <div style="font-size: 8px; color: #555;">Terms of Delivery</div>
-                          <div style="font-size: 10px; font-weight: bold; white-space: pre-wrap; margin-top: 2px; line-height: 1.3;">${termsOfDelivery || '—'}</div>
+                          <div style="font-size: 8px; color: #555;">Factory Address</div>
+                          <div style="font-size: 10px; font-weight: bold; white-space: pre-wrap; margin-top: 2px; line-height: 1.3;">${factoryAddress || '—'}</div>
                         </td>
                       </tr>
                     </table>
