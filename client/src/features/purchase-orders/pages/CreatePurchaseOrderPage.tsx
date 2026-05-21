@@ -877,14 +877,26 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const companyState = companyData.state || 'Maharashtra';
       const companyStateCode = getStateCode(companyState);
 
-      // Determine if supplier and company are in the same state by comparing state code prefixes from GSTINs or state names
-      const compGSTPrefix = companyGSTIN.trim().slice(0, 2);
-      const suppGSTPrefix = supplierGSTIN.trim().slice(0, 2);
-      const hasValidGSTPrefixes = /^\d{2}$/.test(compGSTPrefix) && /^\d{2}$/.test(suppGSTPrefix);
+      // Determine if supplier and company are in the same state by comparing valid GSTIN prefixes, falling back to normalized state names.
+      const normalizeState = (state?: string | null) => (state || '').trim().toLowerCase();
+      const getGSTPrefix = (gstin?: string | null) => {
+        const normalizedGSTIN = (gstin || '').trim().toUpperCase();
+        return /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(normalizedGSTIN)
+          ? normalizedGSTIN.slice(0, 2)
+          : '';
+      };
 
-      const isSameState = hasValidGSTPrefixes
-        ? compGSTPrefix === suppGSTPrefix
-        : companyState.trim().toLowerCase() === supplierState.trim().toLowerCase();
+      const companyGSTPrefix = getGSTPrefix(companyGSTIN);
+      const supplierGSTPrefix = getGSTPrefix(supplierGSTIN);
+      const companyStateKey = normalizeState(companyState);
+      const supplierStateKey = normalizeState(supplierState);
+
+      const isSameState =
+        companyGSTPrefix && supplierGSTPrefix
+          ? companyGSTPrefix === supplierGSTPrefix
+          : companyStateKey && supplierStateKey
+            ? companyStateKey === supplierStateKey
+            : false;
 
       const orderDateFormatted = formatInvoiceDate(full.orderDate);
       const deliveryDateFormatted = formatInvoiceDate(full.expectedDeliveryDate);
