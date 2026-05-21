@@ -67,6 +67,13 @@ const RawMaterialTable = () => {
           newValue: changes.purchaseCost,
         });
       }
+      if (changes.gst !== undefined && changes.gst != product.gst) {
+        changeRecord.changes.push({
+          field: 'gst',
+          oldValue: product.gst,
+          newValue: changes.gst,
+        });
+      }
       if (changes.density !== undefined && changes.density != product.density) {
         changeRecord.changes.push({
           field: 'density',
@@ -190,6 +197,7 @@ const RawMaterialTable = () => {
             <tr>
               <th className="px-4 py-3 font-medium">Raw Material Name</th>
               <th className="px-4 py-3 font-medium">Purchase Cost</th>
+              <th className="px-4 py-3 font-medium">GST (%)</th>
               <th className="px-4 py-3 font-medium">Density</th>
               <th className="px-4 py-3 font-medium">Solids %</th>
               <th className="px-4 py-3 font-medium">Min Stock</th>
@@ -200,6 +208,7 @@ const RawMaterialTable = () => {
               const isEdited = !!edits[product.masterProductId];
               const currentCost =
                 edits[product.masterProductId]?.purchaseCost ?? product.purchaseCost;
+              const currentGst = edits[product.masterProductId]?.gst ?? product.gst ?? '';
               const currentDensity = edits[product.masterProductId]?.density ?? product.density;
               const currentSolids = edits[product.masterProductId]?.solids ?? product.solids;
               const currentMinStock =
@@ -257,6 +266,18 @@ const RawMaterialTable = () => {
                       type="number"
                       data-column="3"
                       className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentGst}
+                      onChange={e =>
+                        handleInputChange(product.masterProductId, 'gst', e.target.value)
+                      }
+                      onKeyDown={handleEnterKeyNavigation}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      data-column="4"
+                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentDensity}
                       onChange={e =>
                         handleInputChange(product.masterProductId, 'density', e.target.value)
@@ -267,7 +288,7 @@ const RawMaterialTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      data-column="4"
+                      data-column="5"
                       className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentSolids}
                       onChange={e =>
@@ -279,7 +300,7 @@ const RawMaterialTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      data-column="5"
+                      data-column="6"
                       className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentMinStock}
                       onChange={e =>
@@ -293,7 +314,7 @@ const RawMaterialTable = () => {
             })}
             {paginatedProducts.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                   No raw materials found matching your search.
                 </td>
               </tr>
