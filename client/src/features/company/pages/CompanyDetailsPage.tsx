@@ -116,31 +116,56 @@ const CompanyDetailsPage: React.FC = () => {
       setErrors(prev => ({ ...prev, companyPincode: 'Invalid pincode (6 digits required)' }));
       return;
     }
+
+    if (val === data.companyPincode) return;
+
     setErrors(prev => {
       const newErrors = { ...prev };
       delete newErrors.companyPincode;
       return newErrors;
     });
 
-    if (val.length === 6) {
+    const target = e.target;
+
+    try {
+      setIsFetchingState(true);
+      let resData = null;
+
       try {
-        setIsFetchingState(true);
         const res = await fetch(`https://api.postalpincode.in/pincode/${val}`);
-        const resData = await res.json();
-        if (resData?.[0]?.Status === 'Success' && resData[0].PostOffice?.length > 0) {
-          setData(prev => ({ ...prev, state: resData[0].PostOffice[0].State }));
-          setErrors(prev => {
-            const newErrors = { ...prev };
-            delete newErrors.state;
-            return newErrors;
-          });
+        if (!res.ok) throw new Error('API fetch failed');
+        resData = await res.json();
+      } catch (err) {
+        const fallbackRes = await fetch(`https://api.zippopotam.us/in/${val}`);
+        if (!fallbackRes.ok) throw new Error('Fallback API fetch failed');
+        const fallbackData = await fallbackRes.json();
+        if (fallbackData && fallbackData.places && fallbackData.places.length > 0) {
+          resData = [{ Status: 'Success', PostOffice: [{ State: fallbackData.places[0].state }] }];
         } else {
-          setData(prev => ({ ...prev, state: '' }));
-          setErrors(prev => ({ ...prev, companyPincode: 'Invalid pincode — no records found' }));
+          throw new Error('No records found in fallback');
         }
-      } catch {
-        setData(prev => ({ ...prev, state: '' }));
-      } finally {
+      }
+
+      if (target.value.replace(/\D/g, '').slice(0, 6) !== val) return;
+
+      if (resData?.[0]?.Status === 'Success' && resData[0].PostOffice?.length > 0) {
+        setData(prev => ({ ...prev, state: resData[0].PostOffice[0].State }));
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.state;
+          return newErrors;
+        });
+      } else {
+        setErrors(prev => ({ ...prev, companyPincode: 'Invalid pincode — no records found' }));
+      }
+    } catch (error) {
+      if (target.value.replace(/\D/g, '').slice(0, 6) !== val) return;
+      setErrors(prev => ({
+        ...prev,
+        companyPincode: 'Failed to auto-fetch state. Please enter manually.',
+      }));
+    } finally {
+      if (target.value.replace(/\D/g, '').slice(0, 6) === val) {
         setIsFetchingState(false);
       }
     }

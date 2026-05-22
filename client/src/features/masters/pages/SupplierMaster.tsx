@@ -204,23 +204,44 @@ const SupplierForm = ({
       setFieldError('pincode', err);
       return;
     }
-    clearFieldError('pincode');
 
-    if (val.length === 6) {
+    if (val === formData.pincode) return;
+
+    clearFieldError('pincode');
+    const target = e.target;
+
+    try {
+      setIsFetchingState(true);
+      let resData = null;
+
       try {
-        setIsFetchingState(true);
         const res = await fetch(`https://api.postalpincode.in/pincode/${val}`);
-        const data = await res.json();
-        if (data?.[0]?.Status === 'Success' && data[0].PostOffice?.length > 0) {
-          setFormData(prev => ({ ...prev, state: data[0].PostOffice[0].State }));
-          clearFieldError('state');
+        if (!res.ok) throw new Error('API fetch failed');
+        resData = await res.json();
+      } catch (err) {
+        const fallbackRes = await fetch(`https://api.zippopotam.us/in/${val}`);
+        if (!fallbackRes.ok) throw new Error('Fallback API fetch failed');
+        const fallbackData = await fallbackRes.json();
+        if (fallbackData && fallbackData.places && fallbackData.places.length > 0) {
+          resData = [{ Status: 'Success', PostOffice: [{ State: fallbackData.places[0].state }] }];
         } else {
-          setFormData(prev => ({ ...prev, state: '' }));
-          setFieldError('pincode', 'Invalid pincode — no records found');
+          throw new Error('No records found in fallback');
         }
-      } catch {
-        setFormData(prev => ({ ...prev, state: '' }));
-      } finally {
+      }
+
+      if (target.value.replace(/\D/g, '').slice(0, 6) !== val) return;
+
+      if (resData?.[0]?.Status === 'Success' && resData[0].PostOffice?.length > 0) {
+        setFormData(prev => ({ ...prev, state: resData[0].PostOffice[0].State }));
+        clearFieldError('state');
+      } else {
+        setFieldError('pincode', 'Invalid pincode — no records found');
+      }
+    } catch (error) {
+      if (target.value.replace(/\D/g, '').slice(0, 6) !== val) return;
+      setFieldError('pincode', 'Failed to auto-fetch state. Please enter manually.');
+    } finally {
+      if (target.value.replace(/\D/g, '').slice(0, 6) === val) {
         setIsFetchingState(false);
       }
     }
@@ -442,21 +463,16 @@ const SupplierForm = ({
           )}
         </div>
 
-        {/* State — auto-filled, spans remaining cols */}
+        {/* State — spans remaining cols */}
         <div className="md:col-span-2 lg:col-span-2">
-          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-            State{' '}
-            <span className="text-xs font-normal text-[var(--text-secondary)]">(auto-filled)</span>
-          </label>
-          <div className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface-alt,var(--surface))] text-[var(--text-primary)] text-sm min-h-[38px] flex items-center">
-            {formData.state ? (
-              <span>{formData.state}</span>
-            ) : (
-              <span className="text-[var(--text-secondary)] italic text-xs">
-                {isFetchingState ? 'Fetching state…' : 'Enter pincode above to auto-fill state'}
-              </span>
-            )}
-          </div>
+          <Input
+            label="State"
+            value={formData.state || ''}
+            onChange={handleField('state')}
+            placeholder={isFetchingState ? 'Fetching state…' : 'Enter state manually'}
+            disabled={isFetchingState}
+            error={errors.state}
+          />
         </div>
       </div>
 
