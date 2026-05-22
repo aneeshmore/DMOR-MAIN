@@ -10,13 +10,22 @@ async function main() {
   await client.connect();
   console.log('Connected to DB');
 
-  console.log('\n--- inward_from_po ---');
-  const res1 = await client.query('SELECT * FROM app.inward_from_po');
-  console.log(res1.rows);
+  const query = `
+    SELECT 
+      mi.inward_id,
+      mi.master_product_id,
+      mp.product_type,
+      mi.quantity,
+      mi.bill_no,
+      mi.inward_date
+    FROM app.material_inward mi
+    LEFT JOIN app.master_products mp ON mi.master_product_id = mp.master_product_id
+    ORDER BY mi.inward_id DESC
+    LIMIT 20
+  `;
 
-  console.log('\n--- inward_from_po_items ---');
-  const res2 = await client.query('SELECT * FROM app.inward_from_po_items');
-  console.log(res2.rows);
+  const res = await client.query(query);
+  console.log(JSON.stringify(res.rows, null, 2));
 
   await client.end();
 }
