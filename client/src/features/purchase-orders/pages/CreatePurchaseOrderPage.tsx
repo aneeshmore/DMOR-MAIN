@@ -877,26 +877,26 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const companyState = companyData.state || 'Maharashtra';
       const companyStateCode = getStateCode(companyState);
 
-      // Determine if supplier and company are in the same state by comparing valid GSTIN prefixes, falling back to normalized state names.
-      const normalizeState = (state?: string | null) => (state || '').trim().toLowerCase();
-      const getGSTPrefix = (gstin?: string | null) => {
-        const normalizedGSTIN = (gstin || '').trim().toUpperCase();
-        return /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(normalizedGSTIN)
-          ? normalizedGSTIN.slice(0, 2)
-          : '';
-      };
+      // Determine if supplier and company are in the same state by comparing normalized state names.
+      const normalizeState = (value?: string | null) =>
+        value?.trim().toLowerCase().replace(/\s+/g, ' ') || '';
 
-      const companyGSTPrefix = getGSTPrefix(companyGSTIN);
-      const supplierGSTPrefix = getGSTPrefix(supplierGSTIN);
-      const companyStateKey = normalizeState(companyState);
-      const supplierStateKey = normalizeState(supplierState);
+      const companyStateNorm = normalizeState(companyState);
+      const supplierStateNorm = normalizeState(supplierState);
 
-      const isSameState =
-        companyGSTPrefix && supplierGSTPrefix
-          ? companyGSTPrefix === supplierGSTPrefix
-          : companyStateKey && supplierStateKey
-            ? companyStateKey === supplierStateKey
-            : false;
+      // Debug logs (temporary)
+      console.log('Company State:', companyState);
+      console.log('Supplier State:', supplierState);
+      console.log(
+        'Is Same State:',
+        !!(companyStateNorm && supplierStateNorm && companyStateNorm === supplierStateNorm)
+      );
+
+      const isSameState = !!(
+        companyStateNorm &&
+        supplierStateNorm &&
+        companyStateNorm === supplierStateNorm
+      );
 
       const orderDateFormatted = formatInvoiceDate(full.orderDate);
       const deliveryDateFormatted = formatInvoiceDate(full.expectedDeliveryDate);
