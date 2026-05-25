@@ -341,12 +341,20 @@ const CreateOrderPage: React.FC = () => {
         deliveryTerms: 'Subject to approval',
 
         companyName: c.companyName || '',
+        companyLogo: c.logoUrl || '',
         companyAddress: c.address || '',
         companyPhone: c.contactNumber || '',
         companyEmail: c.email || '',
         companyGSTIN: c.gstNumber || '',
-        companyState: c.state || '', // Need to add to company info
-        companyCode: '', // Need to add to company info
+        companyState: c.state || '',
+        companyCode: '',
+        companyPAN: c.panNumber || '',
+        companyPincode: c.pincode || '',
+        companyCGST: c.cgst || '',
+        companySGST: c.sgst || '',
+        companyIGST: c.igst || '',
+        termsAndConditions: c.termsAndConditions || '',
+        udyamRegistrationNumber: c.udyamRegistrationNumber || '',
 
         bankName: c.bankName || '',
         accountNo: c.accountNumber || '',
