@@ -364,8 +364,8 @@ const CreateOrderPage: React.FC = () => {
         buyerName:
           fullOrder.companyName || fullOrder.customerName || customerDetails?.CompanyName || '',
         buyerAddress: fullOrder.deliveryAddress || customerDetails?.Address || '',
-        buyerGSTIN: customerDetails?.GSTNumber || '', // Would need to fetch customer details for this if not in order
-        buyerState: customerDetails?.State || '',
+        buyerGSTIN: customerDetails?.GSTNumber || customerDetails?.gstNumber || '', // Would need to fetch customer details for this if not in order
+        buyerState: customerDetails?.State || customerDetails?.state || '',
 
         items: (fullOrder.orderDetails || []).map((item: OrderDetail, index: number) => ({
           id: index + 1,

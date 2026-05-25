@@ -528,45 +528,41 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
 
   const firstItem = data.items[0];
 
-  const getIsSameState = () => {
-    const compState = data.companyState || '';
-    const companyGSTIN = data.companyGSTIN || '';
-    const buyerState = (data as any).buyerState || '';
-    const buyerGSTIN = data.buyerGSTIN || '';
+  // ── GST State Determination ──────────────────────────────────────────────
+  // Determines CGST+SGST (intra-state) vs IGST (inter-state) using ONLY
+  // the company state vs customer/buyer state comparison.
+  // GSTIN prefix / GST code extraction is intentionally NOT used here.
 
-    const compGSTPrefix = companyGSTIN.trim().slice(0, 2);
-    const suppGSTPrefix = buyerGSTIN.trim().slice(0, 2);
-    const hasValidGSTPrefixes = /^\d{2}$/.test(compGSTPrefix) && /^\d{2}$/.test(suppGSTPrefix);
+  const normalizeState = (value?: string) => value?.trim().toLowerCase().replace(/\s+/g, ' ');
 
-    if (hasValidGSTPrefixes) {
-      return compGSTPrefix === suppGSTPrefix;
-    }
+  const companyStateNorm = normalizeState(data.companyState);
 
-    if (compState && buyerState) {
-      return compState.trim().toLowerCase() === buyerState.trim().toLowerCase();
-    }
-
-    // Default fallback: if we have customer ID and customers are loaded
-    if (data.customerId && customers.length > 0) {
-      const cust = customers.find(c => c.CustomerID === data.customerId);
-      if (cust) {
-        const custState = cust.State || '';
-        const custGST = cust.GSTNumber || '';
-        const custGSTPrefix = custGST.trim().slice(0, 2);
-        const hasValidCustGST = /^\d{2}$/.test(custGSTPrefix);
-        if (/^\d{2}$/.test(compGSTPrefix) && hasValidCustGST) {
-          return compGSTPrefix === custGSTPrefix;
-        }
-        if (compState && custState) {
-          return compState.trim().toLowerCase() === custState.trim().toLowerCase();
-        }
+  // Prefer explicit buyerState field; fall back to customer lookup
+  const rawBuyerState: string =
+    (data as any).buyerState ||
+    (() => {
+      if (data.customerId && customers.length > 0) {
+        const cust = customers.find(c => c.CustomerID === data.customerId);
+        return cust?.State || '';
       }
-    }
+      return '';
+    })();
 
-    return true; // Default to same state (CGST+SGST)
-  };
+  const customerStateNorm = normalizeState(rawBuyerState);
 
-  const isSameState = getIsSameState();
+  // Debug logs (temporary – remove once verified)
+  console.log('Company State:', data.companyState);
+  console.log('Customer State:', rawBuyerState);
+  console.log(
+    'Is Same State:',
+    !!(companyStateNorm && customerStateNorm && companyStateNorm === customerStateNorm)
+  );
+
+  const isSameState: boolean = !!(
+    companyStateNorm &&
+    customerStateNorm &&
+    companyStateNorm === customerStateNorm
+  );
 
   const isMobile = () =>
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
