@@ -156,6 +156,7 @@ const ProductMaster = lazy(() => import('@/features/master-products/pages/Produc
 const MasterProduct = lazy(() => import('@/features/masters/pages/MasterProduct'));
 const CustomerMaster = lazy(() => import('@/features/masters/pages/CustomerMaster'));
 const CustomerTypeMaster = lazy(() => import('@/features/masters/pages/CustomerTypeMaster'));
+const SupplierMaster = lazy(() => import('@/features/masters/pages/SupplierMaster'));
 const ProductDevelopment = lazy(() => import('@/features/masters/pages/ProductDevelopment'));
 const DoubleProductDevelopment = lazy(
   () => import('@/features/masters/pages/DoubleProductDevelopment')
@@ -196,6 +197,12 @@ const DeliveryComplete = lazy(() =>
   import('@/features/delivery-complete/pages/DeliveryComplete').then(m => ({
     default: m.DeliveryComplete,
   }))
+);
+const CreatePurchaseOrderPage = lazy(
+  () => import('@/features/purchase-orders/pages/CreatePurchaseOrderPage')
+);
+const InwardFromPurchaseOrderPage = lazy(
+  () => import('@/features/inward-from-po/pages/InwardFromPurchaseOrderPage')
 );
 
 // CRM
@@ -420,6 +427,20 @@ export const routeRegistry: RouteNode[] = [
         ],
       },
       {
+        id: 'suppliers',
+        path: '/masters/suppliers',
+        label: 'Create Vendor',
+        icon: Truck,
+        component: SupplierMaster,
+        permission: { module: 'suppliers' },
+        apis: [
+          { route: '/suppliers', method: 'GET', label: 'View Suppliers' },
+          { route: '/suppliers', method: 'POST', label: 'Create Supplier' },
+          { route: '/suppliers/:id', method: 'PUT', label: 'Update Supplier' },
+          { route: '/suppliers/:id', method: 'DELETE', label: 'Delete Supplier' },
+        ],
+      },
+      {
         id: 'development',
         path: '/masters/development',
         label: '1K Product Development',
@@ -536,6 +557,38 @@ export const routeRegistry: RouteNode[] = [
             method: 'GET',
             label: 'Get Mixing Ratios',
           },
+        ],
+      },
+      {
+        id: 'create-purchase-order',
+        path: '/operations/purchase-orders',
+        label: 'Create Purchase Order',
+        icon: ShoppingCart,
+        component: CreatePurchaseOrderPage,
+        permission: { module: 'purchase-orders' },
+        apis: [
+          { route: '/purchase-orders', method: 'GET', label: 'View Purchase Orders' },
+          { route: '/purchase-orders', method: 'POST', label: 'Create Purchase Order' },
+          { route: '/purchase-orders/:id', method: 'PUT', label: 'Update Purchase Order' },
+          { route: '/purchase-orders/:id', method: 'DELETE', label: 'Delete Purchase Order' },
+          { route: '/suppliers', method: 'GET', label: 'Load Vendors' },
+        ],
+      },
+      {
+        id: 'inward-from-purchase-order',
+        path: '/operations/inward-from-po',
+        label: 'Inward From PO',
+        icon: ArrowLeftRight,
+        component: InwardFromPurchaseOrderPage,
+        permission: { module: 'inward-from-po' },
+        apis: [
+          { route: '/inward-from-po', method: 'GET', label: 'View Inward from PO' },
+          { route: '/inward-from-po', method: 'POST', label: 'Create Inward from PO' },
+          { route: '/inward-from-po/:id', method: 'GET', label: 'View Inward from PO Details' },
+          { route: '/inward-from-po/:id', method: 'DELETE', label: 'Delete Inward from PO' },
+          { route: '/purchase-orders', method: 'GET', label: 'View Purchase Orders' },
+          { route: '/catalog/master-products', method: 'GET', label: 'Load Products' },
+          { route: '/masters/units', method: 'GET', label: 'Load Units' },
         ],
       },
       {

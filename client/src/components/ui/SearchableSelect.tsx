@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { Input } from './Input';
 
 export interface Option<T = any> {
@@ -189,9 +189,14 @@ const SearchableSelect = <T = any,>({
           placeholder={placeholder}
           disabled={disabled}
           required={required}
-          className=""
+          className="pr-8"
           autoComplete="off"
         />
+        <span
+          className={`absolute right-2.5 pointer-events-none text-[var(--text-secondary)] opacity-60 ${label ? 'bottom-2.5' : 'top-1/2 -translate-y-1/2'}`}
+        >
+          <ChevronDown size={16} />
+        </span>
       </div>
 
       {isOpen && (
@@ -207,11 +212,12 @@ const SearchableSelect = <T = any,>({
                 onClick={() => handleSelect(option)}
                 className={`
                   px-4 py-2 text-sm cursor-pointer flex items-center justify-between
-                  ${index === highlightedIndex
-                    ? 'bg-[var(--primary)]/10 text-[var(--primary)]'
-                    : value === option.value
-                      ? 'bg-[var(--surface-hover)] text-[var(--text-primary)]'
-                      : 'text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                  ${
+                    index === highlightedIndex
+                      ? 'bg-[var(--primary)]/10 text-[var(--primary)]'
+                      : value === option.value
+                        ? 'bg-[var(--surface-hover)] text-[var(--text-primary)]'
+                        : 'text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                   }
                   ${option.className || ''}
                 `}

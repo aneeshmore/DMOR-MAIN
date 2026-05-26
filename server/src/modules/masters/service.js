@@ -2,6 +2,7 @@ import { MastersRepository } from './repository.js';
 import { DepartmentDTO, UnitDTO, CustomerTypeDTO, CustomerDTO } from './dto.js';
 import { NotFoundError, ConflictError } from '../../utils/AppError.js';
 import logger from '../../config/logger.js';
+import https from 'https';
 
 export class MastersService {
   constructor() {
@@ -18,33 +19,90 @@ export class MastersService {
       return this.postalDetailsCache.get(pincode);
     }
 
-    const request = fetch(`https://api.postalpincode.in/pincode/${pincode}`)
-      .then(response => response.json())
-      .then(data => {
-        if (data?.[0]?.Status !== 'Success') {
-          return null;
-        }
+    const request = (async () => {
+      try {
+        const data = await new Promise((resolve, reject) => {
+          const url = `https://api.postalpincode.in/pincode/${pincode}`;
+          const agent = new https.Agent({ rejectUnauthorized: false });
+          https
+            .get(url, { agent, timeout: 5000 }, res => {
+              let body = '';
+              res.on('data', chunk => {
+                body += chunk;
+              });
+              res.on('end', () => {
+                try {
+                  resolve(JSON.parse(body));
+                } catch (e) {
+                  reject(e);
+                }
+              });
+            })
+            .on('error', reject)
+            .on('timeout', () => reject(new Error('Pincode API Timeout')));
+        });
 
-        const postOffice = data?.[0]?.PostOffice?.[0];
-        return {
-          district: postOffice?.District || null,
-          state: postOffice?.State || null,
-        };
-      })
-      .catch(error => {
-        logger.warn('Failed to fetch postal details for customer', {
+        if (data?.[0]?.Status === 'Success') {
+          const postOffice = data[0].PostOffice?.[0];
+          if (postOffice?.State) {
+            return {
+              district: postOffice.District || null,
+              state: postOffice.State,
+            };
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to fetch postal details via API, attempting offline fallback', {
           pincode,
           error: error.message,
         });
-        return null;
-      });
+      }
+
+      // Offline Fallback based on Indian Pincode prefix
+      const prefix = String(pincode).substring(0, 2);
+      const prefixInt = parseInt(prefix, 10);
+      let fallbackState = null;
+
+      if (prefixInt === 11) fallbackState = 'Delhi';
+      else if (prefixInt >= 12 && prefixInt <= 13) fallbackState = 'Haryana';
+      else if (prefixInt >= 14 && prefixInt <= 16) fallbackState = 'Punjab';
+      else if (prefixInt === 17) fallbackState = 'Himachal Pradesh';
+      else if (prefixInt >= 18 && prefixInt <= 19) fallbackState = 'Jammu & Kashmir';
+      else if (prefixInt >= 20 && prefixInt <= 28) fallbackState = 'Uttar Pradesh';
+      else if (prefixInt >= 30 && prefixInt <= 34) fallbackState = 'Rajasthan';
+      else if (prefixInt >= 36 && prefixInt <= 39) fallbackState = 'Gujarat';
+      else if (prefixInt >= 40 && prefixInt <= 44) fallbackState = 'Maharashtra';
+      else if (prefixInt >= 45 && prefixInt <= 48) fallbackState = 'Madhya Pradesh';
+      else if (prefixInt === 49) fallbackState = 'Chhattisgarh';
+      else if (prefixInt >= 50 && prefixInt <= 53) fallbackState = 'Andhra Pradesh';
+      else if (prefixInt >= 56 && prefixInt <= 59) fallbackState = 'Karnataka';
+      else if (prefixInt >= 60 && prefixInt <= 64) fallbackState = 'Tamil Nadu';
+      else if (prefixInt >= 67 && prefixInt <= 69) fallbackState = 'Kerala';
+      else if (prefixInt >= 70 && prefixInt <= 74) fallbackState = 'West Bengal';
+      else if (prefixInt >= 75 && prefixInt <= 77) fallbackState = 'Odisha';
+      else if (prefixInt === 78) fallbackState = 'Assam';
+      else if (prefixInt === 79)
+        fallbackState = 'Tripura'; // General fallback for NE region
+      else if (prefixInt >= 80 && prefixInt <= 85) fallbackState = 'Bihar';
+
+      if (fallbackState) {
+        return {
+          district: null,
+          state: fallbackState,
+        };
+      }
+
+      return null;
+    })();
 
     this.postalDetailsCache.set(pincode, request);
     return request;
   }
 
   async enrichCustomerWithPostalDetails(customer) {
-    const postalDetails = await this.getPostalDetailsByPincode(customer.pinCode || customer.pin_code);
+    const postalDetails = await this.getPostalDetailsByPincode(
+      customer.pinCode || customer.pin_code
+    );
 
     return {
       ...customer,
@@ -302,13 +360,7 @@ export class MastersService {
   }
 
   async seedDefaultCustomerTypes() {
-    const defaultTypes = [
-      'BUILDER',
-      'CONTRACTOR',
-      'DEALER',
-      'DIRECT CUSTOMER',
-      'INDUSTRIAL',
-    ];
+    const defaultTypes = ['BUILDER', 'CONTRACTOR', 'DEALER', 'DIRECT CUSTOMER', 'INDUSTRIAL'];
 
     let seededCount = 0;
     for (const typeName of defaultTypes) {
@@ -673,11 +725,14 @@ export class MastersService {
 
     // Check for protected roles by name
     const protectedRoleNames = ['Admin', 'Administrator', 'SuperAdmin', 'Dealer'];
-    if (protectedRoleNames.includes(existing.roleName) || (updateData.roleName && protectedRoleNames.includes(updateData.roleName))) {
+    if (
+      protectedRoleNames.includes(existing.roleName) ||
+      (updateData.roleName && protectedRoleNames.includes(updateData.roleName))
+    ) {
       // Only allow specific updates or block completely? The requirement says "uneditable", so block.
-      // However, we might want to allow updating description or landing page? 
-      // "also uneditable" implies completely. 
-      // But wait, system roles might need some updates? 
+      // However, we might want to allow updating description or landing page?
+      // "also uneditable" implies completely.
+      // But wait, system roles might need some updates?
       // For now, I'll block any update if it is a protected role.
       throw new ConflictError(`Cannot update protected role: ${existing.roleName}`);
     }

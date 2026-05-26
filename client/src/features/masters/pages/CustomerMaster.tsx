@@ -214,6 +214,7 @@ const CustomerForm = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingData, setPendingData] = useState<Customer | null>(null);
+  const [isFetchingState, setIsFetchingState] = useState(false);
 
   const companyNameRef = useRef<HTMLInputElement>(null);
   const mobileRef = useRef<HTMLInputElement>(null);
@@ -523,45 +524,86 @@ const CustomerForm = ({
     return error;
   };
 
-  const fetchLocationDetailsByPincode = async (pincode: string) => {
-    try {
-      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
-      const data = await response.json();
+  const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setFormData(prev => ({
+      ...prev,
+      Pincode: val,
+      State: val.length < 6 ? '' : prev.State,
+      Location: val.length < 6 ? '' : prev.Location,
+    }));
 
-      if (data?.[0]?.Status === 'Success') {
-        return {
-          District: data?.[0]?.PostOffice?.[0]?.District || '',
-          State: data?.[0]?.PostOffice?.[0]?.State || '',
-        };
+    if (val.length < 6) {
+      validateField('Pincode', val);
+      return;
+    }
+
+    if (val === formData.Pincode) return;
+
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.Pincode;
+      return newErrors;
+    });
+
+    const target = e.target;
+
+    try {
+      setIsFetchingState(true);
+      let resData = null;
+
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${val}`);
+        if (!res.ok) throw new Error('API fetch failed');
+        resData = await res.json();
+      } catch (err) {
+        const fallbackRes = await fetch(`https://api.zippopotam.us/in/${val}`);
+        if (!fallbackRes.ok) throw new Error('Fallback API fetch failed');
+        const fallbackData = await fallbackRes.json();
+        if (fallbackData && fallbackData.places && fallbackData.places.length > 0) {
+          resData = [
+            {
+              Status: 'Success',
+              PostOffice: [
+                {
+                  State: fallbackData.places[0].state,
+                  District: fallbackData.places[0]['place name'] || '',
+                },
+              ],
+            },
+          ];
+        } else {
+          throw new Error('No records found in fallback');
+        }
       }
 
-      logger.error('Invalid pincode API response:', data);
-      return null;
+      if (target.value.replace(/\D/g, '').slice(0, 6) !== val) return;
+
+      if (resData?.[0]?.Status === 'Success' && resData[0].PostOffice?.length > 0) {
+        const postOffice = resData[0].PostOffice[0];
+        setFormData(prev => ({
+          ...prev,
+          State: postOffice.State,
+          Location: postOffice.District || prev.Location,
+        }));
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.State;
+          if (postOffice.District) delete newErrors.Location;
+          return newErrors;
+        });
+      } else {
+        setErrors(prev => ({ ...prev, Pincode: 'Invalid pincode — no records found' }));
+      }
     } catch (error) {
-      logger.error('Failed to fetch location details from pincode:', error);
-      return null;
-    }
-  };
-
-  const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const pincode = e.target.value.replace(/\D/g, '').slice(0, 6);
-    setFormData(prev => ({ ...prev, Pincode: pincode }));
-    validateField('Pincode', pincode);
-
-    if (pincode.length === 6) {
-      const locationDetails = await fetchLocationDetailsByPincode(pincode);
-
-      if (locationDetails) {
-        setFormData(
-          prev =>
-            ({
-              ...prev,
-              Location: locationDetails.District,
-              State: locationDetails.State,
-            }) as Partial<Customer>
-        );
-        validateField('Location', locationDetails.District);
-        validateField('State', locationDetails.State);
+      if (target.value.replace(/\D/g, '').slice(0, 6) !== val) return;
+      setErrors(prev => ({
+        ...prev,
+        Pincode: 'Failed to auto-fetch state. Please enter manually.',
+      }));
+    } finally {
+      if (target.value.replace(/\D/g, '').slice(0, 6) === val) {
+        setIsFetchingState(false);
       }
     }
   };
@@ -1127,6 +1169,7 @@ const CustomerForm = ({
                 }}
                 placeholder="District will be fetched from pincode"
                 className="h-10"
+                disabled={isFetchingState}
               />
               {errors.Location && (
                 <p className="text-xs text-red-500 font-medium">{errors.Location}</p>
@@ -1143,6 +1186,7 @@ const CustomerForm = ({
                 }}
                 placeholder="State will be fetched from pincode"
                 className="h-10"
+                disabled={isFetchingState}
               />
               {errors.State && <p className="text-xs text-red-500 font-medium">{errors.State}</p>}
             </div>

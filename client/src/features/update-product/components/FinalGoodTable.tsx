@@ -71,6 +71,13 @@ const FinalGoodTable = () => {
           newValue: changes.minStockLevel,
         });
       }
+      if (changes.gst !== undefined && changes.gst != product.gst) {
+        changeRecord.changes.push({
+          field: 'gst',
+          oldValue: product.gst,
+          newValue: changes.gst,
+        });
+      }
       if (
         changes.incentiveAmount !== undefined &&
         changes.incentiveAmount != product.incentiveAmount
@@ -198,6 +205,7 @@ const FinalGoodTable = () => {
               <th className="px-4 py-3 font-medium">Product Name (SKU)</th>
               <th className="px-4 py-3 font-medium">Selling Price</th>
               <th className="px-4 py-3 font-medium">Min Stock</th>
+              <th className="px-4 py-3 font-medium">GST (%)</th>
               <th className="px-4 py-3 font-medium">Filling Density</th>
               <th className="px-4 py-3 font-medium">Incentives</th>
             </tr>
@@ -209,6 +217,7 @@ const FinalGoodTable = () => {
                 edits[product.productId]?.sellingPrice ?? product.sellingPrice;
               const currentMinStock =
                 edits[product.productId]?.minStockLevel ?? product.minStockLevel ?? 0;
+              const currentGst = edits[product.productId]?.gst ?? product.gst ?? '';
               const currentIncentive =
                 edits[product.productId]?.incentiveAmount ?? product.incentiveAmount;
               const editedName = edits[product.productId]?.productName;
@@ -263,8 +272,18 @@ const FinalGoodTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      step="0.001"
                       data-column="4"
+                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentGst}
+                      onChange={e => handleInputChange(product.productId, 'gst', e.target.value)}
+                      onKeyDown={handleEnterKeyNavigation}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      step="0.001"
+                      data-column="5"
                       className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={
                         edits[product.productId]?.fillingDensity ??
@@ -279,7 +298,7 @@ const FinalGoodTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      data-column="5"
+                      data-column="6"
                       className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentIncentive}
                       onChange={e =>
@@ -293,7 +312,7 @@ const FinalGoodTable = () => {
             })}
             {paginatedProducts.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                   No products found matching your search.
                 </td>
               </tr>

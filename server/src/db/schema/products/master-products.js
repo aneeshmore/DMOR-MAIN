@@ -16,6 +16,7 @@ export const masterProducts = appSchema.table('master_products', {
   defaultUnitId: integer('default_unit_id'),
   isActive: boolean('is_active').notNull().default(true),
   minStockLevel: integer('min_stock_level').default(0), // Global min stock for master product
+  gst: varchar('gst', { length: 50 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });

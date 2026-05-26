@@ -9,9 +9,25 @@ import {
   units,
 } from '../../db/schema/index.js';
 
+let _columnsReady = false;
+
+async function ensureProductColumns() {
+  if (_columnsReady) return;
+  try {
+    await db.execute(sql`
+      ALTER TABLE app.master_products
+        ADD COLUMN IF NOT EXISTS gst VARCHAR(50)
+    `);
+    _columnsReady = true;
+  } catch (err) {
+    _columnsReady = true;
+  }
+}
+
 export class MasterProductsRepository {
   // Master Products methods
   async findAllMasterProducts(filters = {}) {
+    await ensureProductColumns();
     // Build conditions array
     const conditions = [eq(masterProducts.isActive, true)];
 
@@ -48,6 +64,7 @@ export class MasterProductsRepository {
   }
 
   async findMasterProductById(masterProductId) {
+    await ensureProductColumns();
     const result = await db
       .select({
         masterProduct: masterProducts,
@@ -75,12 +92,14 @@ export class MasterProductsRepository {
   }
 
   async createMasterProduct(masterProductData) {
+    await ensureProductColumns();
     const result = await db.insert(masterProducts).values(masterProductData).returning();
 
     return result[0];
   }
 
   async updateMasterProduct(masterProductId, updateData) {
+    await ensureProductColumns();
     const result = await db
       .update(masterProducts)
       .set({ ...updateData, updatedAt: new Date() })
@@ -166,6 +185,7 @@ export class MasterProductsRepository {
 
   // Products methods
   async findAllProducts(filters = {}) {
+    await ensureProductColumns();
     // Build conditions array - all conditions must be in a single .where() call
     const conditions = [eq(products.isActive, true)];
 

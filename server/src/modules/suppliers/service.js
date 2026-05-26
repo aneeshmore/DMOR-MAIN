@@ -63,6 +63,11 @@ export class SuppliersService {
       throw new NotFoundError('Supplier not found');
     }
 
+    const dependencies = await this.repository.findSupplierDependencies(supplierId);
+    if (dependencies.length > 0) {
+      throw new ValidationError(dependencies[0].message);
+    }
+
     await this.repository.delete(supplierId);
     logger.info('Supplier deleted (soft)', { supplierId });
   }

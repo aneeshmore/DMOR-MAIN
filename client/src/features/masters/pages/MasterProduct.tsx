@@ -31,6 +31,7 @@ const MasterProduct = () => {
 
   const [capacity, setCapacity] = useState<number | ''>('');
   const [canBeAddedMultipleTimes, setCanBeAddedMultipleTimes] = useState(false);
+  const [gst, setGst] = useState<number | ''>('');
 
   // FG Specific Fields
   const [subcategory, setSubcategory] = useState<
@@ -113,6 +114,7 @@ const MasterProduct = () => {
     setOilAbsorption('');
     setCapacity('');
     setCanBeAddedMultipleTimes(false);
+    setGst('');
     setSubcategory('General');
     setSelectedHardenerId(null);
     setHighlightedIndex(-1);
@@ -129,6 +131,7 @@ const MasterProduct = () => {
     setOilAbsorption(product.OilAbsorption || '');
     setCanBeAddedMultipleTimes(product.CanBeAddedMultipleTimes || false);
     setCapacity(product.Capacity || '');
+    setGst(product.gst !== undefined && product.gst !== null ? product.gst : '');
     setSubcategory(product.Subcategory || 'General');
     setSelectedHardenerId(product.HardenerID || null);
   };
@@ -191,6 +194,7 @@ const MasterProduct = () => {
         MasterProductName: productName,
         IsActive: true,
         ProductType: activeTab,
+        GST: gst !== '' ? Number(gst) : null,
       };
 
       if (activeTab === 'RM') {
@@ -343,6 +347,7 @@ const MasterProduct = () => {
                     setOilAbsorption('');
                     setCapacity('');
                     setCanBeAddedMultipleTimes(false);
+                    setGst('');
                     setSelectedHardenerId(null);
                     setHighlightedIndex(-1);
                   }}
@@ -428,6 +433,24 @@ const MasterProduct = () => {
                 </div>
               )}
             </div>
+
+            <Input
+              label="GST (%)"
+              type="number"
+              value={gst}
+              onChange={e => {
+                const val = e.target.value;
+                if (val === '') {
+                  setGst('');
+                } else {
+                  const numValue = Number(val);
+                  if (numValue < 0) setGst(0);
+                  else if (numValue > 100) setGst(100);
+                  else setGst(numValue);
+                }
+              }}
+              placeholder="0.00"
+            />
 
             {activeTab === 'FG' && (
               <div className="space-y-3 p-3 bg-[var(--surface-highlight)] rounded-md border border-[var(--border)]">
@@ -663,6 +686,7 @@ const MasterProduct = () => {
                   <th className="px-6 py-3">Type</th>
                   <th className="px-6 py-3">Name</th>
                   <th className="px-6 py-3">Sub Category</th>
+                  <th className="px-6 py-3">GST (%)</th>
                   <th className="px-6 py-3">Details</th>
                   <th className="px-6 py-3 w-24 text-right">Actions</th>
                 </tr>
@@ -716,6 +740,11 @@ const MasterProduct = () => {
                       </td>
                       <td className="px-6 py-3 text-[var(--text-secondary)]">
                         {product.Subcategory || '-'}
+                      </td>
+                      <td className="px-6 py-3 text-[var(--text-secondary)]">
+                        {product.gst !== undefined && product.gst !== null
+                          ? `${product.gst}%`
+                          : '-'}
                       </td>
                       <td className="px-6 py-3 text-[var(--text-secondary)]">
                         {product.productType === 'FG' ? (

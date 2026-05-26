@@ -13,6 +13,7 @@ export class UpdateProductRepository {
         productId: products.productId,
         masterProductId: products.masterProductId,
         masterProductName: masterProducts.masterProductName,
+        gst: masterProducts.gst,
         productName: products.productName, // The specific SKU
         sellingPrice: products.sellingPrice,
         minStockLevel: products.minStockLevel, // <--- From products (SKU level)
@@ -34,6 +35,21 @@ export class UpdateProductRepository {
 
     let productUpdate = [];
 
+    if (data.gst !== undefined) {
+      const product = await db
+        .select({ masterProductId: products.masterProductId })
+        .from(products)
+        .where(eq(products.productId, id))
+        .limit(1);
+
+      if (product[0]?.masterProductId) {
+        await db
+          .update(masterProducts)
+          .set({ gst: data.gst !== null && data.gst !== '' ? data.gst.toString() : null })
+          .where(eq(masterProducts.masterProductId, product[0].masterProductId));
+      }
+    }
+
     // Update product specific fields only if there are changes
     if (Object.keys(updateData).length > 0) {
       productUpdate = await db
@@ -52,6 +68,7 @@ export class UpdateProductRepository {
       .select({
         masterProductId: masterProducts.masterProductId,
         masterProductName: masterProducts.masterProductName,
+        gst: masterProducts.gst,
         purchaseCost: masterProductRM.purchaseCost,
         density: masterProductRM.rmDensity,
         solids: masterProductRM.rmSolids,
@@ -80,6 +97,8 @@ export class UpdateProductRepository {
     if (data.minStockLevel !== undefined) masterUpdateData.minStockLevel = data.minStockLevel;
     if (data.masterProductName !== undefined)
       masterUpdateData.masterProductName = data.masterProductName;
+    if (data.gst !== undefined)
+      masterUpdateData.gst = data.gst !== null && data.gst !== '' ? data.gst.toString() : null;
 
     if (Object.keys(masterUpdateData).length > 0) {
       await db
@@ -107,6 +126,7 @@ export class UpdateProductRepository {
       .select({
         masterProductId: masterProducts.masterProductId,
         masterProductName: masterProducts.masterProductName,
+        gst: masterProducts.gst,
         purchaseCost: masterProductPM.purchaseCost,
         minStockLevel: masterProducts.minStockLevel,
       })
@@ -130,6 +150,8 @@ export class UpdateProductRepository {
     if (data.minStockLevel !== undefined) masterUpdateData.minStockLevel = data.minStockLevel;
     if (data.masterProductName !== undefined)
       masterUpdateData.masterProductName = data.masterProductName;
+    if (data.gst !== undefined)
+      masterUpdateData.gst = data.gst !== null && data.gst !== '' ? data.gst.toString() : null;
 
     if (Object.keys(masterUpdateData).length > 0) {
       await db

@@ -67,6 +67,13 @@ const PackagingMaterialTable = () => {
           newValue: changes.purchaseCost,
         });
       }
+      if (changes.gst !== undefined && changes.gst != product.gst) {
+        changeRecord.changes.push({
+          field: 'gst',
+          oldValue: product.gst,
+          newValue: changes.gst,
+        });
+      }
       if (changes.minStockLevel !== undefined && changes.minStockLevel != product.minStockLevel) {
         changeRecord.changes.push({
           field: 'minStockLevel',
@@ -176,6 +183,7 @@ const PackagingMaterialTable = () => {
             <tr>
               <th className="px-4 py-3 font-medium">Packaging Custom Name</th>
               <th className="px-4 py-3 font-medium">Purchase Cost</th>
+              <th className="px-4 py-3 font-medium">GST (%)</th>
               <th className="px-4 py-3 font-medium">Min Stock</th>
             </tr>
           </thead>
@@ -184,6 +192,7 @@ const PackagingMaterialTable = () => {
               const elementId = product.masterProductId;
               const isEdited = !!edits[elementId];
               const currentCost = edits[elementId]?.purchaseCost ?? product.purchaseCost;
+              const currentGst = edits[elementId]?.gst ?? product.gst ?? '';
               const currentMinStock = edits[elementId]?.minStockLevel ?? product.minStockLevel ?? 0;
               const editedName = edits[elementId]?.masterProductName;
               const isNameEdited =
@@ -224,6 +233,16 @@ const PackagingMaterialTable = () => {
                       type="number"
                       data-column="3"
                       className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentGst}
+                      onChange={e => handleInputChange(elementId, 'gst', e.target.value)}
+                      onKeyDown={handleEnterKeyNavigation}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      data-column="4"
+                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentMinStock}
                       onChange={e => handleInputChange(elementId, 'minStockLevel', e.target.value)}
                       onKeyDown={handleEnterKeyNavigation}
@@ -234,7 +253,7 @@ const PackagingMaterialTable = () => {
             })}
             {paginatedProducts.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                <td colSpan={4} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                   No packaging materials found matching your search.
                 </td>
               </tr>
