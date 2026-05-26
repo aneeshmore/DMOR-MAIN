@@ -13,6 +13,9 @@ import { ColumnDef } from '@tanstack/react-table';
 // Validation helpers
 // ============================================================
 
+/** Strict normalizer — trim + collapse to lowercase for exact-match duplicate checks */
+const normalize = (v: string | undefined | null): string => (v || '').trim().toLowerCase();
+
 const validateSupplierName = (name: string) => {
   if (!name) return '';
   if (name.trim().length < 2 || name.trim().length > 255)
@@ -118,13 +121,18 @@ const SupplierForm = ({
         setFieldError('supplierName', err);
         return;
       }
-      if (
-        existingSuppliers.some(
+      // Only check for duplicates when there is an actual value to compare
+      const safeSuppliers = Array.isArray(existingSuppliers) ? existingSuppliers : [];
+      const normalizedInput = normalize(val);
+      const isDuplicate =
+        normalizedInput.length > 0 &&
+        safeSuppliers.some(
           s =>
-            s.supplierName.toLowerCase() === val.trim().toLowerCase() &&
+            s.isActive !== false &&
+            normalize(s.supplierName) === normalizedInput &&
             s.supplierId !== item?.supplierId
-        )
-      ) {
+        );
+      if (isDuplicate) {
         setFieldError('supplierName', 'Supplier already existing');
       } else {
         clearFieldError('supplierName');
@@ -261,10 +269,15 @@ const SupplierForm = ({
     }
 
     const name = formData.supplierName?.trim();
+    const safeSuppliers = Array.isArray(existingSuppliers) ? existingSuppliers : [];
+    const normalizedName = normalize(name);
     if (
-      existingSuppliers.some(
+      normalizedName.length > 0 &&
+      safeSuppliers.some(
         s =>
-          s.supplierName.toLowerCase() === name?.toLowerCase() && s.supplierId !== item?.supplierId
+          s.isActive !== false &&
+          normalize(s.supplierName) === normalizedName &&
+          s.supplierId !== item?.supplierId
       )
     ) {
       setFieldError('supplierName', 'Supplier already existing');
@@ -692,11 +705,10 @@ export default function SupplierMaster() {
     },
   ];
 
-  // Hide incomplete legacy records — only show rows where all four key fields are filled.
-  // Records remain untouched in the database.
-  const displayedSuppliers = suppliers.filter(
-    s => s.contactPerson && s.mobileNo && s.state && s.gstNo
-  );
+  // Show ALL active suppliers from DB — including legacy/imported rows with partial optional fields.
+  // The backend duplicate check scans the full active suppliers table; the table must reflect the
+  // same dataset so no supplier is an invisible blocker.
+  const displayedSuppliers = suppliers;
 
   if (loading && suppliers.length === 0) {
     return (
@@ -723,7 +735,7 @@ export default function SupplierMaster() {
           <SupplierForm
             key={formResetKey}
             item={editingSupplier}
-            existingSuppliers={suppliers}
+            existingSuppliers={displayedSuppliers}
             onSave={
               editingSupplier
                 ? initiateUpdate
