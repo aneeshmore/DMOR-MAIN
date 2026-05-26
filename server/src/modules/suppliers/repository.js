@@ -77,9 +77,11 @@ export class SuppliersRepository {
     const exists = await this.tableExists('app', tableName);
     if (!exists) return 0;
 
+    const isActiveClause = tableName === 'purchase_orders' ? ' AND is_active = true' : '';
+
     const result = await db.execute(
       sql.raw(
-        `SELECT COUNT(*)::int AS count FROM app.${quoteIdentifier(tableName)} WHERE supplier_id = ${Number(supplierId)}`
+        `SELECT COUNT(*)::int AS count FROM app.${quoteIdentifier(tableName)} WHERE supplier_id = ${Number(supplierId)}${isActiveClause}`
       )
     );
     const rows = result.rows || result;

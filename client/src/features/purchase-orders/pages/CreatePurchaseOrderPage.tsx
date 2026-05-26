@@ -26,6 +26,10 @@ import jsPDF from 'jspdf';
 interface SupplierOption {
   supplierId: number;
   supplierName: string;
+  contactPerson?: string | null;
+  mobileNo?: string | null;
+  state?: string | null;
+  gstNo?: string | null;
 }
 
 // ── Status badge ───────────────────────────────────────────────
@@ -670,8 +674,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
     fetchPOs();
     // Load vendors for the form dropdown
     apiClient
-      .get<{ success: boolean; data: SupplierOption[] }>('/suppliers')
-      .then(res => setSuppliers(res.data.data || []))
+      .get<{ success: boolean; data: SupplierOption[] }>('/suppliers?isActive=true')
+      .then(res => {
+        const data = res.data.data || [];
+        setSuppliers(data.filter(s => s.contactPerson && s.mobileNo && s.state && s.gstNo));
+      })
       .catch(() => setSuppliers([]));
   }, [fetchPOs]);
 
