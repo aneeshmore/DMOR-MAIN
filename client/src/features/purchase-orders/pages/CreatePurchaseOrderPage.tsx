@@ -1241,7 +1241,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
       });
 
       pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-      pdf.save(`PO-${full.poNumber}.pdf`);
+      const safeSupplierName = (supplierName && supplierName !== '—' ? supplierName : 'Supplier')
+        .replace(/[<>:"/\\|?*]+/g, '')
+        .trim();
+      pdf.save(`${safeSupplierName}-${full.poNumber}.pdf`);
 
       showToast.dismiss('po-dl');
       showToast.success('Purchase Order PDF downloaded successfully');
