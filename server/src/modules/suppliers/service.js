@@ -27,10 +27,16 @@ export class SuppliersService {
   }
 
   async createSupplier(supplierData) {
-    // Check if supplier name already exists
+    // Check if supplier name already exists (normalized, active-only)
+    logger.info(`[Supplier] Duplicate check for create — name: "${supplierData.supplierName}"`);
     const existing = await this.repository.findByName(supplierData.supplierName);
+    logger.info(`[Supplier] Duplicate found: ${!!existing}`);
     if (existing) {
-      throw new ValidationError('Supplier with this name already exists');
+      // Log exact matching row for production diagnostics
+      logger.info(`[Supplier] Existing duplicate row: ${JSON.stringify(existing)}`);
+      throw new ValidationError(
+        `Supplier already exists (ID: ${existing.supplierId}, Name: ${existing.supplierName})`
+      );
     }
 
     const supplier = await this.repository.create(supplierData);
@@ -44,11 +50,19 @@ export class SuppliersService {
       throw new NotFoundError('Supplier not found');
     }
 
-    // If updating name, check for duplicates
+    // If updating name, check for duplicates (exclude current supplier by id)
     if (updateData.supplierName) {
-      const duplicate = await this.repository.findByName(updateData.supplierName);
-      if (duplicate && duplicate.supplierId !== supplierId) {
-        throw new ValidationError('Supplier with this name already exists');
+      logger.info(
+        `[Supplier] Duplicate check for update — name: "${updateData.supplierName}", excludeId: ${supplierId}`
+      );
+      const duplicate = await this.repository.findByName(updateData.supplierName, supplierId);
+      logger.info(`[Supplier] Duplicate found: ${!!duplicate}`);
+      if (duplicate) {
+        // Log exact matching row for production diagnostics
+        logger.info(`[Supplier] Existing duplicate row: ${JSON.stringify(duplicate)}`);
+        throw new ValidationError(
+          `Supplier already exists (ID: ${duplicate.supplierId}, Name: ${duplicate.supplierName})`
+        );
       }
     }
 

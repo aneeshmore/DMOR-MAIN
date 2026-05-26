@@ -27,7 +27,11 @@ export const supplierApi = {
     } catch (err: any) {
       return {
         success: false,
-        error: err?.message || 'Failed to create supplier',
+        error:
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          'Failed to create supplier',
       };
     }
   },
@@ -39,7 +43,11 @@ export const supplierApi = {
     } catch (err: any) {
       return {
         success: false,
-        error: err?.message || 'Failed to update supplier',
+        error:
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          'Failed to update supplier',
       };
     }
   },

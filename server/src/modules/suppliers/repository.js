@@ -54,15 +54,49 @@ export class SuppliersRepository {
     return result[0] || null;
   }
 
-  async findByName(supplierName) {
+  /**
+   * Finds an ACTIVE supplier whose name matches after normalization
+   * (trim + lowercase). Returns null when no match is found.
+   *
+   * @param {string}      supplierName - Name to look up (will be normalized internally)
+   * @param {number|null} excludeId    - supplierId to exclude (pass current id when updating)
+   */
+  async findByName(supplierName, excludeId = null) {
     await ensureSupplierColumns();
-    const result = await db
-      .select()
-      .from(suppliers)
-      .where(eq(suppliers.supplierName, supplierName))
-      .limit(1);
+    const normalized = (supplierName || '').trim().toLowerCase();
 
-    return result[0] || null;
+    // Use parameterized raw SQL so we can apply LOWER(TRIM()) on the stored value
+    // and guarantee we only match ACTIVE suppliers.
+    let query;
+    if (excludeId) {
+      query = sql`
+        SELECT supplier_id, supplier_name, is_active, created_at
+        FROM   app.suppliers
+        WHERE  LOWER(TRIM(supplier_name)) = ${normalized}
+          AND  is_active = true
+          AND  supplier_id != ${Number(excludeId)}
+        LIMIT 1
+      `;
+    } else {
+      query = sql`
+        SELECT supplier_id, supplier_name, is_active, created_at
+        FROM   app.suppliers
+        WHERE  LOWER(TRIM(supplier_name)) = ${normalized}
+          AND  is_active = true
+        LIMIT 1
+      `;
+    }
+
+    const result = await db.execute(query);
+    const rows = result.rows || result;
+    if (!rows[0]) return null;
+    // Return all diagnostic fields so the service layer can log & surface them
+    return {
+      supplierId: rows[0].supplier_id,
+      supplierName: rows[0].supplier_name,
+      isActive: rows[0].is_active,
+      createdAt: rows[0].created_at,
+    };
   }
 
   async tableExists(schemaName, tableName) {
