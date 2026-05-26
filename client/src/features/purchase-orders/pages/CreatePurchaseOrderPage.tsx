@@ -21,6 +21,7 @@ import { companyApi } from '@/features/company/api/companyApi';
 import { tncApi } from '@/features/tnc/api/tncApi';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { formatGoogleDriveUrl } from '@/utils/stringUtils';
 
 // ── Supplier type (local) ──────────────────────────────────────
 interface SupplierOption {
@@ -873,7 +874,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const supplierState = supplierDetails?.state || '—';
       const supplierStateCode = getStateCode(supplierState);
 
-      const companyData: any = companyRes?.data?.data || {};
+      const companyData: any = companyRes?.data?.data || companyRes?.data || {};
+      const companyLogo = companyData.logoUrl ? formatGoogleDriveUrl(companyData.logoUrl) : '';
       const companyName = companyData.companyName || 'Dmor Polymers Private Limited';
       const companyAddress =
         companyData.address ||
@@ -906,7 +908,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
       );
 
       const orderDateFormatted = formatInvoiceDate(full.orderDate);
-      const deliveryDateFormatted = formatInvoiceDate(full.expectedDeliveryDate);
 
       const paymentTerms =
         supplierDetails?.paymentTerms ||
@@ -948,8 +949,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           return `
             <tr>
               <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${idx + 1}</td>
-              <td style="width: 45%; border-right: 1px solid #000; padding: 5px 6px; vertical-align: top; font-weight: bold;">${item.itemDescription}</td>
-              <td style="width: 10%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${deliveryDateFormatted}</td>
+              <td style="width: 55%; border-right: 1px solid #000; padding: 5px 6px; vertical-align: top; font-weight: bold;">${item.itemDescription}</td>
               <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top; font-weight: bold; white-space: nowrap;">${qty.toFixed(4)} ${item.unit || ''}</td>
               <td style="width: 10%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top;">${rate.toFixed(2)}</td>
               <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${item.unit || ''}</td>
@@ -972,8 +972,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           taxRowsHtmlList.push(`
             <tr>
               <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 45%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input CGST @ ${rate / 2}%</td>
-              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 55%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input CGST @ ${rate / 2}%</td>
               <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
               <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate / 2}%</td>
               <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
@@ -984,8 +983,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           taxRowsHtmlList.push(`
             <tr>
               <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 45%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input SGST @ ${rate / 2}%</td>
-              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 55%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input SGST @ ${rate / 2}%</td>
               <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
               <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate / 2}%</td>
               <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
@@ -998,8 +996,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           taxRowsHtmlList.push(`
             <tr>
               <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 45%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input IGST @ ${rate}%</td>
-              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td style="width: 55%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input IGST @ ${rate}%</td>
               <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
               <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate}%</td>
               <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
@@ -1018,8 +1015,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         taxRowsHtmlList.push(`
           <tr>
             <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-            <td style="width: 45%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Rounding Off</td>
-            <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td style="width: 55%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Rounding Off</td>
             <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
             <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
             <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
@@ -1068,10 +1064,29 @@ const CreatePurchaseOrderPage: React.FC = () => {
                   <td style="width: 50%; border-right: 1px solid #000; padding: 0; vertical-align: top;">
                     <div style="padding: 8px; border-bottom: 1px solid #000; min-height: 115px; box-sizing: border-box;">
                       <div style="font-size: 8px; color: #555; font-style: italic; margin-bottom: 2px;">Invoice To</div>
-                      <div style="font-size: 11px; font-weight: bold;">${companyName}</div>
-                      <div style="white-space: pre-wrap; margin-top: 2px; line-height: 1.3; font-size: 10px;">${companyAddress}</div>
-                      <div style="margin-top: 4px; font-size: 10px;"><strong>GSTIN/UIN:</strong> ${companyGSTIN}</div>
-                      <div style="font-size: 10px;"><strong>State Name:</strong> ${companyState}${companyStateCode ? `, Code : ${companyStateCode}` : ''}</div>
+                      <div style="display: flex; gap: 8px; align-items: flex-start;">
+                        ${
+                          companyLogo
+                            ? `
+                          <div style="width: 140px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center;">
+                            <img
+                              src="${companyLogo}"
+                              alt="Company Logo"
+                              style="max-height: 70px; max-width: 140px; object-fit: contain;"
+                              crossorigin="anonymous"
+                              class="po-company-logo"
+                            />
+                          </div>
+                        `
+                            : ''
+                        }
+                        <div style="flex: 1;">
+                          <div style="font-size: 11px; font-weight: bold;">${companyName}</div>
+                          <div style="white-space: pre-wrap; margin-top: 2px; line-height: 1.3; font-size: 10px;">${companyAddress}</div>
+                          <div style="margin-top: 4px; font-size: 10px;"><strong>GSTIN/UIN:</strong> ${companyGSTIN}</div>
+                          <div style="font-size: 10px;"><strong>State Name:</strong> ${companyState}${companyStateCode ? `, Code : ${companyStateCode}` : ''}</div>
+                        </div>
+                      </div>
                     </div>
                     <div style="padding: 8px; min-height: 115px; box-sizing: border-box;">
                       <div style="font-size: 8px; color: #555; font-style: italic; margin-bottom: 2px;">Supplier (Bill from)</div>
@@ -1135,8 +1150,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                 <thead>
                   <tr style="border-bottom: 1px solid #000; font-weight: bold; text-align: center; background: #ffffff;">
                     <th style="width: 5%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px;">SI No.</th>
-                    <th style="width: 45%; border-right: 1px solid #000; padding: 6px 4px; text-align: left; font-size: 10px;">Description of Goods</th>
-                    <th style="width: 10%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px;">Due on</th>
+                    <th style="width: 55%; border-right: 1px solid #000; padding: 6px 4px; text-align: left; font-size: 10px;">Description of Goods</th>
                     <th style="width: 12%; border-right: 1px solid #000; padding: 6px 4px; text-align: right; font-size: 10px;">Quantity</th>
                     <th style="width: 10%; border-right: 1px solid #000; padding: 6px 4px; text-align: right; font-size: 10px;">Rate</th>
                     <th style="width: 5%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px;">per</th>
@@ -1149,8 +1163,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                   ${taxRowsHtml}
                   <tr style="height: ${spacerHeight}px;">
                     <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
-                    <td style="width: 45%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
-                    <td style="width: 10%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
+                    <td style="width: 55%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
                     <td style="width: 12%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
                     <td style="width: 10%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
                     <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
@@ -1159,8 +1172,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                   </tr>
                   <tr style="font-weight: bold; border-bottom: 2px solid #000; font-size: 10px;">
                     <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
-                    <td style="width: 45%; border-right: 1px solid #000; text-align: right; padding: 6px;">Total</td>
-                    <td style="width: 10%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 55%; border-right: 1px solid #000; text-align: right; padding: 6px;">Total</td>
                     <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 6px; white-space: nowrap;">${totalQuantity.toFixed(4)} ${full.items?.[0]?.unit || ''}</td>
                     <td style="width: 10%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
                     <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
@@ -1229,7 +1241,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
       });
 
       pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-      pdf.save(`PO-${full.poNumber}.pdf`);
+      const safeSupplierName = (supplierName && supplierName !== '—' ? supplierName : 'Supplier')
+        .replace(/[<>:"/\\|?*]+/g, '')
+        .trim();
+      pdf.save(`${safeSupplierName}-${full.poNumber}.pdf`);
 
       showToast.dismiss('po-dl');
       showToast.success('Purchase Order PDF downloaded successfully');

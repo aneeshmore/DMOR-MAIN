@@ -10,6 +10,7 @@ import { showToast } from '@/utils/toast';
 import { numberToWords } from '@/utils/formatters';
 import { QuotationData, QuotationItem } from '../types';
 import { addPdfFooter } from '@/utils/pdfUtils';
+import { formatGoogleDriveUrl } from '@/utils/stringUtils';
 
 import { Product } from '@/features/inventory/types';
 
@@ -1109,21 +1110,10 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                   <div className="w-[100px] flex-shrink-0 flex items-start justify-center pt-1">
                     {/* Helper to process Google Drive links */}
                     {(() => {
-                      const getLogoUrl = (url?: string) => {
-                        if (!url) return '/morex-logo.png';
-                        // Handle Google Drive links
-                        if (url.includes('drive.google.com')) {
-                          const idMatch = url.match(/\/d\/([^/]+)/);
-                          if (idMatch && idMatch[1]) {
-                            // Try View export link which works for most public files
-                            return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
-                          }
-                        }
-                        return url;
-                      };
+                      const logoUrl = formatGoogleDriveUrl(data.companyLogo) || '/morex-logo.png';
                       return (
                         <img
-                          src={getLogoUrl(data.companyLogo)}
+                          src={logoUrl}
                           alt="Logo"
                           className="w-auto max-h-[50px] object-contain"
                           crossOrigin="anonymous"
