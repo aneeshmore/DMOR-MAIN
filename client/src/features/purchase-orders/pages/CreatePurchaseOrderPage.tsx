@@ -957,7 +957,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
             <tr>
               <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${idx + 1}</td>
               <td style="width: 55%; border-right: 1px solid #000; padding: 5px 6px; vertical-align: top; font-weight: bold;">${item.itemDescription}</td>
-              <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top; font-weight: bold; white-space: nowrap;">${qty.toFixed(4)} ${item.unit || ''}</td>
+              <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top; font-weight: bold; white-space: nowrap;">${Number(qty) % 1 === 0 ? qty.toString() : qty.toFixed(4).replace(/\.?0+$/, '')} ${item.unit || ''}</td>
               <td style="width: 10%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top;">${rate.toFixed(2)}</td>
               <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${item.unit || ''}</td>
               <td style="width: 3%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">&nbsp;</td>
@@ -1180,7 +1180,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                   <tr style="font-weight: bold; border-bottom: 2px solid #000; font-size: 10px;">
                     <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
                     <td style="width: 55%; border-right: 1px solid #000; text-align: right; padding: 6px;">Total</td>
-                    <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 6px; white-space: nowrap;">${totalQuantity.toFixed(4)} ${full.items?.[0]?.unit || ''}</td>
+                    <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 6px; white-space: nowrap;">${Number(totalQuantity) % 1 === 0 ? totalQuantity.toString() : totalQuantity.toFixed(4).replace(/\.?0+$/, '')} ${full.items?.[0]?.unit || ''}</td>
                     <td style="width: 10%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
                     <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
                     <td style="width: 3%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
