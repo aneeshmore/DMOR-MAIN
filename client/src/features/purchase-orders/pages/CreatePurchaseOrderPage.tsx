@@ -200,7 +200,14 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
     };
   }, [isEditing]);
 
-  const totalAmount = items.reduce((sum, i) => sum + Number(i.quantity) * Number(i.unitPrice), 0);
+  const totalAmount = items.reduce((sum, i) => {
+    const qty = Number(i.quantity || 0);
+    const unitPrice = Number(i.unitPrice || 0);
+    const gst = Number(i.gst || 0);
+    const baseAmount = qty * unitPrice;
+    const gstAmount = (baseAmount * gst) / 100;
+    return sum + baseAmount + gstAmount;
+  }, 0);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const getMinDate = () => {
@@ -602,7 +609,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                     )}
                   </td>
                   <td className="p-2 text-right font-medium w-28">
-                    ₹{(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}
+                    ₹{(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toFixed(2)}
                   </td>
                   <td className="p-2">
                     {items.length > 1 && (
