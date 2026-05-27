@@ -18,6 +18,7 @@ export const createPurchaseOrderSchema = z.object({
   notes: z.string().optional().nullable(),
   deliveryTerms: z.string().optional().nullable(),
   deliveryAddress: z.string().optional().nullable(),
+  dispatchedThrough: z.string().optional().nullable(),
   items: z.array(poItemSchema).min(1, 'At least one item is required'),
 });
 
@@ -31,5 +32,6 @@ export const updatePurchaseOrderSchema = z.object({
   notes: z.string().optional().nullable(),
   deliveryTerms: z.string().optional().nullable(),
   deliveryAddress: z.string().optional().nullable(),
+  dispatchedThrough: z.string().optional().nullable(),
   items: z.array(poItemSchema).min(1).optional(),
 });

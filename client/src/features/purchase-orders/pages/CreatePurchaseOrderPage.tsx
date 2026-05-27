@@ -88,6 +88,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [factoryAddressDefault, setFactoryAddressDefault] = useState('');
   const [deliveryTerms, setDeliveryTerms] = useState('');
+  const [dispatchedThrough, setDispatchedThrough] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<
     (Omit<PurchaseOrderItem, 'itemId' | 'purchaseOrderId' | 'totalPrice' | 'gst'> & {
@@ -149,6 +150,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       setDeliveryAddress(editingPO.deliveryAddress || '');
       setDeliveryTerms(editingPO.deliveryTerms || editingPO.notes || '');
       setNotes(editingPO.deliveryTerms ? editingPO.notes || '' : '');
+      setDispatchedThrough(editingPO.dispatchedThrough || '');
       setItems(
         editingPO.items.length > 0
           ? editingPO.items.map(i => {
@@ -169,6 +171,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       setExpectedDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
       setDeliveryAddress(factoryAddressDefault);
       setDeliveryTerms('');
+      setDispatchedThrough('');
       setNotes('');
       setItems([emptyItem()]);
       setErrors({});
@@ -301,6 +304,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         deliveryAddress: deliveryAddress || null,
         deliveryTerms: deliveryTerms || null,
         notes: notes || null,
+        dispatchedThrough: dispatchedThrough || null,
         items: items.map(i => ({
           itemDescription: i.itemDescription.trim(),
           quantity: Number(i.quantity),
@@ -322,6 +326,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         setExpectedDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
         setDeliveryAddress(factoryAddressDefault);
         setDeliveryTerms('');
+        setDispatchedThrough('');
         setNotes('');
         setItems([emptyItem()]);
         setErrors({});
@@ -426,6 +431,16 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
           {errors.deliveryTerms && (
             <p className="text-xs text-red-500 mt-1">{errors.deliveryTerms}</p>
           )}
+        </div>
+
+        {/* Dispatched Through */}
+        <div>
+          <Input
+            label="Dispatched Through"
+            value={dispatchedThrough}
+            onChange={e => setDispatchedThrough(e.target.value)}
+            placeholder="e.g. By Road, Courier, Self Pickup"
+          />
         </div>
 
         {/* Notes */}
@@ -1133,7 +1148,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                         </td>
                         <td style="width: 50%; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
                           <div style="font-size: 8px; color: #555;">Dispatched through </div>
-                          <div style="font-size: 10px; margin-top: 2px;">—</div>
+                          <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${full.dispatchedThrough || '—'}</div>
                         </td>
                       </tr>
                       <tr>
@@ -1488,6 +1503,12 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       <span className="ml-2 font-medium">
                         {selectedPO.expectedDeliveryDate?.slice(0, 10)}
                       </span>
+                    </div>
+                  )}
+                  {selectedPO.dispatchedThrough && (
+                    <div>
+                      <span className="text-[var(--text-secondary)]">Dispatched Through:</span>{' '}
+                      <span className="ml-2 font-medium">{selectedPO.dispatchedThrough}</span>
                     </div>
                   )}
                   {selectedPO.deliveryAddress && (

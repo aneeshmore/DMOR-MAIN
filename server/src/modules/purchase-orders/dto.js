@@ -13,6 +13,7 @@ export class PurchaseOrderDTO {
     this.deliveryTerms = po.deliveryTerms || po.delivery_terms || null;
     this.notes = po.notes || null;
     this.deliveryAddress = po.deliveryAddress || po.delivery_address || null;
+    this.dispatchedThrough = po.dispatchedThrough || po.dispatched_through || null;
     this.isActive = po.isActive ?? po.is_active ?? true;
     this.createdAt = po.createdAt || po.created_at;
     this.updatedAt = po.updatedAt || po.updated_at;

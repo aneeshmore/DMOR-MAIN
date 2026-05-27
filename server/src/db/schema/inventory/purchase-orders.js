@@ -29,6 +29,7 @@ export const purchaseOrders = appSchema.table('purchase_orders', {
   deliveryTerms: text('delivery_terms'),
   notes: text('notes'),
   deliveryAddress: text('delivery_address'),
+  dispatchedThrough: text('dispatched_through'),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
