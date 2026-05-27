@@ -88,6 +88,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [factoryAddressDefault, setFactoryAddressDefault] = useState('');
   const [deliveryTerms, setDeliveryTerms] = useState('');
+  const [dispatchedThrough, setDispatchedThrough] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<
     (Omit<PurchaseOrderItem, 'itemId' | 'purchaseOrderId' | 'totalPrice' | 'gst'> & {
@@ -149,6 +150,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       setDeliveryAddress(editingPO.deliveryAddress || '');
       setDeliveryTerms(editingPO.deliveryTerms || editingPO.notes || '');
       setNotes(editingPO.deliveryTerms ? editingPO.notes || '' : '');
+      setDispatchedThrough(editingPO.dispatchedThrough || '');
       setItems(
         editingPO.items.length > 0
           ? editingPO.items.map(i => {
@@ -169,6 +171,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       setExpectedDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
       setDeliveryAddress(factoryAddressDefault);
       setDeliveryTerms('');
+      setDispatchedThrough('');
       setNotes('');
       setItems([emptyItem()]);
       setErrors({});
@@ -200,7 +203,14 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
     };
   }, [isEditing]);
 
-  const totalAmount = items.reduce((sum, i) => sum + Number(i.quantity) * Number(i.unitPrice), 0);
+  const totalAmount = items.reduce((sum, i) => {
+    const qty = Number(i.quantity || 0);
+    const unitPrice = Number(i.unitPrice || 0);
+    const gst = Number(i.gst || 0);
+    const baseAmount = qty * unitPrice;
+    const gstAmount = (baseAmount * gst) / 100;
+    return sum + baseAmount + gstAmount;
+  }, 0);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const getMinDate = () => {
@@ -294,6 +304,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         deliveryAddress: deliveryAddress || null,
         deliveryTerms: deliveryTerms || null,
         notes: notes || null,
+        dispatchedThrough: dispatchedThrough || null,
         items: items.map(i => ({
           itemDescription: i.itemDescription.trim(),
           quantity: Number(i.quantity),
@@ -315,6 +326,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         setExpectedDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
         setDeliveryAddress(factoryAddressDefault);
         setDeliveryTerms('');
+        setDispatchedThrough('');
         setNotes('');
         setItems([emptyItem()]);
         setErrors({});
@@ -419,6 +431,16 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
           {errors.deliveryTerms && (
             <p className="text-xs text-red-500 mt-1">{errors.deliveryTerms}</p>
           )}
+        </div>
+
+        {/* Dispatched Through */}
+        <div>
+          <Input
+            label="Dispatched Through"
+            value={dispatchedThrough}
+            onChange={e => setDispatchedThrough(e.target.value)}
+            placeholder="e.g. By Road, Courier, Self Pickup"
+          />
         </div>
 
         {/* Notes */}
@@ -602,7 +624,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                     )}
                   </td>
                   <td className="p-2 text-right font-medium w-28">
-                    ₹{(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}
+                    ₹{(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toFixed(2)}
                   </td>
                   <td className="p-2">
                     {items.length > 1 && (
@@ -950,7 +972,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
             <tr>
               <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${idx + 1}</td>
               <td style="width: 55%; border-right: 1px solid #000; padding: 5px 6px; vertical-align: top; font-weight: bold;">${item.itemDescription}</td>
-              <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top; font-weight: bold; white-space: nowrap;">${qty.toFixed(4)} ${item.unit || ''}</td>
+              <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top; font-weight: bold; white-space: nowrap;">${Number(qty) % 1 === 0 ? qty.toString() : qty.toFixed(4).replace(/\.?0+$/, '')} ${item.unit || ''}</td>
               <td style="width: 10%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top;">${rate.toFixed(2)}</td>
               <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${item.unit || ''}</td>
               <td style="width: 3%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">&nbsp;</td>
@@ -1126,7 +1148,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                         </td>
                         <td style="width: 50%; border-bottom: 1px solid #000; padding: 6px; height: 42px; box-sizing: border-box; vertical-align: top;">
                           <div style="font-size: 8px; color: #555;">Dispatched through </div>
-                          <div style="font-size: 10px; margin-top: 2px;">—</div>
+                          <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${full.dispatchedThrough || '—'}</div>
                         </td>
                       </tr>
                       <tr>
@@ -1173,7 +1195,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                   <tr style="font-weight: bold; border-bottom: 2px solid #000; font-size: 10px;">
                     <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
                     <td style="width: 55%; border-right: 1px solid #000; text-align: right; padding: 6px;">Total</td>
-                    <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 6px; white-space: nowrap;">${totalQuantity.toFixed(4)} ${full.items?.[0]?.unit || ''}</td>
+                    <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 6px; white-space: nowrap;">${Number(totalQuantity) % 1 === 0 ? totalQuantity.toString() : totalQuantity.toFixed(4).replace(/\.?0+$/, '')} ${full.items?.[0]?.unit || ''}</td>
                     <td style="width: 10%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
                     <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
                     <td style="width: 3%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
@@ -1481,6 +1503,12 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       <span className="ml-2 font-medium">
                         {selectedPO.expectedDeliveryDate?.slice(0, 10)}
                       </span>
+                    </div>
+                  )}
+                  {selectedPO.dispatchedThrough && (
+                    <div>
+                      <span className="text-[var(--text-secondary)]">Dispatched Through:</span>{' '}
+                      <span className="ml-2 font-medium">{selectedPO.dispatchedThrough}</span>
                     </div>
                   )}
                   {selectedPO.deliveryAddress && (

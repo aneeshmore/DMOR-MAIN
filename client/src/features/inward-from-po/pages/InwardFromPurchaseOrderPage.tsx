@@ -157,14 +157,6 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
 
     if (!billNo || !billNo.trim()) {
       errs.billNo = 'Bill No is required';
-    } else {
-      const trimmedBill = billNo.trim().toLowerCase();
-      const duplicate = (inwards || []).find(
-        inv => inv.billNo && inv.billNo.trim().toLowerCase() === trimmedBill
-      );
-      if (duplicate) {
-        errs.billNo = 'Bill No already exists';
-      }
     }
 
     if (poDetails) {
@@ -173,9 +165,6 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
           item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
         if (Number(remaining) <= 0) return; // skip fully-received items
         const mapping = itemMappings[item.itemId!];
-        if (!mapping || !mapping.masterProductId) {
-          errs[`map_${item.itemId}`] = 'Map to inventory product';
-        }
         if (!mapping || Number(mapping.receivedQuantity) <= 0) {
           errs[`qty_${item.itemId}`] = 'Qty must be > 0';
         }
@@ -253,26 +242,21 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* PO Selector */}
         <div>
-          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-            Purchase Order <span className="text-red-500">*</span>
-          </label>
-          <select
-            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-            value={selectedPoId}
-            onChange={e => setSelectedPoId(e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">Select PO…</option>
-            {pos.map(po => (
-              <option key={po.purchaseOrderId} value={po.purchaseOrderId}>
-                {po.poNumber} ({po.supplierName || 'No Vendor'})
-              </option>
-            ))}
-          </select>
-          {errors.selectedPoId && (
-            <p className="text-xs text-red-500 mt-1">{errors.selectedPoId}</p>
-          )}
+          <SearchableSelect
+            label="Purchase Order"
+            required
+            options={pos.map(po => ({
+              id: po.purchaseOrderId,
+              label: po.poNumber,
+              subLabel: po.supplierName ? `(${po.supplierName})` : undefined,
+              value: po.purchaseOrderId,
+            }))}
+            value={selectedPoId || undefined}
+            onChange={val => setSelectedPoId(val ? Number(val) : '')}
+            placeholder="Select PO…"
+            error={errors.selectedPoId}
+          />
         </div>
 
         {/* Inward Date */}
@@ -298,19 +282,11 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
               if (!val || !val.trim()) {
                 setErrors(prev => ({ ...prev, billNo: 'Bill No is required' }));
               } else {
-                const trimmedBill = val.trim().toLowerCase();
-                const duplicate = (inwards || []).find(
-                  inv => inv.billNo && inv.billNo.trim().toLowerCase() === trimmedBill
-                );
-                if (duplicate) {
-                  setErrors(prev => ({ ...prev, billNo: 'Bill No already exists' }));
-                } else {
-                  setErrors(prev => {
-                    const next = { ...prev };
-                    delete next.billNo;
-                    return next;
-                  });
-                }
+                setErrors(prev => {
+                  const next = { ...prev };
+                  delete next.billNo;
+                  return next;
+                });
               }
             }}
             placeholder="Enter bill number"
@@ -349,10 +325,9 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                   <tr>
                     <th className="text-left p-3 font-medium">PO Item Description</th>
                     <th className="text-right p-3 font-medium">Ordered Qty</th>
+                    <th className="text-right p-3 font-medium">Pending Qty</th>
                     <th className="text-left p-3 font-medium">Unit</th>
-                    <th className="text-left p-3 font-medium min-w-[220px]">
-                      Map to Stock Product
-                    </th>
+                    <th className="text-right p-3 font-medium">Unit Price (₹)</th>
                     <th className="text-left p-3 font-medium">GST (%)</th>
                     <th className="text-right p-3 font-medium w-24">Received Qty</th>
                     <th className="text-left p-3 font-medium w-32">Stock Unit</th>
@@ -380,52 +355,61 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                         item.gst !== undefined && item.gst !== null ? item.gst : matchedProd?.gst;
                       return (
                         <tr key={item.itemId} className="border-t border-[var(--border)]">
-                          <td className="p-3 font-medium">{item.itemDescription}</td>
-                          <td className="p-3 text-right">
-                            <div>{Number(item.quantity).toFixed(2)}</div>
-                            {item.remainingQuantity !== undefined &&
-                              item.remainingQuantity < item.quantity && (
-                                <div className="text-xs text-amber-600 font-semibold">
-                                  Pending: {Number(item.remainingQuantity).toFixed(2)}
-                                </div>
-                              )}
+                          <td className="p-2 min-w-[180px]">
+                            <input
+                              type="text"
+                              className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-secondary,var(--surface))] text-[var(--text-secondary)] text-sm focus:outline-none cursor-default"
+                              value={item.itemDescription}
+                              readOnly
+                            />
                           </td>
-                          <td className="p-3">{item.unit || '—'}</td>
-                          <td className="p-2">
-                            <select
-                              className="w-full px-2 py-1.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                              value={mapVal.masterProductId}
-                              onChange={e =>
-                                handleMappingChange(
-                                  item.itemId!,
-                                  'masterProductId',
-                                  Number(e.target.value)
-                                )
+                          <td className="p-2 w-24">
+                            <input
+                              type="text"
+                              className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-secondary,var(--surface))] text-[var(--text-secondary)] text-sm text-right focus:outline-none cursor-default"
+                              value={Number(item.quantity).toFixed(2)}
+                              readOnly
+                            />
+                          </td>
+                          <td className="p-2 w-24">
+                            <input
+                              type="text"
+                              className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-secondary,var(--surface))] text-[var(--text-secondary)] text-sm text-right focus:outline-none cursor-default"
+                              value={Number(
+                                item.remainingQuantity !== undefined
+                                  ? item.remainingQuantity
+                                  : item.quantity
+                              ).toFixed(2)}
+                              readOnly
+                            />
+                          </td>
+                          <td className="p-2 w-20">
+                            <input
+                              type="text"
+                              className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-secondary,var(--surface))] text-[var(--text-secondary)] text-sm focus:outline-none cursor-default"
+                              value={item.unit || '—'}
+                              readOnly
+                            />
+                          </td>
+                          <td className="p-2 w-28">
+                            <input
+                              type="text"
+                              className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-secondary,var(--surface))] text-[var(--text-secondary)] text-sm text-right focus:outline-none cursor-default"
+                              value={`₹${Number(item.unitPrice).toFixed(2)}`}
+                              readOnly
+                            />
+                          </td>
+                          <td className="p-2 w-20">
+                            <input
+                              type="text"
+                              className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-secondary,var(--surface))] text-[var(--text-secondary)] text-sm text-center focus:outline-none cursor-default"
+                              value={
+                                itemGst !== undefined && itemGst !== null ? `${itemGst}%` : '—'
                               }
-                            >
-                              <option value={0}>Select inventory product…</option>
-                              {products.map(p => (
-                                <option key={p.masterProductId} value={p.masterProductId}>
-                                  [{p.productType}] {p.masterProductName}
-                                </option>
-                              ))}
-                            </select>
-                            {errors[`map_${item.itemId}`] && (
-                              <p className="text-xs text-red-500 mt-0.5">
-                                {errors[`map_${item.itemId}`]}
-                              </p>
-                            )}
+                              readOnly
+                            />
                           </td>
-                          <td className="p-3">
-                            {itemGst !== undefined && itemGst !== null ? (
-                              <span className="font-semibold text-teal-600 bg-teal-50 px-2 py-1 rounded border border-teal-100 text-xs">
-                                {itemGst}%
-                              </span>
-                            ) : (
-                              <span className="text-[var(--text-secondary)] text-xs">—</span>
-                            )}
-                          </td>
-                          <td className="p-2">
+                          <td className="p-2 w-24">
                             <input
                               type="number"
                               className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm text-right focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
@@ -446,7 +430,7 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                               </p>
                             )}
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 w-32">
                             <select
                               className="w-full px-2 py-1.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                               value={mapVal.unitId}

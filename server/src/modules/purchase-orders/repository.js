@@ -26,6 +26,7 @@ async function ensureTables() {
         delivery_terms    TEXT,
         notes             TEXT,
         delivery_address  TEXT,
+        dispatched_through TEXT,
         is_active         BOOLEAN DEFAULT TRUE,
         created_at        TIMESTAMPTZ DEFAULT NOW(),
         updated_at        TIMESTAMPTZ DEFAULT NOW()
@@ -34,6 +35,10 @@ async function ensureTables() {
     await db.execute(sql`
       ALTER TABLE app.purchase_orders
       ADD COLUMN IF NOT EXISTS delivery_terms TEXT
+    `);
+    await db.execute(sql`
+      ALTER TABLE app.purchase_orders
+      ADD COLUMN IF NOT EXISTS dispatched_through TEXT
     `);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS app.purchase_order_items (
@@ -95,6 +100,7 @@ export class PurchaseOrdersRepository {
         deliveryTerms: purchaseOrders.deliveryTerms,
         notes: purchaseOrders.notes,
         deliveryAddress: purchaseOrders.deliveryAddress,
+        dispatchedThrough: purchaseOrders.dispatchedThrough,
         isActive: purchaseOrders.isActive,
         createdAt: purchaseOrders.createdAt,
         updatedAt: purchaseOrders.updatedAt,
@@ -125,6 +131,7 @@ export class PurchaseOrdersRepository {
         deliveryTerms: purchaseOrders.deliveryTerms,
         notes: purchaseOrders.notes,
         deliveryAddress: purchaseOrders.deliveryAddress,
+        dispatchedThrough: purchaseOrders.dispatchedThrough,
         isActive: purchaseOrders.isActive,
         createdAt: purchaseOrders.createdAt,
         updatedAt: purchaseOrders.updatedAt,

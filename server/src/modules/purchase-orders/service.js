@@ -56,6 +56,7 @@ export class PurchaseOrdersService {
       totalAmount: totalAmount.toFixed(2),
       notes: poInfo.notes || null,
       deliveryAddress: poInfo.deliveryAddress || null,
+      dispatchedThrough: poInfo.dispatchedThrough || null,
     };
 
     const po = await this.repository.create(mappedPoInfo);
@@ -98,6 +99,8 @@ export class PurchaseOrdersService {
     if (poInfo.notes !== undefined) updatePayload.notes = poInfo.notes;
     if (poInfo.deliveryAddress !== undefined)
       updatePayload.deliveryAddress = poInfo.deliveryAddress;
+    if (poInfo.dispatchedThrough !== undefined)
+      updatePayload.dispatchedThrough = poInfo.dispatchedThrough;
 
     if (Array.isArray(itemsData)) {
       const totalAmount = itemsData.reduce((sum, item) => {

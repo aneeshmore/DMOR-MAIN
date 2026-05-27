@@ -38,15 +38,6 @@ export class InwardFromPoService {
     logger.info('Creating Inward from Purchase Order:', payload);
 
     const { items: itemsData, ...headerInfo } = payload;
-
-    // Check if billNo already exists
-    if (headerInfo.billNo) {
-      const existingBill = await this.inwardRepository.findByBillNo(headerInfo.billNo);
-      if (existingBill) {
-        throw new ValidationError('Bill No already exists');
-      }
-    }
-
     // Fetch PO to get orderDate
     const poRepository = new PurchaseOrdersRepository();
     const po = await poRepository.findById(headerInfo.purchaseOrderId);

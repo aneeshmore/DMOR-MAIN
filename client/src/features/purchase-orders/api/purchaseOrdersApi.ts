@@ -25,6 +25,7 @@ export interface PurchaseOrder {
   deliveryTerms?: string | null;
   notes?: string | null;
   deliveryAddress?: string | null;
+  dispatchedThrough?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +44,7 @@ export interface CreatePurchaseOrderInput {
   deliveryTerms?: string | null;
   notes?: string | null;
   deliveryAddress?: string | null;
+  dispatchedThrough?: string | null;
   items: Omit<PurchaseOrderItem, 'itemId' | 'purchaseOrderId' | 'totalPrice'>[];
 }
 
