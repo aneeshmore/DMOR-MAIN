@@ -32,6 +32,7 @@ interface Product {
   ProductID?: number;
   productName?: string;
   ProductName?: string;
+  CapacityLtr?: number | null;
   packageCapacityKg?: string | number;
   PackageCapacityKg?: string | number;
   TotalDensity?: string | number;
@@ -86,25 +87,49 @@ const QuotationMasterPage: React.FC = () => {
 
   // Helper to get package capacity for a product
   const getPackageCapacity = useCallback(
-    (productId: number): number => {
-      if (!productId) return 0;
-      const product = products.find(p => (p.productId || p.ProductID) === productId);
-      if (!product) return 0;
-      const capacity = product.packageCapacityKg || product.PackageCapacityKg;
-      const weight = typeof capacity === 'string' ? parseFloat(capacity) || 0 : capacity || 0;
+    (productId: number, description?: string): number => {
+      const product = productId
+        ? products.find(p => (p.productId || p.ProductID) === productId)
+        : null;
 
-      // Check for density to calculate volume (L) from weight (Kg)
-      const densityVal = product.TotalDensity;
-      const density =
-        typeof densityVal === 'string' ? parseFloat(densityVal) || 0 : densityVal || 0;
+      if (product) {
+        const capacity = product.packageCapacityKg || product.PackageCapacityKg;
+        const weight = typeof capacity === 'string' ? parseFloat(capacity) || 0 : capacity || 0;
 
-      if (density > 0) {
-        // Volume = Weight / Density
-        // Example: 4.3 Kg / 0.86 = 5 Liters
-        return weight / density;
+        // Check for density to calculate volume (L) from weight (Kg)
+        const densityVal = product.TotalDensity;
+        const density =
+          typeof densityVal === 'string' ? parseFloat(densityVal) || 0 : densityVal || 0;
+
+        // Existing formula path
+        if (density > 0 && weight > 0) {
+          return weight / density;
+        }
+
+        // Fallback to CapacityLtr from product DTO
+        if (product.CapacityLtr) {
+          const ltr =
+            typeof product.CapacityLtr === 'string'
+              ? parseFloat(product.CapacityLtr) || 0
+              : product.CapacityLtr;
+          if (ltr > 0) {
+            return ltr;
+          }
+        }
       }
 
-      return weight;
+      // If product lookup fails or CapacityLtr is missing/zero, extract from description string
+      if (description) {
+        const match = description.match(/-?\s*(\d+(?:\.\d+)?)\s*(?:LTR|L|LITER|LITERS)\b/i);
+        if (match && match[1]) {
+          const parsed = parseFloat(match[1]);
+          if (parsed > 0) {
+            return parsed;
+          }
+        }
+      }
+
+      return 0;
     },
     [products]
   );
@@ -717,7 +742,7 @@ const QuotationMasterPage: React.FC = () => {
                   <tbody>
                     {(selectedQuotation.content?.items || []).map((item: any, idx: number) => {
                       const amount = item.quantity * item.rate * (1 - (item.discount || 0) / 100);
-                      const packageCapacity = getPackageCapacity(item.productId);
+                      const packageCapacity = getPackageCapacity(item.productId, item.description);
                       const totalLiters = item.quantity * packageCapacity;
                       const perLiterCost = totalLiters > 0 ? amount / totalLiters : 0;
 
