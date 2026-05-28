@@ -766,6 +766,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
             return {
               ...item,
               description: productName,
+              productId: product?.productId || (product as any)?.ProductID || undefined,
               rate: product?.sellingPrice || item.rate,
               cgstRate: 9,
               sgstRate: 9,
