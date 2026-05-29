@@ -1,19 +1,23 @@
 [
   {
+    "id": "dashboard-redirect",
+    "path": "/dashboard",
+    "label": "Dashboard",
+    "group": "Main"
+  },
+  {
     "id": "admin-dashboard",
     "path": "/dashboard/admin",
-    "label": "Admin Dashboard",
+    "label": "Dashboard",
     "group": "Main",
-    "permission": {
-      "module": "admin-dashboard"
-    },
     "apis": [
       {
         "route": "/dashboard/stats",
         "method": "GET",
         "label": "Load Dashboard Stats"
       }
-    ]
+    ],
+    "showInSidebar": false
   },
   {
     "id": "dynamic-dashboard",
@@ -316,9 +320,39 @@
         ]
       },
       {
+        "id": "suppliers",
+        "path": "/masters/suppliers",
+        "label": "Create Vendor",
+        "permission": {
+          "module": "suppliers"
+        },
+        "apis": [
+          {
+            "route": "/suppliers",
+            "method": "GET",
+            "label": "View Suppliers"
+          },
+          {
+            "route": "/suppliers",
+            "method": "POST",
+            "label": "Create Supplier"
+          },
+          {
+            "route": "/suppliers/:id",
+            "method": "PUT",
+            "label": "Update Supplier"
+          },
+          {
+            "route": "/suppliers/:id",
+            "method": "DELETE",
+            "label": "Delete Supplier"
+          }
+        ]
+      },
+      {
         "id": "development",
         "path": "/masters/development",
-        "label": "Product Development",
+        "label": "1K Product Development",
         "permission": {
           "module": "product-development"
         },
@@ -343,7 +377,7 @@
       {
         "id": "double-development",
         "path": "/masters/double-development",
-        "label": "Double Product Development",
+        "label": "2K Product Development",
         "permission": {
           "module": "double-development"
         },
@@ -401,9 +435,30 @@
         ]
       },
       {
-        "id": "quotation-maker",
-        "path": "/quotation-maker",
-        "label": "Quotation Maker",
+        "id": "company-details",
+        "path": "/company-details",
+        "label": "Company Details",
+        "permission": {
+          "module": "quotation-maker"
+        },
+        "apis": [
+          {
+            "route": "/company",
+            "method": "GET",
+            "label": "Get Company Details"
+          },
+          {
+            "route": "/company",
+            "method": "PUT",
+            "label": "Update Company Details"
+          }
+        ]
+      },
+      {
+        "id": "quotation-print",
+        "path": "/quotation-print",
+        "label": "Create Quotation",
+        "showInSidebar": false,
         "permission": {
           "module": "quotation-maker"
         },
@@ -433,31 +488,6 @@
     "label": "Operations",
     "group": "Main",
     "children": [
-      {
-        "id": "payment-entry",
-        "path": "/operations/payment-entry",
-        "label": "Payment Entry",
-        "permission": {
-          "module": "payments"
-        },
-        "apis": [
-          {
-            "route": "/payments",
-            "method": "POST",
-            "label": "Create Payment"
-          },
-          {
-            "route": "/payments",
-            "method": "GET",
-            "label": "View Payments"
-          },
-          {
-            "route": "/masters/customers",
-            "method": "GET",
-            "label": "Load Customers"
-          }
-        ]
-      },
       {
         "id": "create-order",
         "path": "/operations/create-order",
@@ -520,6 +550,86 @@
             "route": "/product-development/ratios/:baseMpId/:hardenerMpId",
             "method": "GET",
             "label": "Get Mixing Ratios"
+          }
+        ]
+      },
+      {
+        "id": "create-purchase-order",
+        "path": "/operations/purchase-orders",
+        "label": "Create Purchase Order",
+        "permission": {
+          "module": "purchase-orders"
+        },
+        "apis": [
+          {
+            "route": "/purchase-orders",
+            "method": "GET",
+            "label": "View Purchase Orders"
+          },
+          {
+            "route": "/purchase-orders",
+            "method": "POST",
+            "label": "Create Purchase Order"
+          },
+          {
+            "route": "/purchase-orders/:id",
+            "method": "PUT",
+            "label": "Update Purchase Order"
+          },
+          {
+            "route": "/purchase-orders/:id",
+            "method": "DELETE",
+            "label": "Delete Purchase Order"
+          },
+          {
+            "route": "/suppliers",
+            "method": "GET",
+            "label": "Load Vendors"
+          }
+        ]
+      },
+      {
+        "id": "inward-from-purchase-order",
+        "path": "/operations/inward-from-po",
+        "label": "Inward From PO",
+        "permission": {
+          "module": "inward-from-po"
+        },
+        "apis": [
+          {
+            "route": "/inward-from-po",
+            "method": "GET",
+            "label": "View Inward from PO"
+          },
+          {
+            "route": "/inward-from-po",
+            "method": "POST",
+            "label": "Create Inward from PO"
+          },
+          {
+            "route": "/inward-from-po/:id",
+            "method": "GET",
+            "label": "View Inward from PO Details"
+          },
+          {
+            "route": "/inward-from-po/:id",
+            "method": "DELETE",
+            "label": "Delete Inward from PO"
+          },
+          {
+            "route": "/purchase-orders",
+            "method": "GET",
+            "label": "View Purchase Orders"
+          },
+          {
+            "route": "/catalog/master-products",
+            "method": "GET",
+            "label": "Load Products"
+          },
+          {
+            "route": "/masters/units",
+            "method": "GET",
+            "label": "Load Units"
           }
         ]
       },
@@ -614,6 +724,31 @@
         ]
       },
       {
+        "id": "payment-entry",
+        "path": "/operations/payment-entry",
+        "label": "Payment Entry",
+        "permission": {
+          "module": "payment-entry"
+        },
+        "apis": [
+          {
+            "route": "/payments",
+            "method": "POST",
+            "label": "Create Payment"
+          },
+          {
+            "route": "/payments",
+            "method": "GET",
+            "label": "View Payments"
+          },
+          {
+            "route": "/masters/customers",
+            "method": "GET",
+            "label": "Load Customers"
+          }
+        ]
+      },
+      {
         "id": "sales-dashboard",
         "path": "/operations/sales-dashboard",
         "label": "Sales Dashboard",
@@ -631,7 +766,7 @@
       },
       {
         "id": "accepted-orders",
-        "path": "/operations/accepted-orders",
+        "path": "/operations/accept-orders",
         "label": "Accept Order at Factory",
         "permission": {
           "module": "accepted-orders"
@@ -1023,28 +1158,23 @@
     "group": "Main",
     "children": [
       {
-        "id": "customer-ledger",
-        "path": "/reports/customer-ledger",
-        "label": "Customer Ledger",
+        "id": "batch-report",
+        "path": "/reports/batch-production",
+        "label": "Batch Reports For Accounts",
         "permission": {
-          "module": "payments"
+          "module": "report-batch"
         },
         "apis": [
           {
-            "route": "/payments",
+            "route": "/reports/batch-production",
             "method": "GET",
-            "label": "View Ledger"
-          },
-          {
-            "route": "/masters/customers",
-            "method": "GET",
-            "label": "Load Customers"
+            "label": "View Batch Report"
           }
         ]
       },
       {
-        "id": "batch-report",
-        "path": "/reports/batch-production",
+        "id": "new-batch-report",
+        "path": "/reports/new-batch-production",
         "label": "Batch Report",
         "permission": {
           "module": "report-batch"
@@ -1054,6 +1184,34 @@
             "route": "/reports/batch-production",
             "method": "GET",
             "label": "View Batch Report"
+          }
+        ]
+      },
+      {
+        "id": "salesperson-revenue",
+        "path": "/reports/salesperson-revenue",
+        "label": "Salesperson Revenue Report",
+        "permission": {
+          "module": "report-salesperson-revenue"
+        }
+      },
+      {
+        "id": "payment-report",
+        "path": "/reports/payments",
+        "label": "Payment Report",
+        "permission": {
+          "module": "payment-report"
+        },
+        "apis": [
+          {
+            "route": "/reports/payments",
+            "method": "GET",
+            "label": "View Payment Report"
+          },
+          {
+            "route": "/masters/customers",
+            "method": "GET",
+            "label": "Load Customers"
           }
         ]
       },
@@ -1352,6 +1510,26 @@
             "route": "/notification-rules/:id",
             "method": "DELETE",
             "label": "Delete Rule"
+          }
+        ]
+      },
+      {
+        "id": "company-settings",
+        "path": "/settings/company",
+        "label": "Company Information",
+        "permission": {
+          "module": "company-settings"
+        },
+        "apis": [
+          {
+            "route": "/company",
+            "method": "GET",
+            "label": "View Company Info"
+          },
+          {
+            "route": "/company",
+            "method": "PUT",
+            "label": "Update Company Info"
           }
         ]
       }
