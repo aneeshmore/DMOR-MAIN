@@ -573,6 +573,11 @@
           },
           {
             "route": "/purchase-orders/:id",
+            "method": "GET",
+            "label": "View Purchase Order Details"
+          },
+          {
+            "route": "/purchase-orders/:id",
             "method": "PUT",
             "label": "Update Purchase Order"
           },
@@ -620,6 +625,11 @@
             "route": "/purchase-orders",
             "method": "GET",
             "label": "View Purchase Orders"
+          },
+          {
+            "route": "/purchase-orders/:id",
+            "method": "GET",
+            "label": "View Purchase Order Details"
           },
           {
             "route": "/catalog/master-products",

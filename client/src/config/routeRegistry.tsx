@@ -569,6 +569,7 @@ export const routeRegistry: RouteNode[] = [
         apis: [
           { route: '/purchase-orders', method: 'GET', label: 'View Purchase Orders' },
           { route: '/purchase-orders', method: 'POST', label: 'Create Purchase Order' },
+          { route: '/purchase-orders/:id', method: 'GET', label: 'View Purchase Order Details' },
           { route: '/purchase-orders/:id', method: 'PUT', label: 'Update Purchase Order' },
           { route: '/purchase-orders/:id', method: 'DELETE', label: 'Delete Purchase Order' },
           { route: '/suppliers', method: 'GET', label: 'Load Vendors' },
@@ -587,6 +588,7 @@ export const routeRegistry: RouteNode[] = [
           { route: '/inward-from-po/:id', method: 'GET', label: 'View Inward from PO Details' },
           { route: '/inward-from-po/:id', method: 'DELETE', label: 'Delete Inward from PO' },
           { route: '/purchase-orders', method: 'GET', label: 'View Purchase Orders' },
+          { route: '/purchase-orders/:id', method: 'GET', label: 'View Purchase Order Details' },
           { route: '/catalog/master-products', method: 'GET', label: 'Load Products' },
           { route: '/masters/units', method: 'GET', label: 'Load Units' },
         ],
