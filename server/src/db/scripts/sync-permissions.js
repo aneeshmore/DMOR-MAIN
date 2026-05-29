@@ -255,11 +255,19 @@ async function syncPermissions() {
     console.log('\n👑 Granting Role-Based Permissions...');
 
     const allRoles = await db.select().from(roles);
-    const allPerms = await db.select({ id: permissions.permissionId, name: permissions.permissionName, apis: permissions.availableActions }).from(permissions);
+    const allPerms = await db
+      .select({
+        id: permissions.permissionId,
+        name: permissions.permissionName,
+        apis: permissions.availableActions,
+      })
+      .from(permissions);
 
     // Helper to grant permissions
     const grantToRole = async (roleName, allowedModules, isExclusion = false) => {
-      const role = allRoles.find(r => r.roleName === roleName || (roleName === 'Sales%' && r.roleName.startsWith('Sales')));
+      const role = allRoles.find(
+        r => r.roleName === roleName || (roleName === 'Sales%' && r.roleName.startsWith('Sales'))
+      );
       if (!role) {
         console.warn(`   ⚠️ Role not found: ${roleName}`);
         return;
@@ -268,7 +276,9 @@ async function syncPermissions() {
       let targetPerms = [];
       if (isExclusion) {
         // Grant ALL except excluded
-        targetPerms = allPerms.filter(p => !allowedModules.includes(p.name) && !allowedModules.some(m => p.name.startsWith(m))); // simple startswith for groups like 'settings' if needed, or exact match
+        targetPerms = allPerms.filter(
+          p => !allowedModules.includes(p.name) && !allowedModules.some(m => p.name.startsWith(m))
+        ); // simple startswith for groups like 'settings' if needed, or exact match
       } else {
         // Grant ONLY allowed
         targetPerms = allPerms.filter(p => allowedModules.includes(p.name));
@@ -293,14 +303,20 @@ async function syncPermissions() {
     // Note: 'settings' group isn't a module name, so we list known settings modules if any, or rely on specific module names.
     // Based on registry: 'roles' (Settings), 'departments', 'notifications', 'employees', 'units', 'tnc', 'product-development', 'double-development', 'update-product'
     const adminExcluded = [
-      'departments', 'notifications', 'employees', 'units', 'tnc',
-      'product-development', 'double-development', 'update-product',
-      'roles' // Settings
+      'departments',
+      'notifications',
+      'employees',
+      'units',
+      'tnc',
+      'product-development',
+      'double-development',
+      'update-product',
+      'roles', // Settings
     ];
     await grantToRole('Admin', adminExcluded, true);
 
     // 3. Production
-    // Inclusions: admin-dashboard, accepted-orders, production-manager, dispatch-planning, delivery-complete, production, inward, split-order, report-batch, report-inward, report-stock
+    // Inclusions: admin-dashboard, accepted-orders, production-manager, dispatch-planning, delivery-complete, production, inward, inward-from-po, split-order, report-batch, report-inward, report-stock
     const productionIncluded = [
       'admin-dashboard',
       'accepted-orders',
@@ -309,10 +325,11 @@ async function syncPermissions() {
       'delivery-complete',
       'production',
       'inward',
+      'inward-from-po',
       'split-order',
       'report-batch',
       'report-inward',
-      'report-stock'
+      'report-stock',
     ];
     await grantToRole('Production Manager', productionIncluded); // Assuming role name is 'Production Manager' or similar.
     // Also try 'Production' just in case
@@ -332,27 +349,22 @@ async function syncPermissions() {
       'report-customer-sales',
       'quotation-maker',
       'payment-entry',
-      'payment-report'
+      'payment-report',
     ];
     // Find all Sales roles
-    const salesRoleList = allRoles.filter(r => r.roleName.startsWith('Sales') && r.roleName !== 'Dealer');
+    const salesRoleList = allRoles.filter(
+      r => r.roleName.startsWith('Sales') && r.roleName !== 'Dealer'
+    );
     for (const r of salesRoleList) {
       await grantToRole(r.roleName, salesIncluded);
     }
 
     // 5. Dealer
     // Inclusions: admin-dashboard, orders, quotations
-    const dealerIncluded = [
-      'admin-dashboard',
-      'orders',
-      'quotations',
-      'quotation-maker'
-    ];
+    const dealerIncluded = ['admin-dashboard', 'orders', 'quotations', 'quotation-maker'];
     await grantToRole('Dealer', dealerIncluded);
 
-    console.log(
-      `\n✅ CLEAN SYNC complete! Permissions matched to route registry.`
-    );
+    console.log(`\n✅ CLEAN SYNC complete! Permissions matched to route registry.`);
   } catch (error) {
     console.error('❌ Sync failed:', error);
     process.exit(1);
