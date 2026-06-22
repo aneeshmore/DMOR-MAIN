@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import express from 'express';
+import path from 'path';
 import { authenticate } from '../middleware/auth.js';
 
 // Feature modules (modular architecture with AppError and proper DTOs)
@@ -34,6 +36,7 @@ import { paymentRoutes } from '../modules/payments/index.js';
 import { companyRoutes } from '../modules/company/index.js';
 import { purchaseOrdersRoutes } from '../modules/purchase-orders/index.js';
 import { inwardFromPoRoutes } from '../modules/inward-from-po/index.js';
+import { fieldIntelligenceRoutes } from '../modules/field-intelligence/index.js';
 
 const router = Router();
 
@@ -92,5 +95,7 @@ router.use('/payments', paymentRoutes);
 router.use('/company', companyRoutes);
 router.use('/purchase-orders', purchaseOrdersRoutes);
 router.use('/inward-from-po', inwardFromPoRoutes);
+router.use('/field-intelligence', fieldIntelligenceRoutes);
+router.use('/uploads', express.static(path.resolve('uploads')));
 
 export default router;
