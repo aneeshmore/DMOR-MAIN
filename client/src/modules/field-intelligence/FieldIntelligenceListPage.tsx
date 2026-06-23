@@ -143,6 +143,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
           <input
             type="text"
             className="input pl-10"
+            style={{ paddingLeft: '2.5rem' }}
             placeholder="Search by customer, city, state, supplier..."
             value={search}
             onChange={e => setSearch(e.target.value)}

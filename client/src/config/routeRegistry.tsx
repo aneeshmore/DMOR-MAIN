@@ -50,6 +50,7 @@ import {
   Lock,
   KeyRound,
   ArrowRightLeft,
+  Cpu,
 } from 'lucide-react';
 
 // ============================================
@@ -228,6 +229,23 @@ const FieldIntelligenceEdit = lazy(
 );
 const FieldIntelligenceView = lazy(
   () => import('@/modules/field-intelligence/FieldIntelligenceViewPage')
+);
+
+// Test Certificate
+const TestCertificateDashboard = lazy(
+  () => import('@/modules/test-certificate/TestCertificateDashboardPage')
+);
+const TestCertificateList = lazy(
+  () => import('@/modules/test-certificate/TestCertificateListPage')
+);
+const TestCertificateCreate = lazy(
+  () => import('@/modules/test-certificate/TestCertificateCreatePage')
+);
+const TestCertificateEdit = lazy(
+  () => import('@/modules/test-certificate/TestCertificateEditPage')
+);
+const TestCertificateView = lazy(
+  () => import('@/modules/test-certificate/TestCertificateViewPage')
 );
 
 // Settings
@@ -891,8 +909,8 @@ export const routeRegistry: RouteNode[] = [
       {
         id: 'field-intelligence',
         path: '/operations/field-intelligence',
-        label: 'Field Intelligence',
-        icon: FileText,
+        label: 'Smart ERP',
+        icon: Cpu,
         component: FieldIntelligenceList,
         permission: { module: 'field_intelligence' },
         apis: [
@@ -936,6 +954,69 @@ export const routeRegistry: RouteNode[] = [
             label: 'Dashboard',
             component: FieldIntelligenceDashboard,
             permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+        ],
+      },
+      {
+        id: 'test-certificate',
+        path: '/operations/test-certificate',
+        label: 'Test Certificate',
+        icon: FileText,
+        component: TestCertificateList,
+        permission: { module: 'test_certificate' },
+        apis: [
+          { route: '/test-certificates', method: 'GET', label: 'View Test Certificates' },
+          {
+            route: '/test-certificates/:id',
+            method: 'GET',
+            label: 'View Test Certificate Details',
+          },
+          { route: '/test-certificates', method: 'POST', label: 'Create Test Certificate' },
+          { route: '/test-certificates/:id', method: 'PUT', label: 'Update Test Certificate' },
+          { route: '/test-certificates/:id', method: 'DELETE', label: 'Delete Test Certificate' },
+          {
+            route: '/test-certificates/completed-batches',
+            method: 'GET',
+            label: 'View Completed Batches',
+          },
+          {
+            route: '/test-certificates/completed-batches/:id',
+            method: 'GET',
+            label: 'View Completed Batch Details',
+          },
+        ],
+        children: [
+          {
+            id: 'test-certificate-create',
+            path: '/operations/test-certificate/create',
+            label: 'Create Test Certificate',
+            component: TestCertificateCreate,
+            permission: { module: 'test_certificate' },
+            showInSidebar: false,
+          },
+          {
+            id: 'test-certificate-edit',
+            path: '/operations/test-certificate/:id/edit',
+            label: 'Edit Test Certificate',
+            component: TestCertificateEdit,
+            permission: { module: 'test_certificate' },
+            showInSidebar: false,
+          },
+          {
+            id: 'test-certificate-view',
+            path: '/operations/test-certificate/:id',
+            label: 'View Test Certificate',
+            component: TestCertificateView,
+            permission: { module: 'test_certificate' },
+            showInSidebar: false,
+          },
+          {
+            id: 'test-certificate-dashboard',
+            path: '/operations/test-certificate/dashboard',
+            label: 'Dashboard',
+            component: TestCertificateDashboard,
+            permission: { module: 'test_certificate' },
             showInSidebar: false,
           },
         ],

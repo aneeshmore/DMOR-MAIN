@@ -6,6 +6,7 @@ import {
   Database,
   BarChart3,
   Factory,
+  Cpu,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -162,6 +163,12 @@ const ROUTE_METADATA: Record<
     iconBg: 'bg-zinc-50',
     iconColor: 'text-zinc-600',
   },
+  'field-intelligence': {
+    description: 'Smart ERP Operations and Business Intelligence',
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    icon: Cpu,
+  },
   crm: {
     description: 'Customer Relationship Management',
     iconBg: 'bg-pink-50',
@@ -271,6 +278,8 @@ export const DynamicChildDashboard: React.FC<DynamicChildDashboardProps> = ({
 
   // Filter based on permissions
   const visibleRoutes = routes.filter((route: RouteNode) => {
+    if (route.id === 'crm') return false;
+
     // 1. If not supposed to show in sidebar, likely shouldn't be a primary card either?
     // Actually, some detailed views might be hidden from sidebar. Typically dashboard cards link to main sidebar items.
     // Let's filter out explicit "showInSidebar: false" unless we want exceptions.
