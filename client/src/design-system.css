@@ -493,3 +493,89 @@ input[type='number']:focus {
     opacity: 0;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FIR Score Slider – Cross-browser track + thumb styling
+   The track background gradient is set dynamically via inline style.
+───────────────────────────────────────────────────────────────────────────── */
+.fir-score-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  border: none;
+  padding: 0;
+  margin: 4px 0;
+  transition: opacity 0.15s ease;
+}
+
+.fir-score-slider:hover {
+  opacity: 0.9;
+}
+
+/* WebKit / Blink (Chrome, Edge, Safari) – Thumb */
+.fir-score-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface, #ffffff);
+  border: 3px solid var(--slider-color, var(--primary));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.fir-score-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.fir-score-slider::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+}
+
+/* Firefox – Thumb */
+.fir-score-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface, #ffffff);
+  border: 3px solid var(--primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.fir-score-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Firefox – remove default track so our gradient shows */
+.fir-score-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+}
+
+/* Firefox – filled portion left of thumb */
+.fir-score-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px 0 0 9999px;
+  background: var(--primary);
+}
+
+/* Focus ring for accessibility */
+.fir-score-slider:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 9999px;
+}
+

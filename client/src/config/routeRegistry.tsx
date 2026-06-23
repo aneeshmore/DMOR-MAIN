@@ -213,6 +213,23 @@ const NewVisitPage = lazy(() =>
   import('@/features/crm/pages').then(m => ({ default: m.NewVisitPage }))
 );
 
+// Field Intelligence
+const FieldIntelligenceDashboard = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceDashboardPage')
+);
+const FieldIntelligenceList = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceListPage')
+);
+const FieldIntelligenceCreate = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceCreatePage')
+);
+const FieldIntelligenceEdit = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceEditPage')
+);
+const FieldIntelligenceView = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceViewPage')
+);
+
 // Settings
 const SettingsDashboard = lazy(() => import('@/features/settings/pages/SettingsDashboard'));
 
@@ -868,6 +885,58 @@ export const routeRegistry: RouteNode[] = [
             label: 'New Visit',
             component: NewVisitPage,
             permission: { module: 'crm' },
+          },
+        ],
+      },
+      {
+        id: 'field-intelligence',
+        path: '/operations/field-intelligence',
+        label: 'Field Intelligence',
+        icon: FileText,
+        component: FieldIntelligenceList,
+        permission: { module: 'field_intelligence' },
+        apis: [
+          { route: '/field-intelligence', method: 'GET', label: 'View Reports' },
+          { route: '/field-intelligence/:id', method: 'GET', label: 'View Report Details' },
+          { route: '/field-intelligence', method: 'POST', label: 'Create Report' },
+          { route: '/field-intelligence/:id', method: 'PATCH', label: 'Edit Report' },
+          { route: '/field-intelligence/:id', method: 'DELETE', label: 'Delete Report' },
+          { route: '/field-intelligence/dashboard', method: 'GET', label: 'View Dashboard' },
+          { route: '/field-intelligence/export', method: 'GET', label: 'Export Reports' },
+          { route: '/field-intelligence/:id/upload', method: 'POST', label: 'Upload File' },
+        ],
+        children: [
+          {
+            id: 'field-intelligence-new',
+            path: '/operations/field-intelligence/new',
+            label: 'New Report',
+            component: FieldIntelligenceCreate,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+          {
+            id: 'field-intelligence-edit',
+            path: '/operations/field-intelligence/:id/edit',
+            label: 'Edit Report',
+            component: FieldIntelligenceEdit,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+          {
+            id: 'field-intelligence-view',
+            path: '/operations/field-intelligence/:id',
+            label: 'View Report',
+            component: FieldIntelligenceView,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+          {
+            id: 'field-intelligence-dashboard',
+            path: '/operations/field-intelligence/dashboard',
+            label: 'Dashboard',
+            component: FieldIntelligenceDashboard,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
           },
         ],
       },

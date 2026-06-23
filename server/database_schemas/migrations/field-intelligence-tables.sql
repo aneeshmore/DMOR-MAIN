@@ -1,0 +1,155 @@
+-- Migration script for Field Intelligence Report (FIR) module
+-- Schema: app
+
+CREATE TABLE IF NOT EXISTS app.field_intelligence_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_number VARCHAR(100) UNIQUE NOT NULL,
+  visit_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  time_in VARCHAR(50),
+  time_out VARCHAR(50),
+  visit_duration INTEGER,
+  gps_latitude NUMERIC(10, 8),
+  gps_longitude NUMERIC(11, 8),
+  executive_id INTEGER NOT NULL REFERENCES app.employees(employee_id) ON DELETE RESTRICT,
+  executive_name VARCHAR(255),
+  branch VARCHAR(255),
+  region VARCHAR(255),
+  visit_type VARCHAR(50) DEFAULT 'New Visit',
+  visit_purpose JSONB DEFAULT '[]'::jsonb,
+  customer_name VARCHAR(255) NOT NULL,
+  contact_person VARCHAR(255),
+  designation VARCHAR(255),
+  mobile VARCHAR(50),
+  whatsapp VARCHAR(50),
+  email VARCHAR(255),
+  gst_number VARCHAR(50),
+  address TEXT,
+  city VARCHAR(255),
+  state VARCHAR(255),
+  pin_code VARCHAR(20),
+  business_category VARCHAR(100),
+  monthly_consumption NUMERIC(15, 2),
+  current_supplier VARCHAR(255),
+  paint_requirement_types JSONB DEFAULT '[]'::jsonb,
+  surface_types JSONB DEFAULT '[]'::jsonb,
+  application_methods JSONB DEFAULT '[]'::jsonb,
+  required_shade VARCHAR(255),
+  required_finish VARCHAR(255),
+  technical_challenges JSONB DEFAULT '[]'::jsonb,
+  current_system_used TEXT,
+  monthly_consumption_text TEXT,
+  current_purchase_rate NUMERIC(15, 2),
+  expected_rate NUMERIC(15, 2),
+  credit_days INTEGER DEFAULT 0,
+  outstanding_amount NUMERIC(15, 2) DEFAULT 0.00,
+  purchase_decision_by VARCHAR(255),
+  purchase_cycle VARCHAR(100),
+  potential_business_value NUMERIC(15, 2) DEFAULT 0.00,
+  expected_monthly_business NUMERIC(15, 2) DEFAULT 0.00,
+  conversion_probability INTEGER DEFAULT 0,
+  discussion_notes TEXT,
+  important_observations TEXT,
+  customer_mood VARCHAR(50),
+  hidden_opportunity TEXT,
+  risk_factors TEXT,
+  immediate_requirement TEXT,
+  expected_order_date TIMESTAMP WITH TIME ZONE,
+  expected_order_quantity NUMERIC(15, 2) DEFAULT 0.00,
+  trial_approved BOOLEAN DEFAULT FALSE,
+  sample_given BOOLEAN DEFAULT FALSE,
+  followup_urgency_score INTEGER DEFAULT 0,
+  dealer_confidence INTEGER DEFAULT 0,
+  payment_reliability INTEGER DEFAULT 0,
+  relationship_strength INTEGER DEFAULT 0,
+  technical_capability INTEGER DEFAULT 0,
+  long_term_potential INTEGER DEFAULT 0,
+  executive_recommendation TEXT,
+  status VARCHAR(50) DEFAULT 'Draft' NOT NULL,
+  company_id INTEGER NOT NULL REFERENCES app.company(company_id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
+  created_by INTEGER NOT NULL REFERENCES app.employees(employee_id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app.field_intelligence_followups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_id UUID NOT NULL REFERENCES app.field_intelligence_reports(id) ON DELETE CASCADE,
+  followup_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  notes TEXT,
+  status VARCHAR(50) DEFAULT 'Open' NOT NULL,
+  company_id INTEGER NOT NULL REFERENCES app.company(company_id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
+  created_by INTEGER NOT NULL REFERENCES app.employees(employee_id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app.field_intelligence_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_id UUID NOT NULL REFERENCES app.field_intelligence_reports(id) ON DELETE CASCADE,
+  file_type VARCHAR(100) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type VARCHAR(100),
+  file_size INTEGER,
+  uploaded_by INTEGER REFERENCES app.employees(employee_id) ON DELETE SET NULL,
+  company_id INTEGER NOT NULL REFERENCES app.company(company_id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
+  created_by INTEGER NOT NULL REFERENCES app.employees(employee_id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app.field_intelligence_competitors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_id UUID NOT NULL REFERENCES app.field_intelligence_reports(id) ON DELETE CASCADE,
+  competitor_name VARCHAR(255) NOT NULL,
+  strengths TEXT,
+  weaknesses TEXT,
+  reason_using_competitor TEXT,
+  reason_shift_to_us TEXT,
+  company_id INTEGER NOT NULL REFERENCES app.company(company_id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
+  created_by INTEGER NOT NULL REFERENCES app.employees(employee_id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app.field_intelligence_activity_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_id UUID REFERENCES app.field_intelligence_reports(id) ON DELETE CASCADE,
+  activity_type VARCHAR(100) NOT NULL,
+  details JSONB DEFAULT '{}'::jsonb,
+  company_id INTEGER NOT NULL REFERENCES app.company(company_id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
+  created_by INTEGER NOT NULL REFERENCES app.employees(employee_id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app.field_intelligence_ai_insights (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_id UUID NOT NULL REFERENCES app.field_intelligence_reports(id) ON DELETE CASCADE,
+  insight_type VARCHAR(100) NOT NULL,
+  observation TEXT NOT NULL,
+  reasoning TEXT,
+  severity VARCHAR(50) DEFAULT 'medium',
+  company_id INTEGER NOT NULL REFERENCES app.company(company_id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
+  created_by INTEGER NOT NULL REFERENCES app.employees(employee_id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app.field_intelligence_dashboard_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  metric_key VARCHAR(100) NOT NULL,
+  metric_value JSONB NOT NULL,
+  calculated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  company_id INTEGER NOT NULL REFERENCES app.company(company_id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
+  created_by INTEGER NOT NULL REFERENCES app.employees(employee_id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
