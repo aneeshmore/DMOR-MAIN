@@ -3,8 +3,8 @@ import { UseFormRegister, FormState, UseFormSetValue } from 'react-hook-form';
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
 import { COMPETITOR_BRANDS, SHADE_OPTIONS, FINISH_TYPES } from '../constants/firConstants';
 import SearchableSelectUI from '@/components/ui/SearchableSelect';
-import { masterProductApi } from '@/features/master-products/api';
-import { MasterProduct } from '@/features/master-products/types';
+import { productApi } from '@/features/master-products/api';
+import { Product } from '@/features/master-products/types';
 import MultiSearchableSelect from './shared/MultiSearchableSelect';
 
 interface SectionProps {
@@ -22,7 +22,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
 }) => {
   const { errors } = formState;
 
-  const [products, setProducts] = useState<MasterProduct[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     register('requiredShade', { required: 'Required Product is required' });
@@ -31,16 +31,16 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
 
     const loadProducts = async () => {
       try {
-        const response = await masterProductApi.getAll();
+        const response = await productApi.getAll();
         if (response.success && response.data) {
           // Include Finished Goods (FG) and Raw Materials (RM)
           const filtered = response.data.filter(
-            p => p.productType === 'FG' || p.productType === 'RM'
+            p => p.ProductType === 'FG' || p.ProductType === 'RM'
           );
           setProducts(filtered);
         }
       } catch (err) {
-        console.error('Failed to load master products:', err);
+        console.error('Failed to load products:', err);
       }
     };
     loadProducts();
@@ -66,7 +66,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
         {/* Required Product */}
         <MultiSearchableSelect
           label="Required Product"
-          options={products.map(p => p.masterProductName)}
+          options={products.map(p => p.ProductName)}
           value={
             watch('requiredShade')
               ? (watch('requiredShade') as string)
