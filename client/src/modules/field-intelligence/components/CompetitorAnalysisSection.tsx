@@ -3,6 +3,7 @@ import { useFieldArray, Control, UseFormRegister, FormState, UseFormSetValue } f
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
 import { COMPETITOR_BRANDS } from '../constants/firConstants';
 import SearchableSelect from './shared/SearchableSelect';
+import VoiceInput from './shared/VoiceInput';
 
 interface SectionProps {
   control: Control<FieldIntelligenceReport>;
@@ -109,49 +110,61 @@ export const CompetitorAnalysisSection: React.FC<SectionProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                      Strengths
-                    </label>
-                    <textarea
-                      rows={2}
-                      className="input"
+                    <VoiceInput
+                      label="Strengths"
+                      value={watch(`competitors.${index}.strengths`) || ''}
+                      onChange={val => setValue(`competitors.${index}.strengths` as any, val, { shouldValidate: true })}
                       placeholder="What do they do well? (e.g. low price, wide network)"
+                      rows={2}
+                      name={`competitors.${index}.strengths`}
+                    />
+                    <input
+                      type="hidden"
                       {...register(`competitors.${index}.strengths` as const)}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                      Weaknesses
-                    </label>
-                    <textarea
-                      rows={2}
-                      className="input"
+                    <VoiceInput
+                      label="Weaknesses"
+                      value={watch(`competitors.${index}.weaknesses`) || ''}
+                      onChange={val => setValue(`competitors.${index}.weaknesses` as any, val, { shouldValidate: true })}
                       placeholder="Where do they fail? (e.g. slow shade matching, poor delivery)"
+                      rows={2}
+                      name={`competitors.${index}.weaknesses`}
+                    />
+                    <input
+                      type="hidden"
                       {...register(`competitors.${index}.weaknesses` as const)}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                      Reason for Using Competitor
-                    </label>
-                    <textarea
-                      rows={2}
-                      className="input"
+                    <VoiceInput
+                      label="Reason for Using Competitor"
+                      value={watch(`competitors.${index}.reasonUsingCompetitor`) || ''}
+                      onChange={val => setValue(`competitors.${index}.reasonUsingCompetitor` as any, val, { shouldValidate: true })}
                       placeholder="Why is the customer currently purchasing from them?"
+                      rows={2}
+                      name={`competitors.${index}.reasonUsingCompetitor`}
+                    />
+                    <input
+                      type="hidden"
                       {...register(`competitors.${index}.reasonUsingCompetitor` as const)}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                      Strategy / Reason to Shift to Us
-                    </label>
-                    <textarea
-                      rows={2}
-                      className="input"
+                    <VoiceInput
+                      label="Strategy / Reason to Shift to Us"
+                      value={watch(`competitors.${index}.reasonShiftToUs`) || ''}
+                      onChange={val => setValue(`competitors.${index}.reasonShiftToUs` as any, val, { shouldValidate: true })}
                       placeholder="How can we win this account? (e.g. sample validation, better credit)"
+                      rows={2}
+                      name={`competitors.${index}.reasonShiftToUs`}
+                    />
+                    <input
+                      type="hidden"
                       {...register(`competitors.${index}.reasonShiftToUs` as const)}
                     />
                   </div>

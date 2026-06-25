@@ -16,6 +16,7 @@ import {
 import ChipSelector from './shared/ChipSelector';
 import SearchableSelect from './shared/SearchableSelect';
 import MultiSearchableSelect from './shared/MultiSearchableSelect';
+import VoiceInput from './shared/VoiceInput';
 
 interface DynamicSectionProps {
   register: UseFormRegister<FieldIntelligenceReport>;
@@ -208,27 +209,22 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
         </div>
 
         <div className="md:col-span-2">
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.complaintDescription ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Issue Description *
-          </label>
-          <textarea
-            rows={3}
-            className={`input ${errors.complaintDescription ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+          <VoiceInput
+            label="Issue Description *"
+            value={watch('complaintDescription' as any) || ''}
+            onChange={val => setValue('complaintDescription' as any, val, { shouldValidate: true })}
             placeholder="Describe the complaint in detail – surface condition, application method, failure mode..."
+            rows={3}
+            required={sections.showComplaintFields}
+            error={errors.complaintDescription?.message}
+            name="complaintDescription"
+          />
+          <input
+            type="hidden"
             {...register('complaintDescription' as any, {
               required: sections.showComplaintFields ? 'Issue Description is required' : false,
             })}
           />
-          {errors.complaintDescription && (
-            <p
-              className="text-red-500 text-xs mt-1"
-              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-            >
-              {errors.complaintDescription.message as string}
-            </p>
-          )}
         </div>
       </div>
     </div>
@@ -634,51 +630,41 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
         </div>
 
         <div className="md:col-span-2">
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.technicalSiteObservations ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Site Observations *
-          </label>
-          <textarea
-            rows={2}
-            className={`input ${errors.technicalSiteObservations ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+          <VoiceInput
+            label="Site Observations *"
+            value={watch('technicalSiteObservations' as any) || ''}
+            onChange={val => setValue('technicalSiteObservations' as any, val, { shouldValidate: true })}
             placeholder="Describe surface conditions, environment, application method observed... or N/A"
+            rows={2}
+            required={sections.showTechnicalFields}
+            error={errors.technicalSiteObservations?.message}
+            name="technicalSiteObservations"
+          />
+          <input
+            type="hidden"
             {...register('technicalSiteObservations' as any, {
               required: sections.showTechnicalFields ? 'Site Observations are required' : false,
             })}
           />
-          {errors.technicalSiteObservations && (
-            <p
-              className="text-red-500 text-xs mt-1"
-              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-            >
-              {errors.technicalSiteObservations.message as string}
-            </p>
-          )}
         </div>
 
         <div className="md:col-span-2">
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.technicalCorrectiveActions ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Corrective Actions Suggested *
-          </label>
-          <textarea
-            rows={2}
-            className={`input ${errors.technicalCorrectiveActions ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+          <VoiceInput
+            label="Corrective Actions Suggested *"
+            value={watch('technicalCorrectiveActions' as any) || ''}
+            onChange={val => setValue('technicalCorrectiveActions' as any, val, { shouldValidate: true })}
             placeholder="e.g. Apply zinc phosphate primer before epoxy, check DFT... or N/A"
+            rows={2}
+            required={sections.showTechnicalFields}
+            error={errors.technicalCorrectiveActions?.message}
+            name="technicalCorrectiveActions"
+          />
+          <input
+            type="hidden"
             {...register('technicalCorrectiveActions' as any, {
               required: sections.showTechnicalFields ? 'Corrective Actions are required' : false,
             })}
           />
-          {errors.technicalCorrectiveActions && (
-            <p
-              className="text-red-500 text-xs mt-1"
-              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-            >
-              {errors.technicalCorrectiveActions.message as string}
-            </p>
-          )}
         </div>
       </div>
     </div>
@@ -810,27 +796,22 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       </h4>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.marketFeedbackNotes ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Market Feedback Summary *
-          </label>
-          <textarea
-            rows={3}
-            className={`input ${errors.marketFeedbackNotes ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+          <VoiceInput
+            label="Market Feedback Summary *"
+            value={watch('marketFeedbackNotes' as any) || ''}
+            onChange={val => setValue('marketFeedbackNotes' as any, val, { shouldValidate: true })}
             placeholder="Describe pricing trends, competitor activities, new product launches, market demand... or N/A"
+            rows={3}
+            required={sections.showMarketFeedback}
+            error={errors.marketFeedbackNotes?.message}
+            name="marketFeedbackNotes"
+          />
+          <input
+            type="hidden"
             {...register('marketFeedbackNotes' as any, {
               required: sections.showMarketFeedback ? 'Market Feedback is required' : false,
             })}
           />
-          {errors.marketFeedbackNotes && (
-            <p
-              className="text-red-500 text-xs mt-1"
-              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-            >
-              {errors.marketFeedbackNotes.message as string}
-            </p>
-          )}
         </div>
 
         <div>

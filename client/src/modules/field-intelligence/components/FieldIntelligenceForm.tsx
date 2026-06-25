@@ -584,7 +584,13 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
           )}
 
           {/* Action Items & Follow-ups – always shown */}
-          <ActionItemsSection control={control} register={register} formState={formState} />
+          <ActionItemsSection
+            control={control}
+            register={register}
+            formState={formState}
+            setValue={setValue}
+            watch={watch as any}
+          />
 
           {/* ═══ LAYER 3: Management Intelligence ════════════════════════ */}
           <ManagementIntelligenceSection
