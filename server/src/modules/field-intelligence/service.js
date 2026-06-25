@@ -225,12 +225,12 @@ export class FieldIntelligenceService {
     return insights;
   }
 
-  // Generate clean Report Number: FIR-YYYYMMDD-XXXX
+  // Generate clean Report Number: CRM-YYYYMMDD-XXXX
   generateReportNumber() {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
     const rand = Math.floor(1000 + Math.random() * 9000);
-    return `FIR-${dateStr}-${rand}`;
+    return `CRM-${dateStr}-${rand}`;
   }
 
   async createReport(data, userContext, companyId, tenantId) {
