@@ -133,6 +133,7 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
           <SearchableSelectUI<number>
             name="customerId"
             creatable={true}
+            customLabel={customerId ? undefined : customerName}
             onCreateNew={inputValue => {
               setValue('customerName', inputValue, { shouldValidate: true });
               setValue('customerId', undefined, { shouldValidate: true });
