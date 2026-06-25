@@ -26,6 +26,7 @@ interface SearchableSelectProps<T = any> {
   onEnter?: () => void; // Callback when Enter is pressed and an option is selected
   error?: string;
   name?: string;
+  customLabel?: string; // Human-readable custom label (e.g. newly created customer name)
 }
 
 const SearchableSelect = <T = any,>({
@@ -44,6 +45,7 @@ const SearchableSelect = <T = any,>({
   onEnter,
   error,
   name,
+  customLabel,
 }: SearchableSelectProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +60,8 @@ const SearchableSelect = <T = any,>({
       const selectedOption = options.find(option => option.value === value);
       if (selectedOption) {
         setSearchTerm(selectedOption.label || '');
+      } else if (customLabel) {
+        setSearchTerm(customLabel);
       } else if ((allowCustomValue || allowCustom) && value) {
         // Preserve custom value if allowCustomValue or allowCustom is enabled
         setSearchTerm(String(value));
@@ -65,7 +69,7 @@ const SearchableSelect = <T = any,>({
         setSearchTerm('');
       }
     }
-  }, [value, isOpen, options, allowCustomValue, allowCustom]);
+  }, [value, isOpen, options, allowCustomValue, allowCustom, customLabel]);
 
   const filteredOptions = options.filter(
     option =>
@@ -114,6 +118,8 @@ const SearchableSelect = <T = any,>({
       const selectedOption = options.find(option => option.value === value);
       if (selectedOption) {
         setSearchTerm(selectedOption.label || '');
+      } else if (customLabel) {
+        setSearchTerm(customLabel);
       } else if ((allowCustomValue || allowCustom) && value) {
         // Preserve custom value if allowCustomValue or allowCustom is enabled
         setSearchTerm(String(value));

@@ -15,6 +15,7 @@ import { customerTypeApi } from '@/features/masters/api/customerTypeApi';
 import { employeeApi } from '@/features/employees/api';
 import { Customer } from '@/features/masters/types';
 import SearchableSelectUI from '@/components/ui/SearchableSelect';
+import VoiceInput from './shared/VoiceInput';
 
 interface SectionProps {
   register: UseFormRegister<FieldIntelligenceReport>;
@@ -133,6 +134,7 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
           <SearchableSelectUI<number>
             name="customerId"
             creatable={true}
+            customLabel={customerId ? undefined : customerName}
             onCreateNew={inputValue => {
               setValue('customerName', inputValue, { shouldValidate: true });
               setValue('customerId', undefined, { shouldValidate: true });
@@ -568,25 +570,20 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
         )}
         {/* Address */}
         <div className="md:col-span-3">
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.address ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Complete Address *
-          </label>
-          <textarea
-            rows={2}
-            className={`input ${errors.address ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+          <VoiceInput
+            label="Complete Address *"
+            value={watch('address') || ''}
+            onChange={val => setValue('address', val, { shouldValidate: true })}
             placeholder="Plot No, Industrial Area, Phase... or N/A"
+            rows={2}
+            required
+            error={errors.address?.message}
+            name="address"
+          />
+          <input
+            type="hidden"
             {...register('address', { required: 'Complete Address is required' })}
           />
-          {errors.address && (
-            <p
-              className="text-red-500 text-xs mt-1"
-              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-            >
-              {errors.address.message}
-            </p>
-          )}
         </div>
       </div>
     </div>

@@ -18,10 +18,12 @@ import {
 import { fieldIntelligenceApi } from './services/fieldIntelligenceApi';
 import { FieldIntelligenceReport } from './types/fieldIntelligence.types';
 import { showToast } from '@/utils/toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const FieldIntelligenceViewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<FieldIntelligenceReport | null>(null);
   const [activeTab, setActiveTab] = useState<
@@ -124,20 +126,24 @@ export const FieldIntelligenceViewPage: React.FC = () => {
         </div>
 
         <div className="flex gap-2">
-          <button
-            onClick={() => navigate(`/operations/field-intelligence/${report.id}/edit`)}
-            className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 flex items-center gap-1.5"
-          >
-            <Edit className="h-4 w-4" />
-            Edit
-          </button>
-          <button
-            onClick={handleDelete}
-            className="btn border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 flex items-center gap-1.5"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </button>
+          {(user?.Role === 'Admin' || user?.Role === 'SuperAdmin') && (
+            <button
+              onClick={() => navigate(`/operations/field-intelligence/${report.id}/edit`)}
+              className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 flex items-center gap-1.5"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </button>
+          )}
+          {(user?.Role === 'Admin' || user?.Role === 'SuperAdmin') && (
+            <button
+              onClick={handleDelete}
+              className="btn border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 flex items-center gap-1.5"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+          )}
         </div>
       </div>
 

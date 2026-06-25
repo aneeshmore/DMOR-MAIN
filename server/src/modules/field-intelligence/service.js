@@ -225,12 +225,12 @@ export class FieldIntelligenceService {
     return insights;
   }
 
-  // Generate clean Report Number: FIR-YYYYMMDD-XXXX
+  // Generate clean Report Number: CRM-YYYYMMDD-XXXX
   generateReportNumber() {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
     const rand = Math.floor(1000 + Math.random() * 9000);
-    return `FIR-${dateStr}-${rand}`;
+    return `CRM-${dateStr}-${rand}`;
   }
 
   async createReport(data, userContext, companyId, tenantId) {
@@ -379,6 +379,11 @@ export class FieldIntelligenceService {
   }
 
   async updateReport(id, data, userContext, companyId, tenantId) {
+    const isAdmin = userContext?.role === 'Admin' || userContext?.role === 'SuperAdmin';
+    if (!isAdmin) {
+      throw new AppError('Access denied. Only Admin and SuperAdmin can modify CRM reports.', 403);
+    }
+
     return await this.repository.runTransaction(async tx => {
       // Check existing report
       const existing = await this.repository.getReportById(id, companyId, tenantId, userContext);
@@ -516,6 +521,11 @@ export class FieldIntelligenceService {
   }
 
   async deleteReport(id, userContext, companyId, tenantId) {
+    const isAdmin = userContext?.role === 'Admin' || userContext?.role === 'SuperAdmin';
+    if (!isAdmin) {
+      throw new AppError('Access denied. Only Admin and SuperAdmin can modify CRM reports.', 403);
+    }
+
     return await this.repository.runTransaction(async tx => {
       const existing = await this.repository.getReportById(id, companyId, tenantId, userContext);
       if (!existing) {

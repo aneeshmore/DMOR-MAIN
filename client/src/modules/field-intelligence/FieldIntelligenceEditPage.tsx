@@ -4,13 +4,22 @@ import { FieldIntelligenceForm } from './components/FieldIntelligenceForm';
 import { fieldIntelligenceApi } from './services/fieldIntelligenceApi';
 import { FieldIntelligenceReport } from './types/fieldIntelligence.types';
 import { showToast } from '@/utils/toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const FieldIntelligenceEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [report, setReport] = useState<FieldIntelligenceReport | null>(null);
+
+  useEffect(() => {
+    if (user && user.Role !== 'Admin' && user.Role !== 'SuperAdmin') {
+      showToast.error('Access denied. Only Admin and SuperAdmin can edit reports.');
+      navigate('/operations/field-intelligence');
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     const loadReport = async () => {

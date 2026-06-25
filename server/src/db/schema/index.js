@@ -38,6 +38,7 @@ export * from './auth/index.js';
 
 // CRM schemas
 export * from './crm/index.js';
+export * from './field-intelligence.schema.js';
 
 // Test Certificate schemas
 export * from './test-certificate/index.js';

@@ -23,6 +23,7 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
   const { errors } = formState;
   const discussionNotes = watch('discussionNotes') || '';
   const importantObservations = watch('importantObservations') || '';
+  const hiddenOpportunity = watch('hiddenOpportunity') || '';
 
   useEffect(() => {
     register('riskFactors', { required: 'Risk Factors is required' });
@@ -137,25 +138,20 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
 
           {/* Hidden Opportunity */}
           <div className="md:col-span-2">
-            <label
-              className={`block text-sm font-semibold mb-1 ${errors.hiddenOpportunity ? 'text-red-500' : 'text-gray-700'}`}
-            >
-              Hidden Opportunity Detected *
-            </label>
-            <input
-              type="text"
-              className={`input ${errors.hiddenOpportunity ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            <VoiceInput
+              label="Hidden Opportunity Detected *"
+              value={hiddenOpportunity}
+              onChange={val => setValue('hiddenOpportunity', val, { shouldValidate: true })}
               placeholder="e.g. Thinners are currently purchased at higher rate from another source or N/A"
+              rows={2}
+              required
+              error={errors.hiddenOpportunity?.message}
+              name="hiddenOpportunity"
+            />
+            <input
+              type="hidden"
               {...register('hiddenOpportunity', { required: 'Hidden opportunity is required' })}
             />
-            {errors.hiddenOpportunity && (
-              <p
-                className="text-red-500 text-xs mt-1"
-                style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-              >
-                {errors.hiddenOpportunity.message}
-              </p>
-            )}
           </div>
         </div>
 

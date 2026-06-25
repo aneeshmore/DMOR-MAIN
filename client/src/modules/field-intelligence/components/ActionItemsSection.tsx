@@ -1,14 +1,30 @@
 import React from 'react';
-import { useFieldArray, Control, UseFormRegister, FormState, useWatch } from 'react-hook-form';
+import {
+  useFieldArray,
+  Control,
+  UseFormRegister,
+  FormState,
+  useWatch,
+  UseFormSetValue,
+} from 'react-hook-form';
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
+import VoiceInput from './shared/VoiceInput';
 
 interface SectionProps {
   control: Control<FieldIntelligenceReport>;
   register: UseFormRegister<FieldIntelligenceReport>;
   formState?: FormState<FieldIntelligenceReport>;
+  setValue: UseFormSetValue<FieldIntelligenceReport>;
+  watch: (name: any) => any;
 }
 
-export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, formState }) => {
+export const ActionItemsSection: React.FC<SectionProps> = ({
+  control,
+  register,
+  formState,
+  setValue,
+  watch,
+}) => {
   const { errors } = formState || {};
   const { fields, append, remove } = useFieldArray({
     control,
@@ -121,31 +137,28 @@ export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, 
               </div>
 
               <div className="md:col-span-2 pr-6">
-                <label
-                  className={`block text-xs font-semibold mb-1 ${errors?.followups?.[index]?.notes ? 'text-red-500' : 'text-gray-700'}`}
-                >
-                  Task / Action Notes *
-                </label>
                 {(() => {
                   const followupError = errors?.followups?.[index] as any;
                   return (
                     <>
-                      <input
-                        type="text"
-                        className={`input text-xs py-1.5 ${followupError?.notes ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/10' : ''}`}
+                      <VoiceInput
+                        label="Task / Action Notes *"
+                        value={watch(`followups.${index}.notes`) || ''}
+                        onChange={val =>
+                          setValue(`followups.${index}.notes` as any, val, { shouldValidate: true })
+                        }
                         placeholder="e.g. Call for rate negotiation or deliver PU sample"
+                        rows={1}
+                        required
+                        error={followupError?.notes?.message}
+                        name={`followups.${index}.notes`}
+                      />
+                      <input
+                        type="hidden"
                         {...register(`followups.${index}.notes` as const, {
                           required: 'Follow-up Notes are required',
                         })}
                       />
-                      {followupError?.notes && (
-                        <p
-                          className="text-red-500 text-xs mt-1"
-                          style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-                        >
-                          {followupError.notes.message}
-                        </p>
-                      )}
                     </>
                   );
                 })()}
