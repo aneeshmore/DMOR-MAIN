@@ -81,6 +81,14 @@ export class FieldIntelligenceController {
           .json({ success: false, message: 'Forbidden: Access denied (Company context missing)' });
       }
 
+      const isAdmin = req.user?.role === 'Admin' || req.user?.role === 'SuperAdmin';
+      if (!isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Only Admin and SuperAdmin can modify CRM reports.',
+        });
+      }
+
       const report = await this.service.updateReport(
         req.params.id,
         req.validatedBody,
@@ -106,6 +114,14 @@ export class FieldIntelligenceController {
         return res
           .status(403)
           .json({ success: false, message: 'Forbidden: Access denied (Company context missing)' });
+      }
+
+      const isAdmin = req.user?.role === 'Admin' || req.user?.role === 'SuperAdmin';
+      if (!isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Only Admin and SuperAdmin can modify CRM reports.',
+        });
       }
 
       await this.service.deleteReport(req.params.id, req.user, context.companyId, context.tenantId);

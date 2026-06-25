@@ -23,6 +23,7 @@ import SearchableSelectUI from '@/components/ui/SearchableSelect';
 import { customerApi } from '@/features/masters/api/customerApi';
 import { Customer } from '@/features/masters/types';
 import { showToast } from '@/utils/toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 type ActiveTab = 'reports' | 'customers';
 
@@ -53,6 +54,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
   onLinkCustomer,
 }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [visits, setVisits] = useState<any[]>([]);
   const [loadingVisits, setLoadingVisits] = useState(false);
@@ -224,15 +226,17 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={() =>
-                            navigate(`/operations/field-intelligence/${visit.id}/edit`)
-                          }
-                          className="text-gray-400 hover:text-yellow-600 p-1 rounded hover:bg-gray-100"
-                          title="Edit"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </button>
+                        {(user?.Role === 'Admin' || user?.Role === 'SuperAdmin') && (
+                          <button
+                            onClick={() =>
+                              navigate(`/operations/field-intelligence/${visit.id}/edit`)
+                            }
+                            className="text-gray-400 hover:text-yellow-600 p-1 rounded hover:bg-gray-100"
+                            title="Edit"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -249,6 +253,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
 // ── Main List Page ──────────────────────────────────────────────────────────
 export const FieldIntelligenceListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // ── Tab state ─────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>('reports');
@@ -613,22 +618,26 @@ export const FieldIntelligenceListPage: React.FC = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() =>
-                                navigate(`/operations/field-intelligence/${report.id}/edit`)
-                              }
-                              className="text-gray-500 hover:text-yellow-600 p-1.5 rounded-lg hover:bg-gray-100"
-                              title="Edit Report"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(report.id!)}
-                              className="text-gray-500 hover:text-red-600 p-1.5 rounded-lg hover:bg-gray-100"
-                              title="Delete Report"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {(user?.Role === 'Admin' || user?.Role === 'SuperAdmin') && (
+                              <button
+                                onClick={() =>
+                                  navigate(`/operations/field-intelligence/${report.id}/edit`)
+                                }
+                                className="text-gray-500 hover:text-yellow-600 p-1.5 rounded-lg hover:bg-gray-100"
+                                title="Edit Report"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                            )}
+                            {(user?.Role === 'Admin' || user?.Role === 'SuperAdmin') && (
+                              <button
+                                onClick={() => handleDelete(report.id!)}
+                                className="text-gray-500 hover:text-red-600 p-1.5 rounded-lg hover:bg-gray-100"
+                                title="Delete Report"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
