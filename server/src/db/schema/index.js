@@ -39,5 +39,8 @@ export * from './auth/index.js';
 // CRM schemas
 export * from './crm/index.js';
 
+// Test Certificate schemas
+export * from './test-certificate/index.js';
+
 // Cross-domain relations (must be imported last)
 export * from './cross-domain-relations.js';

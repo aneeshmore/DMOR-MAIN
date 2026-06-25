@@ -50,6 +50,7 @@ import {
   Lock,
   KeyRound,
   ArrowRightLeft,
+  Cpu,
 } from 'lucide-react';
 
 // ============================================
@@ -147,6 +148,12 @@ const ProductWiseReport = lazy(() => import('@/features/reports/pages/ProductWis
 const DailyConsumptionReport = lazy(
   () => import('@/features/reports/pages/DailyConsumptionReport')
 );
+const TestCertificateReportList = lazy(
+  () => import('@/modules/test-certificate/TestCertificateReportList')
+);
+const TestCertificateReportView = lazy(
+  () => import('@/modules/test-certificate/TestCertificateReportView')
+);
 // Masters
 const MastersDashboard = lazy(() => import('@/features/masters/pages/MastersDashboard'));
 const DepartmentMaster = lazy(() => import('@/features/masters/pages/DepartmentMaster'));
@@ -211,6 +218,41 @@ const CrmDashboard = lazy(() =>
 );
 const NewVisitPage = lazy(() =>
   import('@/features/crm/pages').then(m => ({ default: m.NewVisitPage }))
+);
+
+// Field Intelligence
+const FieldIntelligenceDashboard = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceDashboardPage')
+);
+const FieldIntelligenceList = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceListPage')
+);
+const FieldIntelligenceCreate = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceCreatePage')
+);
+const FieldIntelligenceEdit = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceEditPage')
+);
+const FieldIntelligenceView = lazy(
+  () => import('@/modules/field-intelligence/FieldIntelligenceViewPage')
+);
+const CustomerDashboard = lazy(() => import('@/modules/field-intelligence/CustomerDashboardPage'));
+
+// Test Certificate
+const TestCertificateDashboard = lazy(
+  () => import('@/modules/test-certificate/TestCertificateDashboardPage')
+);
+const TestCertificateList = lazy(
+  () => import('@/modules/test-certificate/TestCertificateListPage')
+);
+const TestCertificateCreate = lazy(
+  () => import('@/modules/test-certificate/TestCertificateCreatePage')
+);
+const TestCertificateEdit = lazy(
+  () => import('@/modules/test-certificate/TestCertificateEditPage')
+);
+const TestCertificateView = lazy(
+  () => import('@/modules/test-certificate/TestCertificateViewPage')
 );
 
 // Settings
@@ -871,6 +913,155 @@ export const routeRegistry: RouteNode[] = [
           },
         ],
       },
+      {
+        id: 'field-intelligence',
+        path: '/operations/field-intelligence',
+        label: 'SMART CRM',
+        icon: Cpu,
+        component: FieldIntelligenceList,
+        permission: { module: 'field_intelligence' },
+        apis: [
+          { route: '/field-intelligence', method: 'GET', label: 'View Reports' },
+          { route: '/field-intelligence/:id', method: 'GET', label: 'View Report Details' },
+          { route: '/field-intelligence', method: 'POST', label: 'Create Report' },
+          { route: '/field-intelligence/:id', method: 'PATCH', label: 'Edit Report' },
+          { route: '/field-intelligence/:id', method: 'DELETE', label: 'Delete Report' },
+          { route: '/field-intelligence/dashboard', method: 'GET', label: 'View Dashboard' },
+          { route: '/field-intelligence/export', method: 'GET', label: 'Export Reports' },
+          { route: '/field-intelligence/:id/upload', method: 'POST', label: 'Upload File' },
+          {
+            route: '/field-intelligence/customer-summary',
+            method: 'GET',
+            label: 'View Customer Summary',
+          },
+          {
+            route: '/field-intelligence/customer/:customerId/history',
+            method: 'GET',
+            label: 'View Customer History',
+          },
+          {
+            route: '/field-intelligence/customer/:customerId/dashboard',
+            method: 'GET',
+            label: 'View Customer Dashboard',
+          },
+          {
+            route: '/field-intelligence/customer-unlinked-history',
+            method: 'GET',
+            label: 'View Customer Unlinked History',
+          },
+          {
+            route: '/field-intelligence/link-customer',
+            method: 'POST',
+            label: 'Link Customer Reports',
+          },
+        ],
+        children: [
+          {
+            id: 'field-intelligence-new',
+            path: '/operations/field-intelligence/new',
+            label: 'New Report',
+            component: FieldIntelligenceCreate,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+          {
+            id: 'field-intelligence-edit',
+            path: '/operations/field-intelligence/:id/edit',
+            label: 'Edit Report',
+            component: FieldIntelligenceEdit,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+          {
+            id: 'field-intelligence-customer-dashboard',
+            path: '/operations/field-intelligence/customer/:customerId',
+            label: 'Customer Intelligence Dashboard',
+            component: CustomerDashboard,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+          {
+            id: 'field-intelligence-view',
+            path: '/operations/field-intelligence/:id',
+            label: 'View Report',
+            component: FieldIntelligenceView,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+          {
+            id: 'field-intelligence-dashboard',
+            path: '/operations/field-intelligence/dashboard',
+            label: 'Dashboard',
+            component: FieldIntelligenceDashboard,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+        ],
+      },
+      {
+        id: 'test-certificate',
+        path: '/operations/test-certificate',
+        label: 'Test Certificate',
+        icon: FileText,
+        component: TestCertificateList,
+        group: 'Quality',
+        permission: { module: 'test_certificate' },
+        apis: [
+          { route: '/test-certificates', method: 'GET', label: 'View Test Certificates' },
+          {
+            route: '/test-certificates/:id',
+            method: 'GET',
+            label: 'View Test Certificate Details',
+          },
+          { route: '/test-certificates', method: 'POST', label: 'Create Test Certificate' },
+          { route: '/test-certificates/:id', method: 'PUT', label: 'Update Test Certificate' },
+          { route: '/test-certificates/:id', method: 'DELETE', label: 'Delete Test Certificate' },
+          {
+            route: '/test-certificates/completed-batches',
+            method: 'GET',
+            label: 'View Completed Batches',
+          },
+          {
+            route: '/test-certificates/completed-batches/:id',
+            method: 'GET',
+            label: 'View Completed Batch Details',
+          },
+        ],
+        children: [
+          {
+            id: 'test-certificate-create',
+            path: '/operations/test-certificate/create',
+            label: 'Create Test Certificate',
+            component: TestCertificateCreate,
+            permission: { module: 'test_certificate' },
+            showInSidebar: false,
+          },
+          {
+            id: 'test-certificate-edit',
+            path: '/operations/test-certificate/:id/edit',
+            label: 'Edit Test Certificate',
+            component: TestCertificateEdit,
+            permission: { module: 'test_certificate' },
+            showInSidebar: false,
+          },
+          {
+            id: 'test-certificate-view',
+            path: '/operations/test-certificate/:id',
+            label: 'View Test Certificate',
+            component: TestCertificateView,
+            permission: { module: 'test_certificate' },
+            showInSidebar: false,
+          },
+          {
+            id: 'test-certificate-dashboard',
+            path: '/operations/test-certificate/dashboard',
+            label: 'Dashboard',
+            component: TestCertificateDashboard,
+            permission: { module: 'test_certificate' },
+            showInSidebar: false,
+          },
+        ],
+      },
     ],
   },
 
@@ -1033,6 +1224,36 @@ export const routeRegistry: RouteNode[] = [
             route: '/reports/daily-consumption',
             method: 'GET',
             label: 'View Daily Consumption',
+          },
+        ],
+      },
+      {
+        id: 'report-test-certificate',
+        path: '/reports/test-certificate',
+        label: 'Test Certificate Report',
+        icon: FileText,
+        component: TestCertificateReportList,
+        permission: { module: 'report_test_certificate' },
+        apis: [
+          {
+            route: '/test-certificates',
+            method: 'GET',
+            label: 'View Test Certificate List',
+          },
+          {
+            route: '/test-certificates/:id',
+            method: 'GET',
+            label: 'View Test Certificate Details',
+          },
+        ],
+        children: [
+          {
+            id: 'report-test-certificate-view',
+            path: '/reports/test-certificate/:id',
+            label: 'View Test Certificate',
+            component: TestCertificateReportView,
+            permission: { module: 'report_test_certificate' },
+            showInSidebar: false,
           },
         ],
       },

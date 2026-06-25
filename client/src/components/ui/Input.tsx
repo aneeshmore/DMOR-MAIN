@@ -20,7 +20,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={cn('flex flex-col gap-1.5', fullWidth && 'w-full')}>
         {label && (
-          <label className="text-sm font-medium text-[var(--text-primary)]">
+          <label
+            className={cn(
+              'text-sm font-medium',
+              error ? 'text-[var(--danger)]' : 'text-[var(--text-primary)]'
+            )}
+          >
             {label}
             {props.required && <span className="text-[var(--danger)] ml-0.5">*</span>}
           </label>
@@ -54,6 +59,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               'text-xs',
               error ? 'text-[var(--danger)] font-medium' : 'text-[var(--text-secondary)]'
             )}
+            style={error ? { fontSize: 'small', color: 'red', marginTop: '4px' } : undefined}
           >
             {error || helperText}
           </p>
