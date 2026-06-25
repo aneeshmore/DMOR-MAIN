@@ -77,7 +77,10 @@ export class ProductDTO {
     this.ProductName = product.productName || product.product_name;
     this.MasterProductID = product.masterProductId || product.master_product_id;
     this.UnitID = product.unitId || product.unit_id;
-    this.ProductType = product.productType || product.product_type;
+    this.ProductType =
+      product.productType ||
+      product.product_type ||
+      (masterProduct && (masterProduct.productType || masterProduct.product_type));
     const fgDetails = data.fgDetails;
 
     // Dynamic Calculation of Capacity
