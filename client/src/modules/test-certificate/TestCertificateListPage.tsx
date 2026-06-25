@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   FileText,
+  Check,
 } from 'lucide-react';
 import { testCertificateApi } from './services/testCertificateApi';
 import { TestCertificate } from './types/testCertificate.types';
@@ -18,6 +19,7 @@ import { showToast } from '@/utils/toast';
 import { downloadCertificatePdf } from './services/pdfGenerator';
 import { companyApi } from '@/features/company/api/companyApi';
 import { CertificateForm } from './components/CertificateForm';
+import { Modal } from '@/components/ui/Modal';
 
 export const TestCertificateListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,6 +35,26 @@ export const TestCertificateListPage: React.FC = () => {
   // Form creation states
   const [formKey, setFormKey] = useState(0);
   const [submittingCreate, setSubmittingCreate] = useState(false);
+
+  // Approval confirmation states
+  const [confirmApproveId, setConfirmApproveId] = useState<number | null>(null);
+  const [submittingApprove, setSubmittingApprove] = useState(false);
+
+  const handleApproveConfirm = async () => {
+    if (confirmApproveId === null) return;
+    try {
+      setSubmittingApprove(true);
+      await testCertificateApi.approve(confirmApproveId);
+      showToast.success('Test Certificate approved successfully.');
+      setConfirmApproveId(null);
+      fetchCertificates();
+    } catch (err: any) {
+      console.error('Approve failed', err);
+      showToast.error(err.response?.data?.message || 'Failed to approve test certificate.');
+    } finally {
+      setSubmittingApprove(false);
+    }
+  };
 
   const fetchCertificates = async () => {
     try {
@@ -304,7 +326,18 @@ export const TestCertificateListPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-gray-600">{cert.creatorName || 'System'}</td>
                         <td className="py-3 px-4 text-center">
-                          <span className={`badge ${statusBadges} border`}>{cert.status}</span>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span className={`badge ${statusBadges} border`}>{cert.status}</span>
+                            {isDraft && (
+                              <button
+                                onClick={() => setConfirmApproveId(cert.id!)}
+                                className="text-green-600 hover:text-green-800 transition-colors p-0.5 rounded-lg hover:bg-green-50 inline-flex items-center justify-center font-bold"
+                                title="Approve Certificate"
+                              >
+                                <Check className="h-4.5 w-4.5" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-right flex justify-end gap-1">
                           <button
@@ -314,7 +347,7 @@ export const TestCertificateListPage: React.FC = () => {
                           >
                             <Eye className="h-4.5 w-4.5" />
                           </button>
-                          {isDraft ? (
+                          {isDraft && (
                             <>
                               <button
                                 onClick={() =>
@@ -333,8 +366,6 @@ export const TestCertificateListPage: React.FC = () => {
                                 <Trash2 className="h-4.5 w-4.5" />
                               </button>
                             </>
-                          ) : (
-                            <div className="w-18"></div> // spacer to keep alignment
                           )}
                           <button
                             onClick={() => handleDownload(cert.id!)}
@@ -358,6 +389,34 @@ export const TestCertificateListPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal for Certificate Approval */}
+      <Modal
+        isOpen={confirmApproveId !== null}
+        onClose={() => setConfirmApproveId(null)}
+        title="Approve Certificate"
+        size="sm"
+        footer={
+          <div className="flex gap-2 justify-end w-full">
+            <button
+              onClick={() => setConfirmApproveId(null)}
+              className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-semibold cursor-pointer text-sm"
+              disabled={submittingApprove}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleApproveConfirm}
+              className="btn bg-green-600 text-white hover:bg-green-700 px-5 py-2 rounded-lg shadow-sm font-semibold cursor-pointer text-sm disabled:opacity-60"
+              disabled={submittingApprove}
+            >
+              {submittingApprove ? 'Approving...' : 'Approve'}
+            </button>
+          </div>
+        }
+      >
+        <p className="text-gray-700">Are you sure you want to approve this certificate?</p>
+      </Modal>
     </div>
   );
 };

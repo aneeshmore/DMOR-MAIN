@@ -65,7 +65,7 @@ export class FieldIntelligenceController {
       res.status(201).json({
         success: true,
         data: report,
-        message: 'Field Intelligence Report created successfully',
+        message: 'SMART CRM Visit Report created successfully',
       });
     } catch (error) {
       next(error);
@@ -92,7 +92,7 @@ export class FieldIntelligenceController {
       res.status(200).json({
         success: true,
         data: report,
-        message: 'Field Intelligence Report updated successfully',
+        message: 'SMART CRM Visit Report updated successfully',
       });
     } catch (error) {
       next(error);
@@ -112,7 +112,7 @@ export class FieldIntelligenceController {
 
       res.status(200).json({
         success: true,
-        message: 'Field Intelligence Report deleted successfully',
+        message: 'SMART CRM Visit Report deleted successfully',
       });
     } catch (error) {
       next(error);
@@ -130,6 +130,7 @@ export class FieldIntelligenceController {
 
       const report = await this.service.getReportDetails(
         req.params.id,
+        req.user,
         context.companyId,
         context.tenantId
       );
@@ -164,6 +165,7 @@ export class FieldIntelligenceController {
 
       const reports = await this.service.getReportsList(
         filters,
+        req.user,
         context.companyId,
         context.tenantId
       );
@@ -210,7 +212,11 @@ export class FieldIntelligenceController {
           .json({ success: false, message: 'Forbidden: Access denied (Company context missing)' });
       }
 
-      const csvContent = await this.service.exportToCsv(context.companyId, context.tenantId);
+      const csvContent = await this.service.exportToCsv(
+        context.companyId,
+        context.tenantId,
+        req.user
+      );
 
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader(
@@ -246,7 +252,7 @@ export class FieldIntelligenceController {
         'Site Condition': 'site-photos',
         'Site Photo': 'site-photos',
         'Video Upload': 'videos',
-        'Document': 'documents',
+        Document: 'documents',
       };
 
       let fileData;
@@ -268,12 +274,10 @@ export class FieldIntelligenceController {
       } else {
         // Fallback for metadata-only JSON payload (backward compatible)
         if (!req.body.fileName || !req.body.filePath) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message: 'Invalid payload: fileName and filePath are required.',
-            });
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid payload: fileName and filePath are required.',
+          });
         }
         // Manual validation for JSON upload limits
         const maxLimit = 25 * 1024 * 1024; // 25MB
@@ -317,6 +321,105 @@ export class FieldIntelligenceController {
         success: true,
         data: upload,
         message: 'File upload processed successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // ── Customer Intelligence ─────────────────────────────────────────────────
+
+  getCustomerSummary = async (req, res, next) => {
+    try {
+      const context = await getTenantContext(req);
+      if (!context) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+      const filters = { search: req.query.search };
+      const data = await this.service.getCustomerSummary(
+        filters,
+        context.companyId,
+        context.tenantId,
+        req.user
+      );
+
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getCustomerHistory = async (req, res, next) => {
+    try {
+      const context = await getTenantContext(req);
+      if (!context) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+      const visits = await this.service.getCustomerHistory(
+        req.params.customerId,
+        context.companyId,
+        context.tenantId,
+        req.user
+      );
+
+      res.status(200).json({ success: true, data: visits });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getCustomerDashboard = async (req, res, next) => {
+    try {
+      const context = await getTenantContext(req);
+      if (!context) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+      const dashboard = await this.service.getCustomerDashboard(
+        req.params.customerId,
+        context.companyId,
+        context.tenantId,
+        req.user
+      );
+
+      res.status(200).json({ success: true, data: dashboard });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getCustomerUnlinkedHistory = async (req, res, next) => {
+    try {
+      const context = await getTenantContext(req);
+      if (!context) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+      const history = await this.service.getCustomerUnlinkedHistory(
+        req.query.customerName,
+        context.companyId,
+        context.tenantId,
+        req.user
+      );
+
+      res.status(200).json({ success: true, data: history });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  linkCustomer = async (req, res, next) => {
+    try {
+      const context = await getTenantContext(req);
+      if (!context) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+      const { customerId, customerName } = req.body;
+      const updated = await this.service.linkCustomerBulk(
+        customerId,
+        customerName,
+        context.companyId,
+        context.tenantId,
+        req.user
+      );
+
+      res.status(200).json({
+        success: true,
+        customerId: parseInt(customerId, 10),
+        updatedCount: updated.length,
       });
     } catch (error) {
       next(error);

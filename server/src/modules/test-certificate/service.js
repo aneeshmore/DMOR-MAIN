@@ -106,17 +106,24 @@ export class TestCertificateService {
 
   /**
    * List test certificates for the company/tenant
+   * @param {Object} userContext - { employeeId, role } for row-level scoping
    */
-  async getTestCertificatesList(filters, companyId, tenantId) {
-    const rows = await this.repository.getTestCertificates(filters, companyId, tenantId);
+  async getTestCertificatesList(filters, companyId, tenantId, userContext = null) {
+    const rows = await this.repository.getTestCertificates(
+      filters,
+      companyId,
+      tenantId,
+      userContext
+    );
     return rows.map(row => TestCertificateDTO.fromDatabase(row));
   }
 
   /**
    * Get specific certificate details
+   * @param {Object} userContext - { employeeId, role } for row-level ownership enforcement
    */
-  async getTestCertificateDetails(id, companyId, tenantId) {
-    const row = await this.repository.getTestCertificateById(id, companyId, tenantId);
+  async getTestCertificateDetails(id, companyId, tenantId, userContext = null) {
+    const row = await this.repository.getTestCertificateById(id, companyId, tenantId, userContext);
     if (!row) {
       throw new AppError('Test certificate not found or access denied', 404);
     }
@@ -167,7 +174,8 @@ export class TestCertificateService {
   }
 
   /**
-   * Update an existing certificate (in Draft status)
+   * Update an existing certificate (in Draft status).
+   * No ownership restriction — any permitted user may edit a draft.
    */
   async updateTestCertificate(id, data, companyId, tenantId) {
     const existing = await this.repository.getTestCertificateById(id, companyId, tenantId);
@@ -188,7 +196,28 @@ export class TestCertificateService {
   }
 
   /**
-   * Delete a certificate
+   * Approve a test certificate (sets status = 'Approved').
+   * No ownership restriction — any permitted user may approve.
+   */
+  async approveTestCertificate(id, companyId, tenantId) {
+    const existing = await this.repository.getTestCertificateById(id, companyId, tenantId);
+    if (!existing) {
+      throw new AppError('Certificate not found.', 404);
+    }
+
+    if (existing.test_certificates.status === 'Approved') {
+      throw new AppError('Certificate is already approved.', 400);
+    }
+
+    await this.repository.approveTestCertificate(id, 'Approved', companyId, tenantId);
+
+    const fullUpdated = await this.repository.getTestCertificateById(id, companyId, tenantId);
+    return TestCertificateDTO.fromDatabase(fullUpdated);
+  }
+
+  /**
+   * Delete a certificate.
+   * No ownership restriction — any permitted user may delete.
    */
   async deleteTestCertificate(id, companyId, tenantId) {
     return await this.repository.deleteTestCertificate(id, companyId, tenantId);

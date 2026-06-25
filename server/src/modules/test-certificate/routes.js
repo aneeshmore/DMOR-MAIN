@@ -42,6 +42,12 @@ router.put(
   controller.updateTestCertificate
 );
 
+router.patch(
+  '/:id/approve',
+  requirePermission('PUT:/test-certificates/:id'),
+  controller.approveTestCertificate
+);
+
 router.delete(
   '/:id',
   requirePermission('DELETE:/test-certificates/:id'),

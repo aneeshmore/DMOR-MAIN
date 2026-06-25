@@ -1,5 +1,5 @@
 import React from 'react';
-import { useFieldArray, Control, UseFormRegister, FormState } from 'react-hook-form';
+import { useFieldArray, Control, UseFormRegister, FormState, useWatch } from 'react-hook-form';
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
 
 interface SectionProps {
@@ -15,8 +15,22 @@ export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, 
     name: 'followups',
   });
 
+  const visitType = useWatch({ control, name: 'visitType' }) || '';
+  const isFollowupVisitType = visitType === 'Customer Follow-up' || visitType === 'Follow-up Visit';
+
+  React.useEffect(() => {
+    register('followups', {
+      validate: val => {
+        if (isFollowupVisitType && (!val || val.length === 0)) {
+          return 'At least one follow-up action is required';
+        }
+        return true;
+      },
+    });
+  }, [register, isFollowupVisitType]);
+
   return (
-    <div className="card p-6 mb-6">
+    <div id="followups-section" className="card p-6 mb-6">
       <div className="flex justify-between items-center mb-4 border-b pb-2">
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           <span className="bg-primary-100 text-primary-600 p-1.5 rounded-md">
@@ -40,6 +54,15 @@ export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, 
         </button>
       </div>
 
+      {errors?.followups && 'message' in errors.followups && (
+        <p
+          className="text-red-500 text-sm mb-4 font-semibold"
+          style={{ color: 'red', fontSize: 'small', marginBottom: '16px' }}
+        >
+          {String((errors.followups as any).message)}
+        </p>
+      )}
+
       {fields.length === 0 ? (
         <p className="text-sm text-gray-500 text-center py-4">
           No followups added yet. Add follow-ups to ensure deal progression.
@@ -49,7 +72,7 @@ export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, 
           {fields.map((field, index) => (
             <div
               key={field.id}
-              className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end border p-3 rounded-lg bg-gray-50 relative"
+              className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end border p-3 rounded-lg bg-gray-50 relative"
             >
               <button
                 type="button"
@@ -68,7 +91,9 @@ export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, 
               </button>
 
               <div className="md:col-span-1">
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label
+                  className={`block text-xs font-semibold mb-1 ${errors?.followups?.[index]?.followupDate ? 'text-red-500' : 'text-gray-700'}`}
+                >
                   Followup Date *
                 </label>
                 {(() => {
@@ -79,11 +104,14 @@ export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, 
                         type="datetime-local"
                         className={`input text-xs py-1.5 ${followupError?.followupDate ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/10' : ''}`}
                         {...register(`followups.${index}.followupDate` as const, {
-                          required: 'Date is required',
+                          required: 'Follow-up Date is required',
                         })}
                       />
                       {followupError?.followupDate && (
-                        <p className="text-red-500 text-xs mt-1">
+                        <p
+                          className="text-red-500 text-xs mt-1"
+                          style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+                        >
                           {followupError.followupDate.message}
                         </p>
                       )}
@@ -92,8 +120,10 @@ export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, 
                 })()}
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+              <div className="md:col-span-2 pr-6">
+                <label
+                  className={`block text-xs font-semibold mb-1 ${errors?.followups?.[index]?.notes ? 'text-red-500' : 'text-gray-700'}`}
+                >
                   Task / Action Notes *
                 </label>
                 {(() => {
@@ -105,30 +135,24 @@ export const ActionItemsSection: React.FC<SectionProps> = ({ control, register, 
                         className={`input text-xs py-1.5 ${followupError?.notes ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/10' : ''}`}
                         placeholder="e.g. Call for rate negotiation or deliver PU sample"
                         {...register(`followups.${index}.notes` as const, {
-                          required: 'Notes are required',
+                          required: 'Follow-up Notes are required',
                         })}
                       />
                       {followupError?.notes && (
-                        <p className="text-red-500 text-xs mt-1">{followupError.notes.message}</p>
+                        <p
+                          className="text-red-500 text-xs mt-1"
+                          style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+                        >
+                          {followupError.notes.message}
+                        </p>
                       )}
                     </>
                   );
                 })()}
               </div>
 
-              <div className="md:col-span-1 pr-6">
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
-                <select
-                  className="input text-xs py-1.5"
-                  {...register(`followups.${index}.status` as const)}
-                >
-                  <option value="Open">Open</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Missed">Missed</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
-              </div>
+              {/* Status hidden input */}
+              <input type="hidden" {...register(`followups.${index}.status` as const)} />
             </div>
           ))}
         </div>

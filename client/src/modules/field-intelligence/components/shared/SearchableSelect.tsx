@@ -9,6 +9,7 @@ interface SearchableSelectProps {
   required?: boolean;
   error?: string;
   allowCustom?: boolean; // allow user to type a value not in list
+  name?: string;
 }
 
 /**
@@ -24,6 +25,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   required = false,
   error,
   allowCustom = false,
+  name,
 }) => {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -56,13 +58,16 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-sm font-semibold text-gray-700 mb-1">
+      <label
+        className={`block text-sm font-semibold mb-1 ${error ? 'text-red-500' : 'text-gray-700'}`}
+      >
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <div className="relative">
         <input
           type="text"
-          className={`input pr-8 ${error ? 'border-red-500 focus:border-red-500' : ''}`}
+          name={name}
+          className={`input pr-8 ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10' : ''}`}
           placeholder={placeholder}
           value={isOpen ? query : displayValue}
           onChange={handleInputChange}
@@ -96,7 +101,14 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         </ul>
       )}
 
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && (
+        <p
+          className="text-red-500 text-xs mt-1"
+          style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 };

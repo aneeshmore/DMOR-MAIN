@@ -61,10 +61,18 @@ export class TestCertificateController {
         status: req.query.status,
       };
 
+      // Build user context for row-level data isolation.
+      // SuperAdmin and Admin see all certificates; all other roles see only their own.
+      const userContext = {
+        employeeId: req.user?.employeeId,
+        role: req.user?.role,
+      };
+
       const certs = await this.service.getTestCertificatesList(
         filters,
         context.companyId,
-        context.tenantId
+        context.tenantId,
+        userContext
       );
       res.status(200).json({ success: true, data: certs });
     } catch (error) {
@@ -81,11 +89,19 @@ export class TestCertificateController {
           .json({ success: false, message: 'Forbidden: Access denied (Tenant context missing)' });
       }
 
+      // Build user context for row-level data isolation.
+      // SuperAdmin and Admin can fetch any certificate; others can only fetch their own.
+      const userContext = {
+        employeeId: req.user?.employeeId,
+        role: req.user?.role,
+      };
+
       const certId = parseInt(req.params.id, 10);
       const cert = await this.service.getTestCertificateDetails(
         certId,
         context.companyId,
-        context.tenantId
+        context.tenantId,
+        userContext
       );
       res.status(200).json({ success: true, data: cert });
     } catch (error) {
@@ -140,6 +156,36 @@ export class TestCertificateController {
         success: true,
         data: cert,
         message: 'Test Certificate updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  approveTestCertificate = async (req, res, next) => {
+    try {
+      const context = await getTenantContext(req);
+      if (!context) {
+        return res
+          .status(403)
+          .json({ success: false, message: 'Forbidden: Access denied (Tenant context missing)' });
+      }
+
+      const certId = parseInt(req.params.id, 10);
+      if (isNaN(certId)) {
+        return res.status(400).json({ success: false, message: 'Invalid certificate ID.' });
+      }
+
+      const cert = await this.service.approveTestCertificate(
+        certId,
+        context.companyId,
+        context.tenantId
+      );
+
+      res.status(200).json({
+        success: true,
+        data: cert,
+        message: 'Test Certificate approved successfully',
       });
     } catch (error) {
       next(error);

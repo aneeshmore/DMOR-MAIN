@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { FieldIntelligenceForm } from './components/FieldIntelligenceForm';
 import { fieldIntelligenceApi } from './services/fieldIntelligenceApi';
 import { FieldIntelligenceReport } from './types/fieldIntelligence.types';
+import { showToast } from '@/utils/toast';
 
 export const FieldIntelligenceEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,11 +47,35 @@ export const FieldIntelligenceEditPage: React.FC = () => {
       const payload = { ...data };
 
       await fieldIntelligenceApi.update(id, payload);
-      alert('Field Intelligence Report updated successfully.');
+      showToast.success('SMART CRM Visit Report updated successfully.');
       navigate('/operations/field-intelligence');
     } catch (err: any) {
       console.error('Failed to update report', err);
-      alert(err.message || 'Failed to update report. Please verify inputs.');
+      if (err.status === 400 || err.message?.includes('Validation failed')) {
+        throw err;
+      }
+      showToast.error(err.message || 'Failed to update report. Please verify inputs.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveDraft = async (data: FieldIntelligenceReport) => {
+    try {
+      if (!id) return;
+      setSubmitting(true);
+
+      const payload = { ...data, status: 'Draft' as const };
+
+      await fieldIntelligenceApi.update(id, payload);
+      showToast.success('SMART CRM Visit Report draft saved successfully.');
+      navigate('/operations/field-intelligence');
+    } catch (err: any) {
+      console.error('Failed to update draft', err);
+      if (err.status === 400 || err.message?.includes('Validation failed')) {
+        throw err;
+      }
+      showToast.error(err.message || 'Failed to update draft. Please verify inputs.');
     } finally {
       setSubmitting(false);
     }
@@ -85,6 +110,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
       <FieldIntelligenceForm
         initialData={report}
         onSubmit={handleSubmit}
+        onSaveDraft={handleSaveDraft}
         isSubmitting={submitting}
       />
     </div>

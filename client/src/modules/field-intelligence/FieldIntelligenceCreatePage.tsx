@@ -3,29 +3,62 @@ import { useNavigate } from 'react-router-dom';
 import { FieldIntelligenceForm } from './components/FieldIntelligenceForm';
 import { fieldIntelligenceApi } from './services/fieldIntelligenceApi';
 import { FieldIntelligenceReport } from './types/fieldIntelligence.types';
+import { showToast } from '@/utils/toast';
 
 export const FieldIntelligenceCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   const handleSubmit = async (data: FieldIntelligenceReport) => {
     try {
       setSubmitting(true);
 
-      // Sanitise values before submitting
-      const payload = { ...data };
+      const payload = { ...data, status: 'Submitted' as const };
 
-      // Call create API
-      await fieldIntelligenceApi.create(payload);
+      if (data.id) {
+        await fieldIntelligenceApi.update(data.id, payload);
+      } else {
+        await fieldIntelligenceApi.create(payload);
+      }
 
-      // Clear localStorage draft on successful submission
-      localStorage.removeItem('fir_draft_report');
+      showToast.success('SMART CRM Visit Report submitted successfully.');
 
-      alert('Field Intelligence Report submitted successfully.');
-      navigate('/operations/field-intelligence');
+      // Increment formKey to reset the entire form UI & state
+      setFormKey(prev => prev + 1);
     } catch (err: any) {
-      console.error('Failed to create report', err);
-      alert(err.message || 'Failed to submit report. Please review the inputs.');
+      console.error('Failed to submit report', err);
+      if (err.status === 400 || err.message?.includes('Validation failed')) {
+        throw err;
+      }
+      showToast.error(err.message || 'Failed to submit report. Please review the inputs.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveDraft = async (data: FieldIntelligenceReport) => {
+    try {
+      setSubmitting(true);
+
+      const payload = { ...data, status: 'Draft' as const };
+
+      if (data.id) {
+        await fieldIntelligenceApi.update(data.id, payload);
+      } else {
+        await fieldIntelligenceApi.create(payload);
+      }
+
+      showToast.success('SMART CRM Visit Report draft saved successfully.');
+
+      // Increment formKey to reset the entire form UI & state
+      setFormKey(prev => prev + 1);
+    } catch (err: any) {
+      console.error('Failed to save draft', err);
+      if (err.status === 400 || err.message?.includes('Validation failed')) {
+        throw err;
+      }
+      showToast.error(err.message || 'Failed to save draft. Please verify the inputs.');
     } finally {
       setSubmitting(false);
     }
@@ -33,7 +66,12 @@ export const FieldIntelligenceCreatePage: React.FC = () => {
 
   return (
     <div className="py-4">
-      <FieldIntelligenceForm onSubmit={handleSubmit} isSubmitting={submitting} />
+      <FieldIntelligenceForm
+        key={formKey}
+        onSubmit={handleSubmit}
+        onSaveDraft={handleSaveDraft}
+        isSubmitting={submitting}
+      />
     </div>
   );
 };

@@ -32,35 +32,49 @@ export class FieldIntelligenceService {
 
     // ── Compute composite intelligence scores ──────────────────────────────
     // Interest Score (0-100): weighted from conversion, longTerm, mood
-    const moodBoost = report.customerMood === 'Highly Interested' ? 20
-      : report.customerMood === 'Neutral' ? 5
-      : report.customerMood === 'Dissatisfied' ? 10 : 0;
-    const interestScore = Math.min(100, Math.round((conversion * 0.4) + (longTerm * 5) + moodBoost));
+    const moodBoost =
+      report.customerMood === 'Highly Interested'
+        ? 20
+        : report.customerMood === 'Neutral'
+          ? 5
+          : report.customerMood === 'Dissatisfied'
+            ? 10
+            : 0;
+    const interestScore = Math.min(100, Math.round(conversion * 0.4 + longTerm * 5 + moodBoost));
 
     // Payment Risk Score (0-100): lower is safer
-    const paymentRiskScore = Math.min(100, Math.round(
-      (credit > 90 ? 40 : credit > 60 ? 20 : 5) +
-      ((10 - reliability) * 5) +
-      (outstanding >= 500000 ? 30 : outstanding >= 200000 ? 15 : 0)
-    ));
+    const paymentRiskScore = Math.min(
+      100,
+      Math.round(
+        (credit > 90 ? 40 : credit > 60 ? 20 : 5) +
+          (10 - reliability) * 5 +
+          (outstanding >= 500000 ? 30 : outstanding >= 200000 ? 15 : 0)
+      )
+    );
 
     // Competitor Threat Score (0-100)
-    const competitorCount = (Array.isArray(report.competitors) ? report.competitors.length : 0);
-    const competitorThreatScore = Math.min(100, Math.round(
-      (competitorCount * 20) +
-      (report.currentSupplier && report.currentSupplier.trim() ? 25 : 0) +
-      ((10 - dealerConf) * 3)
-    ));
+    const competitorCount = Array.isArray(report.competitors) ? report.competitors.length : 0;
+    const competitorThreatScore = Math.min(
+      100,
+      Math.round(
+        competitorCount * 20 +
+          (report.currentSupplier && report.currentSupplier.trim() ? 25 : 0) +
+          (10 - dealerConf) * 3
+      )
+    );
 
     // Follow-up Urgency Score (direct from executive 1-10 → 0-100)
     const followupScore = Math.min(100, urgency * 10);
 
     // Business Potential Score (0-100)
-    const businessPotentialScore = Math.min(100, Math.round(
-      (pValue >= 5000000 ? 40 : pValue >= 1000000 ? 25 : pValue >= 500000 ? 15 : 5) +
-      (expMonthly >= 500000 ? 30 : expMonthly >= 200000 ? 20 : expMonthly >= 50000 ? 10 : 0) +
-      (longTerm * 3)
-    ));
+    const businessPotentialScore = Math.min(
+      100,
+      Math.round(
+        (pValue >= 5000000 ? 40 : pValue >= 1000000 ? 25 : pValue >= 500000 ? 15 : 5) +
+          (expMonthly >= 500000 ? 30 : expMonthly >= 200000 ? 20 : expMonthly >= 50000 ? 10 : 0) +
+          longTerm * 3
+      )
+    );
 
     // Store computed scores on report object for downstream use
     report._computedScores = {
@@ -140,7 +154,8 @@ export class FieldIntelligenceService {
       insights.push({
         insightType: 'Urgent Followup',
         observation: 'Complaint Visit recorded – resolution timeline must be tracked',
-        reasoning: 'Complaints require immediate technical review and response within 48 hours to preserve customer relationship.',
+        reasoning:
+          'Complaints require immediate technical review and response within 48 hours to preserve customer relationship.',
         severity: 'critical',
       });
     }
@@ -163,7 +178,8 @@ export class FieldIntelligenceService {
         insights.push({
           insightType: 'Strategic Opportunity',
           observation: 'Industrial trial approved – high conversion potential',
-          reasoning: 'Trial approval at industrial site indicates strong interest. Ensure technical support is available during trial phase.',
+          reasoning:
+            'Trial approval at industrial site indicates strong interest. Ensure technical support is available during trial phase.',
           severity: 'high',
         });
       }
@@ -174,7 +190,8 @@ export class FieldIntelligenceService {
       insights.push({
         insightType: 'Urgent Followup',
         observation: 'Technical Visit completed – send TDS / product documentation',
-        reasoning: 'Technical visits require immediate follow-up with product data sheets, application guides, and support contact.',
+        reasoning:
+          'Technical visits require immediate follow-up with product data sheets, application guides, and support contact.',
         severity: 'medium',
       });
     }
@@ -185,7 +202,8 @@ export class FieldIntelligenceService {
         insights.push({
           insightType: 'Strategic Opportunity',
           observation: 'Shade samples provided to architect – schedule shade approval follow-up',
-          reasoning: 'Architects influence large project specifications. Track sample response within 5 working days.',
+          reasoning:
+            'Architects influence large project specifications. Track sample response within 5 working days.',
           severity: 'medium',
         });
       }
@@ -197,7 +215,8 @@ export class FieldIntelligenceService {
         insights.push({
           insightType: 'Competitor Weakness',
           observation: `Market intelligence: ${competitorCount} competitor brands identified in this territory`,
-          reasoning: 'High competitor presence in territory. Management should review pricing and scheme strategy for this zone.',
+          reasoning:
+            'High competitor presence in territory. Management should review pricing and scheme strategy for this zone.',
           severity: 'high',
         });
       }
@@ -340,7 +359,20 @@ export class FieldIntelligenceService {
       );
 
       // 7. Update dashboard metrics in background/transaction
-      await this.recalculateDashboardMetrics(companyId, tenantId, userContext.employeeId, tx);
+      await this.recalculateDashboardMetrics(
+        companyId,
+        tenantId,
+        userContext.employeeId,
+        userContext,
+        tx
+      );
+      await this.recalculateDashboardMetrics(
+        companyId,
+        tenantId,
+        userContext.employeeId,
+        { role: 'Admin' },
+        tx
+      );
 
       return report;
     });
@@ -349,7 +381,7 @@ export class FieldIntelligenceService {
   async updateReport(id, data, userContext, companyId, tenantId) {
     return await this.repository.runTransaction(async tx => {
       // Check existing report
-      const existing = await this.repository.getReportById(id, companyId, tenantId);
+      const existing = await this.repository.getReportById(id, companyId, tenantId, userContext);
       if (!existing) {
         throw new AppError('Field report not found', 404);
       }
@@ -365,7 +397,14 @@ export class FieldIntelligenceService {
         reportPayload.expectedOrderDate = new Date(reportPayload.expectedOrderDate);
 
       // 1. Update report
-      const report = await this.repository.updateReport(id, reportPayload, companyId, tenantId, tx);
+      const report = await this.repository.updateReport(
+        id,
+        reportPayload,
+        companyId,
+        tenantId,
+        userContext,
+        tx
+      );
 
       // 2. Refresh competitors
       if (data.competitors) {
@@ -456,7 +495,21 @@ export class FieldIntelligenceService {
       }
 
       // 7. Recalculate Dashboard
-      await this.recalculateDashboardMetrics(companyId, tenantId, userContext.employeeId, tx);
+      const ownerContext = { employeeId: existing.report.createdBy, role: 'Employee' };
+      await this.recalculateDashboardMetrics(
+        companyId,
+        tenantId,
+        existing.report.createdBy,
+        ownerContext,
+        tx
+      );
+      await this.recalculateDashboardMetrics(
+        companyId,
+        tenantId,
+        userContext.employeeId,
+        { role: 'Admin' },
+        tx
+      );
 
       return report;
     });
@@ -464,12 +517,12 @@ export class FieldIntelligenceService {
 
   async deleteReport(id, userContext, companyId, tenantId) {
     return await this.repository.runTransaction(async tx => {
-      const existing = await this.repository.getReportById(id, companyId, tenantId);
+      const existing = await this.repository.getReportById(id, companyId, tenantId, userContext);
       if (!existing) {
         throw new AppError('Field report not found', 404);
       }
 
-      const deleted = await this.repository.deleteReport(id, companyId, tenantId, tx);
+      const deleted = await this.repository.deleteReport(id, companyId, tenantId, userContext, tx);
 
       await this.repository.insertActivityLog(
         {
@@ -486,14 +539,28 @@ export class FieldIntelligenceService {
         tx
       );
 
-      await this.recalculateDashboardMetrics(companyId, tenantId, userContext.employeeId, tx);
+      const ownerContext = { employeeId: existing.report.createdBy, role: 'Employee' };
+      await this.recalculateDashboardMetrics(
+        companyId,
+        tenantId,
+        existing.report.createdBy,
+        ownerContext,
+        tx
+      );
+      await this.recalculateDashboardMetrics(
+        companyId,
+        tenantId,
+        userContext.employeeId,
+        { role: 'Admin' },
+        tx
+      );
 
       return deleted;
     });
   }
 
-  async getReportDetails(id, companyId, tenantId) {
-    const details = await this.repository.getReportById(id, companyId, tenantId);
+  async getReportDetails(id, userContext, companyId, tenantId) {
+    const details = await this.repository.getReportById(id, companyId, tenantId, userContext);
     if (!details) {
       throw new AppError('Field report not found', 404);
     }
@@ -507,31 +574,58 @@ export class FieldIntelligenceService {
     );
   }
 
-  async getReportsList(filters, companyId, tenantId) {
-    const reports = await this.repository.getReportsList(filters, companyId, tenantId);
+  async getReportsList(filters, userContext, companyId, tenantId) {
+    const reports = await this.repository.getReportsList(filters, companyId, tenantId, userContext);
     return reports.map(r => new CompleteReportDTO(r));
   }
 
   async getDashboardSummary(companyId, tenantId, userContext) {
-    let metrics = await this.repository.getLatestDashboardMetrics(companyId, tenantId);
+    const isUserAdmin = isAdmin(userContext);
+    const metricKey = isUserAdmin
+      ? 'dashboard_summary'
+      : `dashboard_summary_emp_${userContext.employeeId}`;
+
+    let metrics = await this.repository.getLatestDashboardMetrics(companyId, tenantId, metricKey);
     if (!metrics) {
-      metrics = await this.recalculateDashboardMetrics(companyId, tenantId, userContext.employeeId);
+      metrics = await this.recalculateDashboardMetrics(
+        companyId,
+        tenantId,
+        userContext.employeeId,
+        userContext
+      );
     }
     return metrics;
   }
 
-  async recalculateDashboardMetrics(companyId, tenantId, employeeId, tx) {
+  async recalculateDashboardMetrics(
+    companyId,
+    tenantId,
+    employeeId,
+    userContext = null,
+    tx = null
+  ) {
+    const isUserAdmin = userContext ? isAdmin(userContext) : false;
+    const metricKey = isUserAdmin ? 'dashboard_summary' : `dashboard_summary_emp_${employeeId}`;
+
     const metricValue = await this.repository.getAggregatedDashboardMetrics(
       companyId,
       tenantId,
+      userContext,
       tx
     );
-    await this.repository.saveDashboardMetrics(companyId, tenantId, metricValue, employeeId, tx);
+    await this.repository.saveDashboardMetrics(
+      companyId,
+      tenantId,
+      metricValue,
+      employeeId,
+      metricKey,
+      tx
+    );
     return metricValue;
   }
 
-  async exportToCsv(companyId, tenantId) {
-    const reports = await this.repository.getReportsList({}, companyId, tenantId);
+  async exportToCsv(companyId, tenantId, userContext = null) {
+    const reports = await this.repository.getReportsList({}, companyId, tenantId, userContext);
 
     const headers = [
       'Report Number',
@@ -603,4 +697,75 @@ export class FieldIntelligenceService {
       return upload[0];
     });
   }
+
+  // ── Customer Intelligence ─────────────────────────────────────────────────
+
+  async getCustomerSummary(filters, companyId, tenantId, userContext = null) {
+    return await this.repository.getCustomerSummaryList(filters, companyId, tenantId, userContext);
+  }
+
+  async getCustomerHistory(customerId, companyId, tenantId, userContext = null) {
+    const id = parseInt(customerId, 10);
+    if (isNaN(id)) throw new AppError('Invalid customerId', 400);
+    return await this.repository.getCustomerVisitHistory(id, companyId, tenantId, userContext);
+  }
+
+  async getCustomerDashboard(customerId, companyId, tenantId, userContext = null) {
+    const id = parseInt(customerId, 10);
+    if (isNaN(id)) throw new AppError('Invalid customerId', 400);
+
+    // 1. Get all reports globally for this customer (no employee filter) to check existence
+    const allReports = await this.repository.getCustomerVisitHistory(id, companyId, tenantId, null);
+    if (allReports.length === 0) {
+      throw new AppError('Customer record not found', 404);
+    }
+
+    // 2. Enforce ownership access check for non-admins
+    const isUserAdmin = userContext ? isAdmin(userContext) : false;
+    if (userContext && !isUserAdmin) {
+      const hasOwnedReport = allReports.some(r => r.createdBy === userContext.employeeId);
+      if (!hasOwnedReport) {
+        throw new AppError('Access denied. You do not have permission to view this customer.', 403);
+      }
+    }
+
+    // 3. Retrieve aggregated dashboard data scoped to the user
+    const data = await this.repository.getCustomerDashboardData(
+      id,
+      companyId,
+      tenantId,
+      userContext
+    );
+    if (!data) throw new AppError('Customer record not found', 404);
+    return data;
+  }
+
+  async getCustomerUnlinkedHistory(customerName, companyId, tenantId, userContext = null) {
+    if (!customerName) throw new AppError('Customer name is required', 400);
+    return await this.repository.getCustomerUnlinkedHistory(
+      customerName,
+      companyId,
+      tenantId,
+      userContext
+    );
+  }
+
+  async linkCustomerBulk(customerId, customerName, companyId, tenantId, userContext = null) {
+    const custId = parseInt(customerId, 10);
+    if (isNaN(custId)) throw new AppError('Invalid customerId', 400);
+    if (!customerName) throw new AppError('Customer name is required', 400);
+    return await this.repository.linkCustomerBulk(
+      custId,
+      customerName,
+      companyId,
+      tenantId,
+      userContext
+    );
+  }
+}
+
+function isAdmin(userContext) {
+  if (!userContext) return false;
+  const role = userContext.role || userContext.Role;
+  return ['SuperAdmin', 'Admin', 'Accounts Manager', 'Production Manager'].includes(role);
 }

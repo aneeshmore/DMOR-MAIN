@@ -25,6 +25,7 @@ const REGISTRY_PATH = path.resolve(__dirname, '../../../../client/src/config/rou
 function extractPermissionsFromRegistry(content) {
   const moduleMap = new Map();
   const lines = content.split('\n');
+  const routeStack = [];
 
   let currentRoute = {};
   let depth = 0;
@@ -82,6 +83,7 @@ function extractPermissionsFromRegistry(content) {
 
     if (trimmed === '{' || trimmed.startsWith('{ ')) {
       depth++;
+      routeStack.push(currentRoute);
       currentRoute = {};
     }
 
@@ -135,9 +137,8 @@ function extractPermissionsFromRegistry(content) {
           moduleMap.set(moduleName, []);
         }
         moduleMap.get(moduleName).push(entry);
-
-        currentRoute = {};
       }
+      currentRoute = routeStack.pop() || {};
     }
 
     if (depth < 0) break;
@@ -203,40 +204,45 @@ async function syncPermissions() {
     });
 
     // ============================================
-    // STEP 1: Clear ALL existing permissions
+    // STEP 1: Insert/Update Permissions (Upsert)
     // ============================================
-    console.log('\n🗑️  Clearing ALL existing permissions...');
-
-    // Delete role_permissions first (foreign key constraint)
-    await db.delete(rolePermissions);
-    console.log('   ✓ Cleared role_permissions table');
-
-    // Delete all permissions
-    await db.delete(permissions);
-    console.log('   ✓ Cleared permissions table');
-
-    // ============================================
-    // STEP 2: Insert fresh permissions
-    // ============================================
-    console.log('\n🚀 Inserting fresh permissions...');
+    console.log('\n🚀 Syncing permissions with database...');
     const parentIdMap = {};
 
+    // Get all existing permissions from database
+    const existingPerms = await db.select().from(permissions);
+    const existingPermMap = new Map(existingPerms.map(p => [p.permissionName, p]));
+
     for (const page of pagePermissions) {
-      const [created] = await db
-        .insert(permissions)
-        .values({
-          permissionName: page.name,
-          description: `Access to ${page.label}`,
-          pagePath: page.path,
-          pageLabel: page.label,
-          pageGroup: page.group,
-          isPage: true,
-          availableActions: page.availableApis || [],
-        })
-        .returning();
-      parentIdMap[page.name] = created.permissionId;
+      const existing = existingPermMap.get(page.name);
+
+      const valuesToUpsert = {
+        permissionName: page.name,
+        description: `Access to ${page.label}`,
+        pagePath: page.path,
+        pageLabel: page.label,
+        pageGroup: page.group,
+        isPage: true,
+        availableActions: page.availableApis || [],
+      };
+
+      let permissionId;
+      if (existing) {
+        // Update existing permission
+        await db
+          .update(permissions)
+          .set(valuesToUpsert)
+          .where(eq(permissions.permissionId, existing.permissionId));
+        permissionId = existing.permissionId;
+        console.log(`   ✓ Updated permission: ${page.name}`);
+      } else {
+        // Insert new permission
+        const [created] = await db.insert(permissions).values(valuesToUpsert).returning();
+        permissionId = created.permissionId;
+        console.log(`   ✓ Created permission: ${page.name}`);
+      }
+      parentIdMap[page.name] = permissionId;
     }
-    console.log(`   ✓ Inserted ${pagePermissions.length} permissions`);
 
     // Link parents
     console.log('🔗 Linking parent pages...');
@@ -250,9 +256,9 @@ async function syncPermissions() {
     }
 
     // ============================================
-    // STEP 3: Grant Permissions by Role
+    // STEP 2: Grant/Update Permissions by Role (Upsert)
     // ============================================
-    console.log('\n👑 Granting Role-Based Permissions...');
+    console.log('\n👑 Syncing Role-Based Permissions...');
 
     const allRoles = await db.select().from(roles);
     const allPerms = await db
@@ -262,6 +268,12 @@ async function syncPermissions() {
         apis: permissions.availableActions,
       })
       .from(permissions);
+
+    // Get existing role permissions mapping from database
+    const existingRolePerms = await db.select().from(rolePermissions);
+    const existingMappings = new Map(
+      existingRolePerms.map(rp => [`${rp.roleId}_${rp.permissionId}`, rp])
+    );
 
     // Helper to grant permissions
     const grantToRole = async (roleName, allowedModules, isExclusion = false) => {
@@ -278,20 +290,46 @@ async function syncPermissions() {
         // Grant ALL except excluded
         targetPerms = allPerms.filter(
           p => !allowedModules.includes(p.name) && !allowedModules.some(m => p.name.startsWith(m))
-        ); // simple startswith for groups like 'settings' if needed, or exact match
+        );
       } else {
         // Grant ONLY allowed
         targetPerms = allPerms.filter(p => allowedModules.includes(p.name));
       }
 
-      if (targetPerms.length > 0) {
-        const rolePermValues = targetPerms.map(perm => ({
-          roleId: role.roleId,
-          permissionId: perm.id,
-          grantedActions: Array.isArray(perm.apis) ? perm.apis : [],
-        }));
-        await db.insert(rolePermissions).values(rolePermValues);
-        console.log(`   ✓ Granted ${rolePermValues.length} permissions to ${role.roleName}`);
+      for (const perm of targetPerms) {
+        const key = `${role.roleId}_${perm.id}`;
+        const existingMapping = existingMappings.get(key);
+        const desiredApis = Array.isArray(perm.apis) ? perm.apis : [];
+
+        if (existingMapping) {
+          // Merge APIs (ensure new APIs are added, keep existing ones)
+          const currentApis = Array.isArray(existingMapping.grantedActions)
+            ? existingMapping.grantedActions
+            : [];
+
+          const mergedApis = Array.from(new Set([...currentApis, ...desiredApis]));
+          const hasChange =
+            mergedApis.length !== currentApis.length ||
+            !currentApis.every(api => mergedApis.includes(api));
+
+          if (hasChange) {
+            await db
+              .update(rolePermissions)
+              .set({ grantedActions: mergedApis })
+              .where(
+                sql`${rolePermissions.roleId} = ${role.roleId} AND ${rolePermissions.permissionId} = ${perm.id}`
+              );
+            console.log(`   ✓ Updated mapping: ${role.roleName} -> ${perm.name} (merged APIs)`);
+          }
+        } else {
+          // Insert new mapping
+          await db.insert(rolePermissions).values({
+            roleId: role.roleId,
+            permissionId: perm.id,
+            grantedActions: desiredApis,
+          });
+          console.log(`   ✓ Granted new mapping: ${role.roleName} -> ${perm.name}`);
+        }
       }
     };
 
@@ -299,9 +337,6 @@ async function syncPermissions() {
     await grantToRole('SuperAdmin', [], true); // Exclude nothing = Grant All
 
     // 2. Admin
-    // Exclude: departments, notifications, employees, units, tnc, product-development, double-development, update-product, settings group
-    // Note: 'settings' group isn't a module name, so we list known settings modules if any, or rely on specific module names.
-    // Based on registry: 'roles' (Settings), 'departments', 'notifications', 'employees', 'units', 'tnc', 'product-development', 'double-development', 'update-product'
     const adminExcluded = [
       'departments',
       'notifications',
@@ -315,8 +350,7 @@ async function syncPermissions() {
     ];
     await grantToRole('Admin', adminExcluded, true);
 
-    // 3. Production
-    // Inclusions: admin-dashboard, accepted-orders, production-manager, dispatch-planning, delivery-complete, production, inward, inward-from-po, split-order, report-batch, report-inward, report-stock
+    // 3. Production Manager / Production
     const productionIncluded = [
       'admin-dashboard',
       'accepted-orders',
@@ -330,13 +364,12 @@ async function syncPermissions() {
       'report-batch',
       'report-inward',
       'report-stock',
+      'test_certificate', // Test Certificate permission for Production Manager
     ];
-    await grantToRole('Production Manager', productionIncluded); // Assuming role name is 'Production Manager' or similar.
-    // Also try 'Production' just in case
+    await grantToRole('Production Manager', productionIncluded);
     await grantToRole('Production', productionIncluded);
 
     // 4. Sales
-    // Inclusions: admin-dashboard, sales_access, orders, quotations, notifications, Add New Customer, report-customer-contact, report-customer-sales
     const salesIncluded = [
       'admin-dashboard',
       'sales_access',
@@ -345,13 +378,12 @@ async function syncPermissions() {
       'notifications',
       'Add New Customer',
       'report-customer-contact',
-      'report-customer-contact',
       'report-customer-sales',
       'quotation-maker',
       'payment-entry',
       'payment-report',
+      'field_intelligence', // SMART CRM permission for Sales Person
     ];
-    // Find all Sales roles
     const salesRoleList = allRoles.filter(
       r => r.roleName.startsWith('Sales') && r.roleName !== 'Dealer'
     );

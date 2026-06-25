@@ -148,6 +148,12 @@ const ProductWiseReport = lazy(() => import('@/features/reports/pages/ProductWis
 const DailyConsumptionReport = lazy(
   () => import('@/features/reports/pages/DailyConsumptionReport')
 );
+const TestCertificateReportList = lazy(
+  () => import('@/modules/test-certificate/TestCertificateReportList')
+);
+const TestCertificateReportView = lazy(
+  () => import('@/modules/test-certificate/TestCertificateReportView')
+);
 // Masters
 const MastersDashboard = lazy(() => import('@/features/masters/pages/MastersDashboard'));
 const DepartmentMaster = lazy(() => import('@/features/masters/pages/DepartmentMaster'));
@@ -230,6 +236,7 @@ const FieldIntelligenceEdit = lazy(
 const FieldIntelligenceView = lazy(
   () => import('@/modules/field-intelligence/FieldIntelligenceViewPage')
 );
+const CustomerDashboard = lazy(() => import('@/modules/field-intelligence/CustomerDashboardPage'));
 
 // Test Certificate
 const TestCertificateDashboard = lazy(
@@ -909,7 +916,7 @@ export const routeRegistry: RouteNode[] = [
       {
         id: 'field-intelligence',
         path: '/operations/field-intelligence',
-        label: 'Smart ERP',
+        label: 'SMART CRM',
         icon: Cpu,
         component: FieldIntelligenceList,
         permission: { module: 'field_intelligence' },
@@ -922,6 +929,31 @@ export const routeRegistry: RouteNode[] = [
           { route: '/field-intelligence/dashboard', method: 'GET', label: 'View Dashboard' },
           { route: '/field-intelligence/export', method: 'GET', label: 'Export Reports' },
           { route: '/field-intelligence/:id/upload', method: 'POST', label: 'Upload File' },
+          {
+            route: '/field-intelligence/customer-summary',
+            method: 'GET',
+            label: 'View Customer Summary',
+          },
+          {
+            route: '/field-intelligence/customer/:customerId/history',
+            method: 'GET',
+            label: 'View Customer History',
+          },
+          {
+            route: '/field-intelligence/customer/:customerId/dashboard',
+            method: 'GET',
+            label: 'View Customer Dashboard',
+          },
+          {
+            route: '/field-intelligence/customer-unlinked-history',
+            method: 'GET',
+            label: 'View Customer Unlinked History',
+          },
+          {
+            route: '/field-intelligence/link-customer',
+            method: 'POST',
+            label: 'Link Customer Reports',
+          },
         ],
         children: [
           {
@@ -937,6 +969,14 @@ export const routeRegistry: RouteNode[] = [
             path: '/operations/field-intelligence/:id/edit',
             label: 'Edit Report',
             component: FieldIntelligenceEdit,
+            permission: { module: 'field_intelligence' },
+            showInSidebar: false,
+          },
+          {
+            id: 'field-intelligence-customer-dashboard',
+            path: '/operations/field-intelligence/customer/:customerId',
+            label: 'Customer Intelligence Dashboard',
+            component: CustomerDashboard,
             permission: { module: 'field_intelligence' },
             showInSidebar: false,
           },
@@ -964,6 +1004,7 @@ export const routeRegistry: RouteNode[] = [
         label: 'Test Certificate',
         icon: FileText,
         component: TestCertificateList,
+        group: 'Quality',
         permission: { module: 'test_certificate' },
         apis: [
           { route: '/test-certificates', method: 'GET', label: 'View Test Certificates' },
@@ -1183,6 +1224,36 @@ export const routeRegistry: RouteNode[] = [
             route: '/reports/daily-consumption',
             method: 'GET',
             label: 'View Daily Consumption',
+          },
+        ],
+      },
+      {
+        id: 'report-test-certificate',
+        path: '/reports/test-certificate',
+        label: 'Test Certificate Report',
+        icon: FileText,
+        component: TestCertificateReportList,
+        permission: { module: 'report_test_certificate' },
+        apis: [
+          {
+            route: '/test-certificates',
+            method: 'GET',
+            label: 'View Test Certificate List',
+          },
+          {
+            route: '/test-certificates/:id',
+            method: 'GET',
+            label: 'View Test Certificate Details',
+          },
+        ],
+        children: [
+          {
+            id: 'report-test-certificate-view',
+            path: '/reports/test-certificate/:id',
+            label: 'View Test Certificate',
+            component: TestCertificateReportView,
+            permission: { module: 'report_test_certificate' },
+            showInSidebar: false,
           },
         ],
       },

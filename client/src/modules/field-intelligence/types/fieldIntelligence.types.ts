@@ -62,6 +62,8 @@ export interface ActivityLog {
 export interface FieldIntelligenceReport {
   id?: string;
   reportNumber?: string;
+  /** FK to Customer Master (customers.customerId). Null for legacy reports without a linked customer. */
+  customerId?: number;
   visitDate: string | Date;
   timeIn?: string;
   timeOut?: string;
@@ -86,6 +88,11 @@ export interface FieldIntelligenceReport {
   state?: string;
   pinCode?: string;
   businessCategory?: string;
+  mobile2?: string;
+  mobile3?: string;
+  area?: string;
+  customerTypeId?: number | string;
+  salesPersonId?: number | string;
   monthlyConsumption?: number | string;
   currentSupplier?: string;
   paintRequirementTypes: string[];

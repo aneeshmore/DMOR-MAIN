@@ -1158,6 +1158,212 @@
             }
           }
         ]
+      },
+      {
+        "id": "field-intelligence",
+        "path": "/operations/field-intelligence",
+        "label": "SMART CRM",
+        "permission": {
+          "module": "field_intelligence"
+        },
+        "apis": [
+          {
+            "route": "/field-intelligence",
+            "method": "GET",
+            "label": "View Reports"
+          },
+          {
+            "route": "/field-intelligence/:id",
+            "method": "GET",
+            "label": "View Report Details"
+          },
+          {
+            "route": "/field-intelligence",
+            "method": "POST",
+            "label": "Create Report"
+          },
+          {
+            "route": "/field-intelligence/:id",
+            "method": "PATCH",
+            "label": "Edit Report"
+          },
+          {
+            "route": "/field-intelligence/:id",
+            "method": "DELETE",
+            "label": "Delete Report"
+          },
+          {
+            "route": "/field-intelligence/dashboard",
+            "method": "GET",
+            "label": "View Dashboard"
+          },
+          {
+            "route": "/field-intelligence/export",
+            "method": "GET",
+            "label": "Export Reports"
+          },
+          {
+            "route": "/field-intelligence/:id/upload",
+            "method": "POST",
+            "label": "Upload File"
+          },
+          {
+            "route": "/field-intelligence/customer-summary",
+            "method": "GET",
+            "label": "View Customer Summary"
+          },
+          {
+            "route": "/field-intelligence/customer/:customerId/history",
+            "method": "GET",
+            "label": "View Customer History"
+          },
+          {
+            "route": "/field-intelligence/customer/:customerId/dashboard",
+            "method": "GET",
+            "label": "View Customer Dashboard"
+          },
+          {
+            "route": "/field-intelligence/customer-unlinked-history",
+            "method": "GET",
+            "label": "View Customer Unlinked History"
+          },
+          {
+            "route": "/field-intelligence/link-customer",
+            "method": "POST",
+            "label": "Link Customer Reports"
+          }
+        ],
+        "children": [
+          {
+            "id": "field-intelligence-new",
+            "path": "/operations/field-intelligence/new",
+            "label": "New Report",
+            "permission": {
+              "module": "field_intelligence"
+            },
+            "showInSidebar": false
+          },
+          {
+            "id": "field-intelligence-edit",
+            "path": "/operations/field-intelligence/:id/edit",
+            "label": "Edit Report",
+            "permission": {
+              "module": "field_intelligence"
+            },
+            "showInSidebar": false
+          },
+          {
+            "id": "field-intelligence-customer-dashboard",
+            "path": "/operations/field-intelligence/customer/:customerId",
+            "label": "Customer Intelligence Dashboard",
+            "permission": {
+              "module": "field_intelligence"
+            },
+            "showInSidebar": false
+          },
+          {
+            "id": "field-intelligence-view",
+            "path": "/operations/field-intelligence/:id",
+            "label": "View Report",
+            "permission": {
+              "module": "field_intelligence"
+            },
+            "showInSidebar": false
+          },
+          {
+            "id": "field-intelligence-dashboard",
+            "path": "/operations/field-intelligence/dashboard",
+            "label": "Dashboard",
+            "permission": {
+              "module": "field_intelligence"
+            },
+            "showInSidebar": false
+          }
+        ]
+      },
+      {
+        "id": "test-certificate",
+        "path": "/operations/test-certificate",
+        "label": "Test Certificate",
+        "group": "Quality",
+        "permission": {
+          "module": "test_certificate"
+        },
+        "apis": [
+          {
+            "route": "/test-certificates",
+            "method": "GET",
+            "label": "View Test Certificates"
+          },
+          {
+            "route": "/test-certificates/:id",
+            "method": "GET",
+            "label": "View Test Certificate Details"
+          },
+          {
+            "route": "/test-certificates",
+            "method": "POST",
+            "label": "Create Test Certificate"
+          },
+          {
+            "route": "/test-certificates/:id",
+            "method": "PUT",
+            "label": "Update Test Certificate"
+          },
+          {
+            "route": "/test-certificates/:id",
+            "method": "DELETE",
+            "label": "Delete Test Certificate"
+          },
+          {
+            "route": "/test-certificates/completed-batches",
+            "method": "GET",
+            "label": "View Completed Batches"
+          },
+          {
+            "route": "/test-certificates/completed-batches/:id",
+            "method": "GET",
+            "label": "View Completed Batch Details"
+          }
+        ],
+        "children": [
+          {
+            "id": "test-certificate-create",
+            "path": "/operations/test-certificate/create",
+            "label": "Create Test Certificate",
+            "permission": {
+              "module": "test_certificate"
+            },
+            "showInSidebar": false
+          },
+          {
+            "id": "test-certificate-edit",
+            "path": "/operations/test-certificate/:id/edit",
+            "label": "Edit Test Certificate",
+            "permission": {
+              "module": "test_certificate"
+            },
+            "showInSidebar": false
+          },
+          {
+            "id": "test-certificate-view",
+            "path": "/operations/test-certificate/:id",
+            "label": "View Test Certificate",
+            "permission": {
+              "module": "test_certificate"
+            },
+            "showInSidebar": false
+          },
+          {
+            "id": "test-certificate-dashboard",
+            "path": "/operations/test-certificate/dashboard",
+            "label": "Dashboard",
+            "permission": {
+              "module": "test_certificate"
+            },
+            "showInSidebar": false
+          }
+        ]
       }
     ]
   },
@@ -1387,6 +1593,37 @@
             "route": "/reports/daily-consumption",
             "method": "GET",
             "label": "View Daily Consumption"
+          }
+        ]
+      },
+      {
+        "id": "report-test-certificate",
+        "path": "/reports/test-certificate",
+        "label": "Test Certificate Report",
+        "permission": {
+          "module": "report_test_certificate"
+        },
+        "apis": [
+          {
+            "route": "/test-certificates",
+            "method": "GET",
+            "label": "View Test Certificate List"
+          },
+          {
+            "route": "/test-certificates/:id",
+            "method": "GET",
+            "label": "View Test Certificate Details"
+          }
+        ],
+        "children": [
+          {
+            "id": "report-test-certificate-view",
+            "path": "/reports/test-certificate/:id",
+            "label": "View Test Certificate",
+            "permission": {
+              "module": "report_test_certificate"
+            },
+            "showInSidebar": false
           }
         ]
       }

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { fieldIntelligenceApi } from './services/fieldIntelligenceApi';
 import { FieldIntelligenceReport } from './types/fieldIntelligence.types';
+import { showToast } from '@/utils/toast';
 
 export const FieldIntelligenceViewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -76,7 +77,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this report? This action is permanent.')) {
       try {
         await fieldIntelligenceApi.delete(report.id!);
-        alert('Report deleted successfully.');
+        showToast.success('SMART CRM Visit Report deleted successfully.');
         navigate('/operations/field-intelligence');
       } catch (err) {
         console.error('Failed to delete report', err);

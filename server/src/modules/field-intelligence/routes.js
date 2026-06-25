@@ -27,7 +27,7 @@ const uploadSubDirs = {
   'Site Condition': 'site-photos',
   'Site Photo': 'site-photos',
   'Video Upload': 'videos',
-  'Document': 'documents',
+  Document: 'documents',
 };
 
 // Ensure all subdirectories exist (and legacy root too for backward compat)
@@ -77,11 +77,7 @@ const upload = multer({
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(
-        new Error(
-          'Invalid file type. Allowed: JPEG, PNG, GIF, WEBP, PDF, DOC, DOCX, MP4, MPEG.'
-        )
-      );
+      cb(new Error('Invalid file type. Allowed: JPEG, PNG, GIF, WEBP, PDF, DOC, DOCX, MP4, MPEG.'));
     }
   },
 });
@@ -113,6 +109,37 @@ router.post(
   requirePermission('POST:/field-intelligence'),
   validateCreateReport,
   controller.createReport
+);
+
+// ── Customer Intelligence Routes (must come BEFORE /:id) ────────────────────
+router.get(
+  '/customer-summary',
+  requirePermission('GET:/field-intelligence/customer-summary'),
+  controller.getCustomerSummary
+);
+
+router.get(
+  '/customer/:customerId/history',
+  requirePermission('GET:/field-intelligence/customer/:customerId/history'),
+  controller.getCustomerHistory
+);
+
+router.get(
+  '/customer/:customerId/dashboard',
+  requirePermission('GET:/field-intelligence/customer/:customerId/dashboard'),
+  controller.getCustomerDashboard
+);
+
+router.get(
+  '/customer-unlinked-history',
+  requirePermission('GET:/field-intelligence/customer-unlinked-history'),
+  controller.getCustomerUnlinkedHistory
+);
+
+router.post(
+  '/link-customer',
+  requirePermission('POST:/field-intelligence/link-customer'),
+  controller.linkCustomer
 );
 
 router.get('/:id', requirePermission('GET:/field-intelligence/:id'), controller.getReportDetails);

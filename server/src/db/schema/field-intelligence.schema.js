@@ -11,6 +11,7 @@ import {
 import { appSchema } from './core/app-schema.js';
 import { employees } from './organization/employees.js';
 import { company } from './organization/company.js';
+import { customers } from './sales/customers.js';
 
 export const fieldIntelligenceReports = appSchema.table('field_intelligence_reports', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -30,6 +31,8 @@ export const fieldIntelligenceReports = appSchema.table('field_intelligence_repo
   visitType: varchar('visit_type', { length: 50 }).default('New Visit'),
   visitPurpose: jsonb('visit_purpose').default([]),
   customerName: varchar('customer_name', { length: 255 }).notNull(),
+  // customerId links to Customer Master. Nullable so legacy reports without a linked customer remain valid.
+  customerId: integer('customer_id').references(() => customers.customerId),
   contactPerson: varchar('contact_person', { length: 255 }),
   designation: varchar('designation', { length: 255 }),
   mobile: varchar('mobile', { length: 50 }),

@@ -67,7 +67,9 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   return (
     <div>
       {label && (
-        <label className="block text-sm font-semibold text-gray-700 mb-1">
+        <label
+          className={`block text-sm font-semibold mb-1 ${error ? 'text-red-500' : 'text-gray-700'}`}
+        >
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
@@ -78,7 +80,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`input pr-12 resize-none ${error ? 'border-red-500 focus:border-red-500' : ''}`}
+          className={`input pr-12 resize-none ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
         />
         {isSupported && (
           <button
@@ -87,9 +89,10 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
             title={isListening ? 'Stop dictation' : 'Dictate with voice'}
             className={`
               absolute right-2 bottom-2 p-2 rounded-lg transition-all
-              ${isListening
-                ? 'bg-red-500 text-white animate-pulse'
-                : 'bg-gray-100 text-gray-500 hover:bg-[var(--primary)] hover:text-white'
+              ${
+                isListening
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-gray-100 text-gray-500 hover:bg-[var(--primary)] hover:text-white'
               }
             `}
           >
@@ -105,7 +108,14 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
           Listening... speak clearly
         </p>
       )}
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && (
+        <p
+          className="text-red-500 text-xs mt-1"
+          style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 };

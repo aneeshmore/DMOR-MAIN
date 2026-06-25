@@ -61,6 +61,7 @@ export const CreateReportSchema = z.object({
     },
     z.string().min(1, 'Customer name is required')
   ),
+  customerId: numericField(z.number().int()).optional(),
   contactPerson: optionalString,
   designation: optionalString,
   mobile: optionalString,

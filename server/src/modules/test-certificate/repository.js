@@ -11,11 +11,36 @@ import { orders } from '../../db/schema/sales/orders.js';
 import { customers } from '../../db/schema/sales/customers.js';
 import { employees } from '../../db/schema/organization/employees.js';
 
+/**
+ * Roles that bypass user-level data isolation and can see ALL certificates.
+ * Only SuperAdmin and Admin have full visibility per business requirements.
+ */
+const ADMIN_ROLES = ['SuperAdmin', 'Admin'];
+
+function isAdmin(userContext) {
+  if (!userContext) return false;
+  const role = userContext.role || userContext.Role;
+  return ADMIN_ROLES.includes(role);
+}
+
 export class TestCertificateRepository {
   /**
-   * Fetch all test certificates with filters, scoped by tenant
+   * Fetch all test certificates with filters, scoped by tenant.
+   * @param {Object} userContext - { employeeId, role } — used for row-level security.
+   *   SuperAdmin / Admin: see ALL records.
+   *   All other roles: see ONLY records where createdBy = their own employeeId.
    */
-  async getTestCertificates(filters = {}, companyId, tenantId) {
+  async getTestCertificates(filters = {}, companyId, tenantId, userContext = null) {
+    const baseConditions = [
+      eq(testCertificates.companyId, companyId),
+      eq(testCertificates.tenantId, tenantId),
+    ];
+
+    // User-level isolation: non-admins only see their own certificates
+    if (!isAdmin(userContext) && userContext?.employeeId) {
+      baseConditions.push(eq(testCertificates.createdBy, userContext.employeeId));
+    }
+
     let query = db
       .select({
         test_certificates: testCertificates,
@@ -34,9 +59,7 @@ export class TestCertificateRepository {
           eq(sql`LOWER(TRIM(${testCertificateResults.propertyName}))`, 'colour / shade')
         )
       )
-      .where(
-        and(eq(testCertificates.companyId, companyId), eq(testCertificates.tenantId, tenantId))
-      )
+      .where(and(...baseConditions))
       .$dynamic();
 
     if (filters.search) {
@@ -54,9 +77,22 @@ export class TestCertificateRepository {
   }
 
   /**
-   * Fetch a single test certificate with its results, scoped by tenant
+   * Fetch a single test certificate with its results, scoped by tenant.
+   * @param {Object} userContext - { employeeId, role } — enforces row-level ownership.
+   *   Non-admin users can only fetch records they created.
    */
-  async getTestCertificateById(id, companyId, tenantId) {
+  async getTestCertificateById(id, companyId, tenantId, userContext = null) {
+    const conditions = [
+      eq(testCertificates.id, id),
+      eq(testCertificates.companyId, companyId),
+      eq(testCertificates.tenantId, tenantId),
+    ];
+
+    // User-level isolation: non-admins can only access their own certificates
+    if (!isAdmin(userContext) && userContext?.employeeId) {
+      conditions.push(eq(testCertificates.createdBy, userContext.employeeId));
+    }
+
     const certRow = await db
       .select({
         test_certificates: testCertificates,
@@ -67,13 +103,7 @@ export class TestCertificateRepository {
       })
       .from(testCertificates)
       .leftJoin(employees, eq(testCertificates.createdBy, employees.employeeId))
-      .where(
-        and(
-          eq(testCertificates.id, id),
-          eq(testCertificates.companyId, companyId),
-          eq(testCertificates.tenantId, tenantId)
-        )
-      )
+      .where(and(...conditions))
       .limit(1);
 
     if (!certRow.length) return null;
@@ -196,7 +226,29 @@ export class TestCertificateRepository {
   }
 
   /**
-   * Delete a test certificate, scoped by tenant
+   * Update the status of a test certificate to Approved
+   */
+  async approveTestCertificate(id, status, companyId, tenantId) {
+    const [updatedCert] = await db
+      .update(testCertificates)
+      .set({
+        status,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(testCertificates.id, id),
+          eq(testCertificates.companyId, companyId),
+          eq(testCertificates.tenantId, tenantId)
+        )
+      )
+      .returning();
+    return updatedCert;
+  }
+
+  /**
+   * Delete a test certificate, scoped by tenant only.
+   * Approval/delete workflows apply to all permitted users (no ownership restriction on delete).
    */
   async deleteTestCertificate(id, companyId, tenantId) {
     return await db.transaction(async tx => {

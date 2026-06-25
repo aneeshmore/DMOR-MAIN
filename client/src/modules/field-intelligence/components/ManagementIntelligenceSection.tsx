@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { UseFormRegister, FormState, UseFormSetValue, Control, useWatch } from 'react-hook-form';
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
 import { EXECUTIVE_RECOMMENDATION_OPTIONS } from '../constants/firConstants';
-import ChipSelector from './shared/ChipSelector';
+import SearchableSelectUI from '@/components/ui/SearchableSelect';
 
 interface SectionProps {
   register: UseFormRegister<FieldIntelligenceReport>;
@@ -30,13 +30,29 @@ const ScoreSlider: React.FC<{
 }> = ({ label, value, onChange, lowLabel = 'Low', highLabel = 'High', danger = false }) => {
   // Score color logic
   const scoreColor = danger
-    ? value >= 8 ? 'text-red-600' : value >= 5 ? 'text-amber-600' : 'text-green-600'
-    : value >= 8 ? 'text-green-600' : value >= 5 ? 'text-amber-600' : 'text-red-500';
+    ? value >= 8
+      ? 'text-red-600'
+      : value >= 5
+        ? 'text-amber-600'
+        : 'text-green-600'
+    : value >= 8
+      ? 'text-green-600'
+      : value >= 5
+        ? 'text-amber-600'
+        : 'text-red-500';
 
   // Track fill color (for thumb and filled rail)
   const fillColor = danger
-    ? value >= 8 ? '#ef4444' : value >= 5 ? '#f59e0b' : '#22c55e'
-    : value >= 8 ? '#22c55e' : value >= 5 ? '#f59e0b' : '#ef4444';
+    ? value >= 8
+      ? '#ef4444'
+      : value >= 5
+        ? '#f59e0b'
+        : '#22c55e'
+    : value >= 8
+      ? '#22c55e'
+      : value >= 5
+        ? '#f59e0b'
+        : '#ef4444';
 
   // Percentage across the track (min=1, max=10)
   const pct = ((value - 1) / 9) * 100;
@@ -86,7 +102,6 @@ const ScoreSlider: React.FC<{
   );
 };
 
-
 export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
   register,
   formState,
@@ -94,19 +109,7 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
   control,
   watch,
 }) => {
-  // Parse executive recommendation as chips (stored as comma-joined)
-  const rawRec = watch('executiveRecommendation') || '';
-  const recChips: string[] = useMemo(() => {
-    try {
-      const parsed = JSON.parse(rawRec);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {}
-    return rawRec ? rawRec.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-  }, [rawRec]);
-
-  const handleRecChange = (chips: string[]) => {
-    setValue('executiveRecommendation', chips.join(', '));
-  };
+  const { errors } = formState;
 
   const scores = {
     followupUrgencyScore: useWatch({ control, name: 'followupUrgencyScore' }) ?? 5,
@@ -116,6 +119,10 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
     technicalCapability: useWatch({ control, name: 'technicalCapability' }) ?? 5,
     longTermPotential: useWatch({ control, name: 'longTermPotential' }) ?? 5,
   };
+
+  useEffect(() => {
+    register('executiveRecommendation', { required: 'Executive Recommendation is required' });
+  }, [register]);
 
   return (
     <div className="card p-6 mb-6 border-2 border-indigo-100 bg-indigo-50/20">
@@ -191,14 +198,26 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
       <input type="hidden" {...register('technicalCapability', { valueAsNumber: true })} />
       <input type="hidden" {...register('longTermPotential', { valueAsNumber: true })} />
 
-      {/* Executive Recommendations – chips */}
-      <ChipSelector
+      {/* Executive Recommendation */}
+      <SearchableSelectUI<string>
         label="Executive Recommendation"
-        options={EXECUTIVE_RECOMMENDATION_OPTIONS}
-        value={recChips}
-        onChange={handleRecChange}
+        options={['N/A', ...EXECUTIVE_RECOMMENDATION_OPTIONS].map(opt => ({
+          id: opt,
+          label: opt,
+          value: opt,
+        }))}
+        value={watch('executiveRecommendation') || undefined}
+        onChange={v => setValue('executiveRecommendation', v || '', { shouldValidate: true })}
+        placeholder="Select Executive Recommendation..."
+        creatable
+        allowCustomValue
+        allowCustom
+        onCreateNew={customRec =>
+          setValue('executiveRecommendation', customRec, { shouldValidate: true })
+        }
+        required
+        error={errors.executiveRecommendation?.message}
       />
-      <input type="hidden" {...register('executiveRecommendation')} />
     </div>
   );
 };

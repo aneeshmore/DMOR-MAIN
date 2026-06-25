@@ -75,16 +75,25 @@ export function useSidebarNavigation() {
             };
           }
 
-          // If this node HAD children defined but NONE are accessible, hide the parent entirely
-          if (node.children && node.children.length > 0) {
-            return null; // Don't show empty parent menu
-          }
-
-          // Leaf node (no children) - check this node's own permission
+          // If parent route itself is accessible and user has permission,
+          // show parent menu even if children are hidden from sidebar.
           if (node.permission) {
             if (!hasPermission(node.permission.module, 'view')) {
               return null;
             }
+            return {
+              id: node.id,
+              label: node.label,
+              icon: node.icon as LucideIcon,
+              path: node.path,
+              group: node.group || 'Main',
+              children: undefined,
+            };
+          }
+
+          // If this node HAD children defined but NONE are accessible, hide the parent entirely
+          if (node.children && node.children.length > 0) {
+            return null; // Don't show empty parent menu
           }
 
           // Has permission (or no permission required) - show it

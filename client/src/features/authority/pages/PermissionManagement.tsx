@@ -67,6 +67,7 @@ const categorizePermissions = (permissions: Permission[]) => {
     'Sales',
     'Inventory',
     'Operations',
+    'Quality',
     'Masters',
     'Reports',
     'Settings',

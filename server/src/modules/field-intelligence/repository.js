@@ -9,6 +9,13 @@ import {
   fieldIntelligenceAiInsights,
   fieldIntelligenceDashboardMetrics,
 } from '../../db/schema/field-intelligence.schema.js';
+import { customers } from '../../db/schema/sales/customers.js';
+
+function isAdmin(userContext) {
+  if (!userContext) return false;
+  const role = userContext.role || userContext.Role;
+  return ['SuperAdmin', 'Admin', 'Accounts Manager', 'Production Manager'].includes(role);
+}
 
 export class FieldIntelligenceRepository {
   async createReport(reportData, tx) {
@@ -17,48 +24,55 @@ export class FieldIntelligenceRepository {
     return report;
   }
 
-  async updateReport(id, reportData, companyId, tenantId, tx) {
+  async updateReport(id, reportData, companyId, tenantId, userContext = null, tx = null) {
     const client = tx || db;
+    const conditions = [
+      eq(fieldIntelligenceReports.id, id),
+      eq(fieldIntelligenceReports.companyId, companyId),
+      eq(fieldIntelligenceReports.tenantId, tenantId),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
     const [report] = await client
       .update(fieldIntelligenceReports)
       .set({ ...reportData, updatedAt: new Date() })
-      .where(
-        and(
-          eq(fieldIntelligenceReports.id, id),
-          eq(fieldIntelligenceReports.companyId, companyId),
-          eq(fieldIntelligenceReports.tenantId, tenantId)
-        )
-      )
+      .where(and(...conditions))
       .returning();
     return report;
   }
 
-  async deleteReport(id, companyId, tenantId, tx) {
+  async deleteReport(id, companyId, tenantId, userContext = null, tx = null) {
     const client = tx || db;
+    const conditions = [
+      eq(fieldIntelligenceReports.id, id),
+      eq(fieldIntelligenceReports.companyId, companyId),
+      eq(fieldIntelligenceReports.tenantId, tenantId),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
     const [report] = await client
       .delete(fieldIntelligenceReports)
-      .where(
-        and(
-          eq(fieldIntelligenceReports.id, id),
-          eq(fieldIntelligenceReports.companyId, companyId),
-          eq(fieldIntelligenceReports.tenantId, tenantId)
-        )
-      )
+      .where(and(...conditions))
       .returning();
     return report;
   }
 
-  async getReportById(id, companyId, tenantId) {
+  async getReportById(id, companyId, tenantId, userContext = null) {
+    const conditions = [
+      eq(fieldIntelligenceReports.id, id),
+      eq(fieldIntelligenceReports.companyId, companyId),
+      eq(fieldIntelligenceReports.tenantId, tenantId),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
+
     const [report] = await db
       .select()
       .from(fieldIntelligenceReports)
-      .where(
-        and(
-          eq(fieldIntelligenceReports.id, id),
-          eq(fieldIntelligenceReports.companyId, companyId),
-          eq(fieldIntelligenceReports.tenantId, tenantId)
-        )
-      )
+      .where(and(...conditions))
       .limit(1);
 
     if (!report) return null;
@@ -100,11 +114,15 @@ export class FieldIntelligenceRepository {
     };
   }
 
-  async getReportsList(filters = {}, companyId, tenantId) {
+  async getReportsList(filters = {}, companyId, tenantId, userContext = null) {
     const conditions = [
       eq(fieldIntelligenceReports.companyId, companyId),
       eq(fieldIntelligenceReports.tenantId, tenantId),
     ];
+
+    if (userContext && !isAdmin(userContext)) {
+      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
 
     if (filters.status) {
       conditions.push(eq(fieldIntelligenceReports.status, filters.status));
@@ -234,14 +252,15 @@ export class FieldIntelligenceRepository {
       .orderBy(asc(fieldIntelligenceFollowups.followupDate));
   }
 
-  async getLatestDashboardMetrics(companyId, tenantId) {
+  async getLatestDashboardMetrics(companyId, tenantId, metricKey = 'dashboard_summary') {
     const [metrics] = await db
       .select()
       .from(fieldIntelligenceDashboardMetrics)
       .where(
         and(
           eq(fieldIntelligenceDashboardMetrics.companyId, companyId),
-          eq(fieldIntelligenceDashboardMetrics.tenantId, tenantId)
+          eq(fieldIntelligenceDashboardMetrics.tenantId, tenantId),
+          eq(fieldIntelligenceDashboardMetrics.metricKey, metricKey)
         )
       )
       .orderBy(desc(fieldIntelligenceDashboardMetrics.calculatedAt))
@@ -249,12 +268,19 @@ export class FieldIntelligenceRepository {
     return metrics?.metricValue || null;
   }
 
-  async saveDashboardMetrics(companyId, tenantId, metricValue, createdBy, tx) {
+  async saveDashboardMetrics(
+    companyId,
+    tenantId,
+    metricValue,
+    createdBy,
+    metricKey = 'dashboard_summary',
+    tx
+  ) {
     const client = tx || db;
     const [metrics] = await client
       .insert(fieldIntelligenceDashboardMetrics)
       .values({
-        metricKey: 'dashboard_summary',
+        metricKey,
         metricValue,
         companyId,
         tenantId,
@@ -265,11 +291,19 @@ export class FieldIntelligenceRepository {
     return metrics;
   }
 
-  async getAggregatedDashboardMetrics(companyId, tenantId, tx) {
+  async getAggregatedDashboardMetrics(companyId, tenantId, userContext = null, tx) {
     const client = tx || db;
     const now = new Date();
 
     // 1. Total Visits, Average Conversion, Expected Revenue, High Potential Accounts
+    const reportConditions = [
+      eq(fieldIntelligenceReports.companyId, companyId),
+      eq(fieldIntelligenceReports.tenantId, tenantId),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      reportConditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
+
     const [summary] = await client
       .select({
         totalVisits: sql`COUNT(${fieldIntelligenceReports.id})::int`,
@@ -278,12 +312,7 @@ export class FieldIntelligenceRepository {
         highPotentialCount: sql`COUNT(CASE WHEN ${fieldIntelligenceReports.conversionProbability} >= 70 OR ${fieldIntelligenceReports.monthlyConsumption} >= 500000 THEN 1 END)::int`,
       })
       .from(fieldIntelligenceReports)
-      .where(
-        and(
-          eq(fieldIntelligenceReports.companyId, companyId),
-          eq(fieldIntelligenceReports.tenantId, tenantId)
-        )
-      );
+      .where(and(...reportConditions));
 
     // 2. Visits per Day
     const visitsPerDayResult = await client
@@ -292,13 +321,7 @@ export class FieldIntelligenceRepository {
         count: sql`COUNT(${fieldIntelligenceReports.id})::int`,
       })
       .from(fieldIntelligenceReports)
-      .where(
-        and(
-          eq(fieldIntelligenceReports.companyId, companyId),
-          eq(fieldIntelligenceReports.tenantId, tenantId),
-          sql`${fieldIntelligenceReports.visitDate} IS NOT NULL`
-        )
-      )
+      .where(and(...reportConditions, sql`${fieldIntelligenceReports.visitDate} IS NOT NULL`))
       .groupBy(sql`TO_CHAR(${fieldIntelligenceReports.visitDate}, 'YYYY-MM-DD')`);
 
     const visitsPerDay = {};
@@ -313,12 +336,7 @@ export class FieldIntelligenceRepository {
         count: sql`COUNT(${fieldIntelligenceReports.id})::int`,
       })
       .from(fieldIntelligenceReports)
-      .where(
-        and(
-          eq(fieldIntelligenceReports.companyId, companyId),
-          eq(fieldIntelligenceReports.tenantId, tenantId)
-        )
-      )
+      .where(and(...reportConditions))
       .groupBy(fieldIntelligenceReports.executiveName);
 
     const visitsPerExecutive = {};
@@ -328,18 +346,21 @@ export class FieldIntelligenceRepository {
     });
 
     // 4. Competitor Frequency
+    const competitorConditions = [
+      eq(fieldIntelligenceCompetitors.companyId, companyId),
+      eq(fieldIntelligenceCompetitors.tenantId, tenantId),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      competitorConditions.push(eq(fieldIntelligenceCompetitors.createdBy, userContext.employeeId));
+    }
+
     const competitorResult = await client
       .select({
         name: fieldIntelligenceCompetitors.competitorName,
         count: sql`COUNT(${fieldIntelligenceCompetitors.id})::int`,
       })
       .from(fieldIntelligenceCompetitors)
-      .where(
-        and(
-          eq(fieldIntelligenceCompetitors.companyId, companyId),
-          eq(fieldIntelligenceCompetitors.tenantId, tenantId)
-        )
-      )
+      .where(and(...competitorConditions))
       .groupBy(fieldIntelligenceCompetitors.competitorName);
 
     const competitorAnalysis = {};
@@ -357,12 +378,7 @@ export class FieldIntelligenceRepository {
         revenue: sql`COALESCE(SUM(${fieldIntelligenceReports.potentialBusinessValue}), 0)::numeric`,
       })
       .from(fieldIntelligenceReports)
-      .where(
-        and(
-          eq(fieldIntelligenceReports.companyId, companyId),
-          eq(fieldIntelligenceReports.tenantId, tenantId)
-        )
-      )
+      .where(and(...reportConditions))
       .groupBy(fieldIntelligenceReports.state, fieldIntelligenceReports.city);
 
     const territoryPerformance = {};
@@ -376,19 +392,22 @@ export class FieldIntelligenceRepository {
     });
 
     // 6. Followups Due vs Missed
+    const followupConditions = [
+      eq(fieldIntelligenceFollowups.companyId, companyId),
+      eq(fieldIntelligenceFollowups.tenantId, tenantId),
+      eq(fieldIntelligenceFollowups.status, 'Open'),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      followupConditions.push(eq(fieldIntelligenceFollowups.createdBy, userContext.employeeId));
+    }
+
     const [followupsSummary] = await client
       .select({
         due: sql`COUNT(CASE WHEN ${fieldIntelligenceFollowups.followupDate} >= ${now} THEN 1 END)::int`,
         missed: sql`COUNT(CASE WHEN ${fieldIntelligenceFollowups.followupDate} < ${now} THEN 1 END)::int`,
       })
       .from(fieldIntelligenceFollowups)
-      .where(
-        and(
-          eq(fieldIntelligenceFollowups.companyId, companyId),
-          eq(fieldIntelligenceFollowups.tenantId, tenantId),
-          eq(fieldIntelligenceFollowups.status, 'Open')
-        )
-      );
+      .where(and(...followupConditions));
 
     return {
       totalVisits: summary?.totalVisits || 0,
@@ -406,5 +425,244 @@ export class FieldIntelligenceRepository {
 
   async runTransaction(callback) {
     return await db.transaction(callback);
+  }
+
+  // ── Customer Intelligence Methods ────────────────────────────────────────
+
+  /**
+   * Returns one row per customerId (linked customers) + a separate group
+   * for legacy reports that have no customerId (NULL).
+   */
+  async getCustomerSummaryList(filters = {}, companyId, tenantId, userContext = null) {
+    const conditions = [
+      eq(fieldIntelligenceReports.companyId, companyId),
+      eq(fieldIntelligenceReports.tenantId, tenantId),
+    ];
+
+    if (filters.search) {
+      const searchPattern = `%${filters.search}%`;
+      conditions.push(like(fieldIntelligenceReports.customerName, searchPattern));
+    }
+
+    if (userContext && !isAdmin(userContext)) {
+      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
+
+    const isEmp = userContext && !isAdmin(userContext);
+    const linkedStatusSql = isEmp
+      ? sql`(
+          SELECT status FROM app.field_intelligence_reports fir2
+          WHERE fir2.customer_id = ${fieldIntelligenceReports.customerId}
+            AND fir2.company_id = ${companyId}
+            AND fir2.tenant_id = ${tenantId}::uuid
+            AND fir2.created_by = ${userContext.employeeId}
+          ORDER BY fir2.visit_date DESC
+          LIMIT 1
+        )`
+      : sql`(
+          SELECT status FROM app.field_intelligence_reports fir2
+          WHERE fir2.customer_id = ${fieldIntelligenceReports.customerId}
+            AND fir2.company_id = ${companyId}
+            AND fir2.tenant_id = ${tenantId}::uuid
+          ORDER BY fir2.visit_date DESC
+          LIMIT 1
+        )`;
+
+    const unlinkedStatusSql = isEmp
+      ? sql`(
+          SELECT status FROM app.field_intelligence_reports fir2
+          WHERE fir2.customer_name = ${fieldIntelligenceReports.customerName}
+            AND fir2.customer_id IS NULL
+            AND fir2.company_id = ${companyId}
+            AND fir2.tenant_id = ${tenantId}::uuid
+            AND fir2.created_by = ${userContext.employeeId}
+          ORDER BY fir2.visit_date DESC
+          LIMIT 1
+        )`
+      : sql`(
+          SELECT status FROM app.field_intelligence_reports fir2
+          WHERE fir2.customer_name = ${fieldIntelligenceReports.customerName}
+            AND fir2.customer_id IS NULL
+            AND fir2.company_id = ${companyId}
+            AND fir2.tenant_id = ${tenantId}::uuid
+          ORDER BY fir2.visit_date DESC
+          LIMIT 1
+        )`;
+
+    // Linked customers: GROUP BY customerId
+    const linked = await db
+      .select({
+        customerId: fieldIntelligenceReports.customerId,
+        customerName: sql`COALESCE(${customers.companyName}, MAX(${fieldIntelligenceReports.customerName}))`,
+        totalVisits: sql`COUNT(${fieldIntelligenceReports.id})::int`,
+        latestVisitDate: sql`MAX(${fieldIntelligenceReports.visitDate})`,
+        avgConversion: sql`ROUND(AVG(${fieldIntelligenceReports.conversionProbability}))::int`,
+        latestStatus: linkedStatusSql,
+      })
+      .from(fieldIntelligenceReports)
+      .leftJoin(customers, eq(fieldIntelligenceReports.customerId, customers.customerId))
+      .where(and(...conditions, sql`${fieldIntelligenceReports.customerId} IS NOT NULL`))
+      .groupBy(fieldIntelligenceReports.customerId, customers.customerId, customers.companyName)
+      .orderBy(sql`MAX(${fieldIntelligenceReports.visitDate}) DESC`);
+
+    // Unlinked historical records: customerId IS NULL – group by customerName
+    const unlinked = await db
+      .select({
+        customerId: sql`NULL::int`,
+        customerName: fieldIntelligenceReports.customerName,
+        totalVisits: sql`COUNT(${fieldIntelligenceReports.id})::int`,
+        latestVisitDate: sql`MAX(${fieldIntelligenceReports.visitDate})`,
+        avgConversion: sql`ROUND(AVG(${fieldIntelligenceReports.conversionProbability}))::int`,
+        latestStatus: unlinkedStatusSql,
+      })
+      .from(fieldIntelligenceReports)
+      .where(and(...conditions, sql`${fieldIntelligenceReports.customerId} IS NULL`))
+      .groupBy(fieldIntelligenceReports.customerName)
+      .orderBy(sql`MAX(${fieldIntelligenceReports.visitDate}) DESC`);
+
+    return { linked, unlinked };
+  }
+
+  /** All visits for a specific customerId, ordered by visitDate DESC */
+  async getCustomerVisitHistory(customerId, companyId, tenantId, userContext = null) {
+    const conditions = [
+      eq(fieldIntelligenceReports.customerId, customerId),
+      eq(fieldIntelligenceReports.companyId, companyId),
+      eq(fieldIntelligenceReports.tenantId, tenantId),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
+    return await db
+      .select()
+      .from(fieldIntelligenceReports)
+      .where(and(...conditions))
+      .orderBy(desc(fieldIntelligenceReports.visitDate));
+  }
+
+  /** Full aggregated data for the customer dashboard */
+  async getCustomerDashboardData(customerId, companyId, tenantId, userContext = null) {
+    const reports = await this.getCustomerVisitHistory(
+      customerId,
+      companyId,
+      tenantId,
+      userContext
+    );
+    if (reports.length === 0) return null;
+
+    const latest = reports[0];
+    const oldest = reports[reports.length - 1];
+
+    const [customerRow] = await db
+      .select({ companyName: customers.companyName })
+      .from(customers)
+      .where(eq(customers.customerId, customerId))
+      .limit(1);
+    const customerDisplayName = customerRow ? customerRow.companyName : latest.customerName;
+
+    // Visit gap in days
+    const totalDays =
+      reports.length > 1
+        ? Math.round(
+            (new Date(latest.visitDate) - new Date(oldest.visitDate)) / (1000 * 60 * 60 * 24)
+          )
+        : 0;
+    const avgGapDays = reports.length > 1 ? Math.round(totalDays / (reports.length - 1)) : 0;
+
+    // Aggregate unique values from all reports
+    const unique = arr => [...new Set(arr.filter(Boolean))];
+    const flatUnique = arrays => unique(arrays.flat().filter(Boolean));
+
+    const avgConversion = Math.round(
+      reports.reduce((sum, r) => sum + (parseInt(r.conversionProbability) || 0), 0) / reports.length
+    );
+
+    const submittedCount = reports.filter(
+      r => r.status === 'Submitted' || r.status === 'Approved'
+    ).length;
+    const draftCount = reports.filter(r => r.status === 'Draft').length;
+
+    return {
+      profile: {
+        customerId,
+        customerName: customerDisplayName,
+        contactPerson: latest.contactPerson,
+        designation: latest.designation,
+        businessCategory: latest.businessCategory,
+        mobile: latest.mobile,
+        email: latest.email,
+        address: latest.address,
+        city: latest.city,
+        state: latest.state,
+        pinCode: latest.pinCode,
+        gstNumber: latest.gstNumber,
+      },
+      analytics: {
+        totalVisits: reports.length,
+        submittedVisits: submittedCount,
+        draftVisits: draftCount,
+        firstVisitDate: oldest.visitDate,
+        latestVisitDate: latest.visitDate,
+        avgGapDays,
+        avgConversionProbability: avgConversion,
+        visitFrequency: avgGapDays > 0 ? `Every ${avgGapDays} days` : 'Single visit',
+      },
+      sales: {
+        currentSupplier: unique(reports.map(r => r.currentSupplier)).join(', '),
+        currentPurchaseRate: latest.currentPurchaseRate,
+        expectedRate: latest.expectedRate,
+        creditDays: latest.creditDays,
+        outstandingAmount: latest.outstandingAmount,
+        monthlyConsumption: latest.monthlyConsumption,
+        expectedMonthlyBusiness: latest.expectedMonthlyBusiness,
+        potentialBusinessValue: latest.potentialBusinessValue,
+      },
+      products: {
+        requiredFinish: unique(reports.map(r => r.requiredFinish)),
+        paintRequirementTypes: flatUnique(reports.map(r => r.paintRequirementTypes || [])),
+        surfaceTypes: flatUnique(reports.map(r => r.surfaceTypes || [])),
+        applicationMethods: flatUnique(reports.map(r => r.applicationMethods || [])),
+        technicalChallenges: flatUnique(reports.map(r => r.technicalChallenges || [])),
+        requiredShade: flatUnique(
+          reports.map(r => (r.requiredShade ? r.requiredShade.split(',').map(s => s.trim()) : []))
+        ),
+      },
+      visits: reports,
+    };
+  }
+
+  async getCustomerUnlinkedHistory(customerName, companyId, tenantId, userContext = null) {
+    const conditions = [
+      eq(fieldIntelligenceReports.customerName, customerName),
+      sql`customer_id IS NULL`,
+      eq(fieldIntelligenceReports.companyId, companyId),
+      eq(fieldIntelligenceReports.tenantId, tenantId),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
+    return await db
+      .select()
+      .from(fieldIntelligenceReports)
+      .where(and(...conditions))
+      .orderBy(desc(fieldIntelligenceReports.visitDate));
+  }
+
+  async linkCustomerBulk(customerId, customerName, companyId, tenantId, userContext = null) {
+    const conditions = [
+      eq(fieldIntelligenceReports.customerName, customerName),
+      sql`customer_id IS NULL`,
+      eq(fieldIntelligenceReports.companyId, companyId),
+      eq(fieldIntelligenceReports.tenantId, tenantId),
+    ];
+    if (userContext && !isAdmin(userContext)) {
+      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
+    }
+    const res = await db
+      .update(fieldIntelligenceReports)
+      .set({ customerId, updatedAt: new Date() })
+      .where(and(...conditions))
+      .returning();
+    return res;
   }
 }

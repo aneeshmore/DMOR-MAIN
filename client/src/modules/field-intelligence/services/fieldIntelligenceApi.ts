@@ -35,7 +35,8 @@ export const fieldIntelligenceApi = {
   create: async (reportData: FieldIntelligenceReport) => {
     const response = await apiClient.post<{ success: boolean; data: FieldIntelligenceReport }>(
       '/field-intelligence',
-      reportData
+      reportData,
+      { skipErrorToast: true }
     );
     return response.data.data;
   },
@@ -43,7 +44,8 @@ export const fieldIntelligenceApi = {
   update: async (id: string, reportData: Partial<FieldIntelligenceReport>) => {
     const response = await apiClient.patch<{ success: boolean; data: FieldIntelligenceReport }>(
       `/field-intelligence/${id}`,
-      reportData
+      reportData,
+      { skipErrorToast: true }
     );
     return response.data.data;
   },
@@ -83,6 +85,48 @@ export const fieldIntelligenceApi = {
     const response = await apiClient.get('/field-intelligence/export', {
       responseType: 'blob',
     });
+    return response.data;
+  },
+
+  // ── Customer Intelligence ─────────────────────────────────────────────────
+
+  getCustomerSummary: async (filters?: { search?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    const response = await apiClient.get<{
+      success: boolean;
+      data: { linked: any[]; unlinked: any[] };
+    }>(`/field-intelligence/customer-summary?${params.toString()}`);
+    return response.data.data;
+  },
+
+  getCustomerHistory: async (customerId: number) => {
+    const response = await apiClient.get<{ success: boolean; data: any[] }>(
+      `/field-intelligence/customer/${customerId}/history`
+    );
+    return response.data.data;
+  },
+
+  getCustomerDashboard: async (customerId: number) => {
+    const response = await apiClient.get<{ success: boolean; data: any }>(
+      `/field-intelligence/customer/${customerId}/dashboard`
+    );
+    return response.data.data;
+  },
+
+  getCustomerUnlinkedHistory: async (customerName: string) => {
+    const response = await apiClient.get<{ success: boolean; data: any[] }>(
+      `/field-intelligence/customer-unlinked-history?customerName=${encodeURIComponent(customerName)}`
+    );
+    return response.data.data;
+  },
+
+  linkCustomer: async (payload: { customerId: number; customerName: string }) => {
+    const response = await apiClient.post<{
+      success: boolean;
+      customerId: number;
+      updatedCount: number;
+    }>('/field-intelligence/link-customer', payload);
     return response.data;
   },
 };

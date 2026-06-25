@@ -1,8 +1,8 @@
 import React from 'react';
 import { UseFormRegister, FormState, UseFormSetValue, useWatch, Control } from 'react-hook-form';
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
-import { VISIT_TYPES, VISIT_PURPOSES } from '../constants/firConstants';
-import ChipSelector from './shared/ChipSelector';
+import { VISIT_PURPOSES } from '../constants/firConstants';
+import SearchableSelect from './shared/SearchableSelect';
 
 interface SectionProps {
   register: UseFormRegister<FieldIntelligenceReport>;
@@ -19,6 +19,12 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
 }) => {
   const { errors } = formState;
   const visitPurpose = useWatch({ control, name: 'visitPurpose' }) || [];
+
+  React.useEffect(() => {
+    register('visitPurpose', {
+      validate: val => (val && val.length > 0) || 'Visit Purpose is required',
+    });
+  }, [register]);
 
   const detectLocation = () => {
     if (navigator.geolocation) {
@@ -59,81 +65,135 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Date */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Visit Date *</label>
+          <label
+            className={`block text-sm font-semibold mb-1 ${errors.visitDate ? 'text-red-500' : 'text-gray-700'}`}
+          >
+            Visit Date *
+          </label>
           <input
             type="date"
             className={`input ${errors.visitDate ? 'border-red-500 focus:border-red-500 bg-red-50/10' : ''}`}
-            {...register('visitDate', { required: 'Visit date is required' })}
+            {...register('visitDate', { required: 'Visit Date is required' })}
           />
           {errors.visitDate && (
-            <p className="text-red-500 text-xs mt-1">{errors.visitDate.message}</p>
+            <p
+              className="text-red-500 text-xs mt-1"
+              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+            >
+              {errors.visitDate.message}
+            </p>
           )}
         </div>
 
         {/* Time In */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Time In</label>
-          <input type="time" className="input" {...register('timeIn')} />
+          <label
+            className={`block text-sm font-semibold mb-1 ${errors.timeIn ? 'text-red-500' : 'text-gray-700'}`}
+          >
+            Time In *
+          </label>
+          <input
+            type="time"
+            className={`input ${errors.timeIn ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            {...register('timeIn', { required: 'Time In is required' })}
+          />
+          {errors.timeIn && (
+            <p
+              className="text-red-500 text-xs mt-1"
+              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+            >
+              {errors.timeIn.message}
+            </p>
+          )}
         </div>
 
         {/* Time Out */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Time Out</label>
-          <input type="time" className="input" {...register('timeOut')} />
-        </div>
-
-        {/* Visit Type – now covers all 10 required types */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
-            Visit Type *
-          </label>
-          <select
-            className={`input font-semibold ${errors.visitType ? 'border-red-500' : ''}`}
-            {...register('visitType', { required: 'Visit type is required' })}
+          <label
+            className={`block text-sm font-semibold mb-1 ${errors.timeOut ? 'text-red-500' : 'text-gray-700'}`}
           >
-            {VISIT_TYPES.map(type => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-          {errors.visitType && (
-            <p className="text-red-500 text-xs mt-1">{errors.visitType.message}</p>
+            Time Out *
+          </label>
+          <input
+            type="time"
+            className={`input ${errors.timeOut ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            {...register('timeOut', { required: 'Time Out is required' })}
+          />
+          {errors.timeOut && (
+            <p
+              className="text-red-500 text-xs mt-1"
+              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+            >
+              {errors.timeOut.message}
+            </p>
           )}
         </div>
 
+        {/* Visit Type hidden input */}
+        <input type="hidden" {...register('visitType')} />
+
         {/* Duration */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
-            Visit Duration (Minutes)
+          <label
+            className={`block text-sm font-semibold mb-1 ${errors.visitDuration ? 'text-red-500' : 'text-gray-700'}`}
+          >
+            Visit Duration (Minutes) *
           </label>
           <input
-            type="number"
-            className="input"
-            placeholder="e.g. 45"
-            {...register('visitDuration', { valueAsNumber: true })}
+            type="text"
+            className={`input ${errors.visitDuration ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            placeholder="e.g. 45 or N/A"
+            {...register('visitDuration', {
+              required: 'Visit Duration is required',
+              validate: val =>
+                (val as any) === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A',
+            })}
           />
+          {errors.visitDuration && (
+            <p
+              className="text-red-500 text-xs mt-1"
+              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+            >
+              {errors.visitDuration.message}
+            </p>
+          )}
         </div>
 
         {/* GPS with detect button */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Latitude</label>
+            <label
+              className={`block text-sm font-semibold mb-1 ${errors.gpsLatitude ? 'text-red-500' : 'text-gray-700'}`}
+            >
+              Latitude *
+            </label>
             <input
               type="text"
-              className="input"
-              placeholder="18.5204"
-              {...register('gpsLatitude')}
+              className={`input ${errors.gpsLatitude ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+              placeholder="18.5204 or N/A"
+              {...register('gpsLatitude', { required: 'Latitude is required' })}
             />
+            {errors.gpsLatitude && (
+              <p
+                className="text-red-500 text-xs mt-1"
+                style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+              >
+                {errors.gpsLatitude.message}
+              </p>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Longitude</label>
+            <label
+              className={`block text-sm font-semibold mb-1 ${errors.gpsLongitude ? 'text-red-500' : 'text-gray-700'}`}
+            >
+              Longitude *
+            </label>
             <div className="relative">
               <input
                 type="text"
-                className="input pr-10"
-                placeholder="73.8567"
-                {...register('gpsLongitude')}
+                className={`input pr-10 ${errors.gpsLongitude ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+                placeholder="73.8567 or N/A"
+                {...register('gpsLongitude', { required: 'Longitude is required' })}
               />
               <button
                 type="button"
@@ -161,13 +221,19 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
         </div>
       </div>
 
-      {/* Visit Purpose – chip selector */}
+      {/* Visit Purpose – dropdown selector */}
       <div className="mt-5">
-        <ChipSelector
+        <SearchableSelect
           label="Visit Purpose"
+          name="visitPurpose"
           options={VISIT_PURPOSES}
-          value={visitPurpose}
-          onChange={newVal => setValue('visitPurpose', newVal)}
+          value={visitPurpose[0] || ''}
+          onChange={newVal =>
+            setValue('visitPurpose', newVal ? [newVal] : [], { shouldValidate: true })
+          }
+          placeholder="Select Visit Purpose..."
+          required
+          error={errors.visitPurpose?.message as string}
         />
       </div>
     </div>

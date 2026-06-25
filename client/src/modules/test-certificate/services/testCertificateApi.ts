@@ -42,6 +42,13 @@ export const testCertificateApi = {
     return response.data.data;
   },
 
+  approve: async (id: number) => {
+    const response = await apiClient.patch<{ success: boolean; data: TestCertificate }>(
+      `/test-certificates/${id}/approve`
+    );
+    return response.data.data;
+  },
+
   delete: async (id: number) => {
     const response = await apiClient.delete<{ success: boolean; message: string }>(
       `/test-certificates/${id}`

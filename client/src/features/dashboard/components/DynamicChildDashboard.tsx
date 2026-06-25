@@ -164,7 +164,7 @@ const ROUTE_METADATA: Record<
     iconColor: 'text-zinc-600',
   },
   'field-intelligence': {
-    description: 'Smart ERP Operations and Business Intelligence',
+    description: 'Smart CRM Operations and Business Intelligence',
     iconBg: 'bg-cyan-50',
     iconColor: 'text-cyan-600',
     icon: Cpu,
@@ -230,6 +230,11 @@ const ROUTE_METADATA: Record<
     description: 'Inward/outward transactions',
     iconBg: 'bg-purple-50',
     iconColor: 'text-purple-600',
+  },
+  'report-test-certificate': {
+    description: 'View and Download Approved Test Certificates',
+    iconBg: 'bg-teal-50',
+    iconColor: 'text-teal-600',
   },
 
   // ========== SETTINGS ==========

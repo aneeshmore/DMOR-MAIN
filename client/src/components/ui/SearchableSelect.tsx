@@ -22,8 +22,10 @@ interface SearchableSelectProps<T = any> {
   creatable?: boolean; // Allow creating new values
   onCreateNew?: (inputValue: string) => void; // Callback when creating new value
   allowCustomValue?: boolean; // If true, preserve custom values that don't match options (useful with creatable)
+  allowCustom?: boolean; // Allow typing custom values directly
   onEnter?: () => void; // Callback when Enter is pressed and an option is selected
   error?: string;
+  name?: string;
 }
 
 const SearchableSelect = <T = any,>({
@@ -38,8 +40,10 @@ const SearchableSelect = <T = any,>({
   creatable = false,
   onCreateNew,
   allowCustomValue = false,
+  allowCustom = false,
   onEnter,
   error,
+  name,
 }: SearchableSelectProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,14 +58,14 @@ const SearchableSelect = <T = any,>({
       const selectedOption = options.find(option => option.value === value);
       if (selectedOption) {
         setSearchTerm(selectedOption.label || '');
-      } else if (allowCustomValue && value) {
-        // Preserve custom value if allowCustomValue is enabled
+      } else if ((allowCustomValue || allowCustom) && value) {
+        // Preserve custom value if allowCustomValue or allowCustom is enabled
         setSearchTerm(String(value));
       } else if (!value) {
         setSearchTerm('');
       }
     }
-  }, [value, isOpen, options, allowCustomValue]);
+  }, [value, isOpen, options, allowCustomValue, allowCustom]);
 
   const filteredOptions = options.filter(
     option =>
@@ -85,6 +89,8 @@ const SearchableSelect = <T = any,>({
     // If user clears input, clear selection?
     if (e.target.value === '') {
       onChange(undefined);
+    } else if (allowCustom) {
+      onChange(e.target.value as unknown as T);
     }
   };
 
@@ -108,8 +114,8 @@ const SearchableSelect = <T = any,>({
       const selectedOption = options.find(option => option.value === value);
       if (selectedOption) {
         setSearchTerm(selectedOption.label || '');
-      } else if (allowCustomValue && value) {
-        // Preserve custom value if allowCustomValue is enabled
+      } else if ((allowCustomValue || allowCustom) && value) {
+        // Preserve custom value if allowCustomValue or allowCustom is enabled
         setSearchTerm(String(value));
       } else {
         setSearchTerm(''); // Clear if nothing valid selected
@@ -151,6 +157,11 @@ const SearchableSelect = <T = any,>({
         } else if (showCreateOption) {
           // Create new if enabled and no match
           handleCreateNew();
+        } else if (allowCustom) {
+          setIsOpen(false);
+          if (onEnter) {
+            onEnter();
+          }
         }
         break;
       case 'Escape':
@@ -163,7 +174,7 @@ const SearchableSelect = <T = any,>({
   useEffect(() => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [value, options]); // Fixed dependency array
+  }, [value, options, allowCustom]); // Fixed dependency array
 
   // Auto-scroll to highlighted option
   useEffect(() => {
@@ -180,6 +191,7 @@ const SearchableSelect = <T = any,>({
       <div className="relative">
         <Input
           label={label}
+          name={name}
           ref={inputRef}
           type="text"
           value={searchTerm}
@@ -191,6 +203,7 @@ const SearchableSelect = <T = any,>({
           required={required}
           className="pr-8"
           autoComplete="off"
+          error={error}
         />
         <span
           className={`absolute right-2.5 pointer-events-none text-[var(--text-secondary)] opacity-60 ${label ? 'bottom-2.5' : 'top-1/2 -translate-y-1/2'}`}
@@ -246,7 +259,6 @@ const SearchableSelect = <T = any,>({
           )}
         </div>
       )}
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 };

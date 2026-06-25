@@ -15,6 +15,7 @@ export class FieldIntelligenceReportDTO {
     this.visitType = report.visitType;
     this.visitPurpose = report.visitPurpose;
     this.customerName = report.customerName;
+    this.customerId = report.customerId || report.customer_id;
     this.contactPerson = report.contactPerson;
     this.designation = report.designation;
     this.mobile = report.mobile;
