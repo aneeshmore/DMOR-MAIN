@@ -21,7 +21,7 @@ type ScoreKey =
   | 'longTermPotential';
 
 const ScoreSlider: React.FC<{
-  label: string;
+  label: React.ReactNode;
   value: number;
   onChange: (v: number) => void;
   lowLabel?: string;
@@ -126,27 +126,29 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
 
   return (
     <div className="card p-6 mb-6 border-2 border-indigo-100 bg-indigo-50/20">
-      <h3 className="text-lg font-bold text-gray-800 mb-4 border-b border-indigo-100 pb-2 flex items-center gap-2">
-        <span className="bg-indigo-500 text-white p-1.5 rounded-md">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-            />
-          </svg>
+      <h3 className="text-lg font-bold text-gray-800 mb-4 border-b border-indigo-100 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <span className="flex items-center gap-2">
+          <span className="bg-indigo-500 text-white p-1.5 rounded-md flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+          </span>
+          <span>Executive Ratings & Management Intelligence</span>
         </span>
-        Executive Ratings & Management Intelligence
-        <span className="ml-auto text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">
+        <span className="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-semibold whitespace-nowrap self-start sm:self-auto">
           Layer 3 – Intel
         </span>
       </h3>
 
       {/* Score sliders */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <ScoreSlider
-          label="Follow-up Urgency"
+          label={<>Follow-up Urgency <span className="text-red-500">*</span></>}
           value={Number(scores.followupUrgencyScore)}
           onChange={v => setValue('followupUrgencyScore', v)}
           lowLabel="Routine"
@@ -154,35 +156,35 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
           danger
         />
         <ScoreSlider
-          label="Dealer / Customer Confidence"
+          label={<>Dealer / Customer Confidence <span className="text-red-500">*</span></>}
           value={Number(scores.dealerConfidence)}
           onChange={v => setValue('dealerConfidence', v)}
           lowLabel="Very Low"
           highLabel="Very High"
         />
         <ScoreSlider
-          label="Payment Reliability"
+          label={<>Payment Reliability <span className="text-red-500">*</span></>}
           value={Number(scores.paymentReliability)}
           onChange={v => setValue('paymentReliability', v)}
           lowLabel="Risky"
           highLabel="100% Reliable"
         />
         <ScoreSlider
-          label="Relationship Strength"
+          label={<>Relationship Strength <span className="text-red-500">*</span></>}
           value={Number(scores.relationshipStrength)}
           onChange={v => setValue('relationshipStrength', v)}
           lowLabel="New Contact"
           highLabel="Strong Bond"
         />
         <ScoreSlider
-          label="Technical Capability Level"
+          label={<>Technical Capability Level <span className="text-red-500">*</span></>}
           value={Number(scores.technicalCapability)}
           onChange={v => setValue('technicalCapability', v)}
           lowLabel="No Technical Team"
           highLabel="Expert Team"
         />
         <ScoreSlider
-          label="Long-Term Potential"
+          label={<>Long-Term Potential <span className="text-red-500">*</span></>}
           value={Number(scores.longTermPotential)}
           onChange={v => setValue('longTermPotential', v)}
           lowLabel="One-Time"
@@ -191,12 +193,12 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
       </div>
 
       {/* Hidden inputs for RHF */}
-      <input type="hidden" {...register('followupUrgencyScore', { valueAsNumber: true })} />
-      <input type="hidden" {...register('dealerConfidence', { valueAsNumber: true })} />
-      <input type="hidden" {...register('paymentReliability', { valueAsNumber: true })} />
-      <input type="hidden" {...register('relationshipStrength', { valueAsNumber: true })} />
-      <input type="hidden" {...register('technicalCapability', { valueAsNumber: true })} />
-      <input type="hidden" {...register('longTermPotential', { valueAsNumber: true })} />
+      <input type="hidden" {...register('followupUrgencyScore', { required: 'Follow-up Urgency is required', valueAsNumber: true })} />
+      <input type="hidden" {...register('dealerConfidence', { required: 'Dealer Confidence is required', valueAsNumber: true })} />
+      <input type="hidden" {...register('paymentReliability', { required: 'Payment Reliability is required', valueAsNumber: true })} />
+      <input type="hidden" {...register('relationshipStrength', { required: 'Relationship Strength is required', valueAsNumber: true })} />
+      <input type="hidden" {...register('technicalCapability', { required: 'Technical Capability is required', valueAsNumber: true })} />
+      <input type="hidden" {...register('longTermPotential', { required: 'Long-Term Potential is required', valueAsNumber: true })} />
 
       {/* Executive Recommendation */}
       <SearchableSelectUI<string>

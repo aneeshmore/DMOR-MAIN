@@ -45,30 +45,32 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
 
   return (
     <div className="card p-6 mb-6">
-      <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
-        <span className="bg-primary-100 text-primary-600 p-1.5 rounded-md">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
+      <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <span className="flex items-center gap-2">
+          <span className="bg-primary-100 text-primary-600 p-1.5 rounded-md flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </span>
+          <span>Visit Details</span>
         </span>
-        Visit Details
-        <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
+        <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full font-semibold whitespace-nowrap self-start sm:self-auto">
           Layer 1 – Required
         </span>
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Date */}
         <div>
           <label
             className={`block text-sm font-semibold mb-1 ${errors.visitDate ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Visit Date *
+            Visit Date <span className="text-red-500">*</span>
           </label>
           <input
             type="date"
@@ -90,12 +92,12 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.timeIn ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Time In *
+            Time In
           </label>
           <input
             type="time"
             className={`input ${errors.timeIn ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-            {...register('timeIn', { required: 'Time In is required' })}
+            {...register('timeIn', { required: false })}
           />
           {errors.timeIn && (
             <p
@@ -112,7 +114,7 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.timeOut ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Time Out *
+            Time Out <span className="text-red-500">*</span>
           </label>
           <input
             type="time"
@@ -137,16 +139,18 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.visitDuration ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Visit Duration (Minutes) *
+            Visit Duration (Minutes)
           </label>
           <input
             type="text"
             className={`input ${errors.visitDuration ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. 45 or N/A"
             {...register('visitDuration', {
-              required: 'Visit Duration is required',
-              validate: val =>
-                (val as any) === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A',
+              required: false,
+              validate: val => {
+                if (!val || val.toString().trim() === '') return true;
+                return (val as any) === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A';
+              },
             })}
           />
           {errors.visitDuration && (
@@ -165,7 +169,7 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
             <label
               className={`block text-sm font-semibold mb-1 ${errors.gpsLatitude ? 'text-red-500' : 'text-gray-700'}`}
             >
-              Latitude *
+              Latitude <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -186,7 +190,7 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
             <label
               className={`block text-sm font-semibold mb-1 ${errors.gpsLongitude ? 'text-red-500' : 'text-gray-700'}`}
             >
-              Longitude *
+              Longitude <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input

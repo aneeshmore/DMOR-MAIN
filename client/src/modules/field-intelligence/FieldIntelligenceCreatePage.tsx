@@ -14,7 +14,7 @@ export const FieldIntelligenceCreatePage: React.FC = () => {
     try {
       setSubmitting(true);
 
-      const payload = { ...data, status: 'Submitted' as const };
+      const payload = { ...data, status: data.status || ('Submitted' as const) };
 
       if (data.id) {
         await fieldIntelligenceApi.update(data.id, payload);

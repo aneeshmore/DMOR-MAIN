@@ -81,10 +81,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
         validate: val =>
           !val || val.length === 0 ? 'At least one application method is required' : true,
       });
-      register('technicalChallenges' as any, {
-        validate: val =>
-          !val || val.length === 0 ? 'At least one technical challenge is required' : true,
-      });
+      register('technicalChallenges' as any, { validate: undefined });
     } else {
       register('paintRequirementTypes' as any, { validate: undefined });
       register('surfaceTypes' as any, { validate: undefined });
@@ -99,12 +96,12 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       <h4 className="font-bold text-red-800 mb-4 flex items-center gap-2">
         <span>⚠️</span> Complaint Details
       </h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label
             className={`block text-sm font-semibold mb-1 ${errors.complaintType ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Complaint Type *
+            Complaint Type <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.complaintType ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -134,7 +131,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.complaintProduct ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Product Used *
+            Product Used <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -158,7 +155,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.complaintBatchNumber ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Batch Number *
+            Batch Number <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -182,7 +179,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.complaintResolutionStatus ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Resolution Status *
+            Resolution Status <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.complaintResolutionStatus ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -210,7 +207,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
 
         <div className="md:col-span-2">
           <VoiceInput
-            label="Issue Description *"
+            label="Issue Description"
             value={watch('complaintDescription' as any) || ''}
             onChange={val => setValue('complaintDescription' as any, val, { shouldValidate: true })}
             placeholder="Describe the complaint in detail – surface condition, application method, failure mode..."
@@ -236,18 +233,16 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       <h4 className="font-bold text-blue-800 mb-4 flex items-center gap-2">
         <span>🏪</span> Dealer Intelligence
       </h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label
             className={`block text-sm font-semibold mb-1 ${errors.dealerStockLevel ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Stock Level *
+            Stock Level
           </label>
           <select
             className={`input ${errors.dealerStockLevel ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-            {...register('dealerStockLevel' as any, {
-              required: sections.showDealerFields ? 'Stock Level is required' : false,
-            })}
+            {...register('dealerStockLevel' as any, { required: false })}
           >
             <option value="">Select stock level...</option>
             <option value="N/A">N/A</option>
@@ -270,13 +265,11 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.competitorDisplayPresent ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Competitor Display Present? *
+            Competitor Display Present?
           </label>
           <select
             className={`input ${errors.competitorDisplayPresent ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-            {...register('competitorDisplayPresent' as any, {
-              required: sections.showDealerFields ? 'Competitor Display is required' : false,
-            })}
+            {...register('competitorDisplayPresent' as any, { required: false })}
           >
             <option value="">Select competitor display...</option>
             <option value="N/A">N/A</option>
@@ -298,13 +291,11 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.schemeDiscussionStatus ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Scheme Discussion *
+            Scheme Discussion
           </label>
           <select
             className={`input ${errors.schemeDiscussionStatus ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-            {...register('schemeDiscussionStatus' as any, {
-              required: sections.showDealerFields ? 'Scheme Discussion is required' : false,
-            })}
+            {...register('schemeDiscussionStatus' as any, { required: false })}
           >
             <option value="">Select...</option>
             <option value="N/A">N/A</option>
@@ -327,7 +318,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.dealerOrderRequirement ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Order Requirement *
+            Order Requirement <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -356,7 +347,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       <h4 className="font-bold text-orange-800 mb-4 flex items-center gap-2">
         <span>🏭</span> Industrial Details
       </h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <SearchableSelect
             label="Current Coating System"
@@ -374,7 +365,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.industrialApprovalStatus ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Approval Status *
+            Approval Status <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.industrialApprovalStatus ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -404,7 +395,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.trialRequirement ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Trial Requirement *
+            Trial Requirement <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.trialRequirement ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -433,7 +424,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.industrialProductionVolume ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Production Volume (units/month) *
+            Production Volume (units/month) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -462,12 +453,12 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       <h4 className="font-bold text-purple-800 mb-4 flex items-center gap-2">
         <span>🏗️</span> Project & Specification Details
       </h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label
             className={`block text-sm font-semibold mb-1 ${errors.architectProjectName ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Project Name *
+            Project Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -491,7 +482,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.architectProjectScale ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Project Scale *
+            Project Scale <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.architectProjectScale ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -546,7 +537,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.architectProductRecommendation ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Product Recommendation Discussed *
+            Product Recommendation Discussed <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -586,7 +577,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       <h4 className="font-bold text-teal-800 mb-4 flex items-center gap-2">
         <span>🔧</span> Technical Assessment
       </h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <SearchableSelect
             label="Technical Issue / Reason for Visit"
@@ -604,7 +595,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.productPerformanceObserved ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Product Performance Observed *
+            Product Performance Observed <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.productPerformanceObserved ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -631,7 +622,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
 
         <div className="md:col-span-2">
           <VoiceInput
-            label="Site Observations *"
+            label="Site Observations"
             value={watch('technicalSiteObservations' as any) || ''}
             onChange={val =>
               setValue('technicalSiteObservations' as any, val, { shouldValidate: true })
@@ -652,7 +643,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
 
         <div className="md:col-span-2">
           <VoiceInput
-            label="Corrective Actions Suggested *"
+            label="Corrective Actions Suggested"
             value={watch('technicalCorrectiveActions' as any) || ''}
             onChange={val =>
               setValue('technicalCorrectiveActions' as any, val, { shouldValidate: true })
@@ -680,12 +671,12 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       <h4 className="font-bold text-green-800 mb-4 flex items-center gap-2">
         <span>🏗️</span> Site Information
       </h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label
             className={`block text-sm font-semibold mb-1 ${errors.siteName ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Site / Project Name *
+            Site / Project Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -709,7 +700,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.constructionStage ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Construction Stage *
+            Construction Stage <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.constructionStage ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -741,7 +732,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.contractorName ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Contractor / Applicator Name *
+            Contractor / Applicator Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -765,7 +756,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.estimatedArea ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Estimated Painting Area (sq.ft.) *
+            Estimated Painting Area (sq.ft.) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -798,10 +789,10 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       <h4 className="font-bold text-yellow-800 mb-4 flex items-center gap-2">
         <span>📊</span> Market Intelligence
       </h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="md:col-span-2">
           <VoiceInput
-            label="Market Feedback Summary *"
+            label="Market Feedback Summary"
             value={watch('marketFeedbackNotes' as any) || ''}
             onChange={val => setValue('marketFeedbackNotes' as any, val, { shouldValidate: true })}
             placeholder="Describe pricing trends, competitor activities, new product launches, market demand... or N/A"
@@ -822,7 +813,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.marketPriceTrend ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Price Trend Observed *
+            Price Trend Observed <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.marketPriceTrend ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -851,7 +842,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.marketDemandTrend ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Demand Trend *
+            Demand Trend <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.marketDemandTrend ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -921,7 +912,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
         onChange={v => setValue('technicalChallenges', v, { shouldValidate: true })}
         placeholder="Select or create technical challenges..."
         allowCustom
-        required
+        required={false}
         error={errors.technicalChallenges?.message}
       />
     </div>
@@ -942,19 +933,21 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
 
   return (
     <div className="card p-6 mb-6">
-      <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
-        <span className="bg-indigo-100 text-indigo-600 p-1.5 rounded-md">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-            />
-          </svg>
+      <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <span className="flex items-center gap-2">
+          <span className="bg-indigo-100 text-indigo-600 p-1.5 rounded-md flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
+            </svg>
+          </span>
+          <span>{visitType} — Dynamic Fields</span>
         </span>
-        {visitType} — Dynamic Fields
-        <span className="ml-auto text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">
+        <span className="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-semibold whitespace-nowrap self-start sm:self-auto">
           Layer 2 – Smart Form
         </span>
       </h3>

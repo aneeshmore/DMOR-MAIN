@@ -88,7 +88,7 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
           {fields.map((field, index) => (
             <div
               key={field.id}
-              className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end border p-3 rounded-lg bg-gray-50 relative"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end border p-3 rounded-lg bg-gray-50 relative"
             >
               <button
                 type="button"
@@ -110,7 +110,7 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
                 <label
                   className={`block text-xs font-semibold mb-1 ${errors?.followups?.[index]?.followupDate ? 'text-red-500' : 'text-gray-700'}`}
                 >
-                  Followup Date *
+                  Followup Date <span className="text-red-500">*</span>
                 </label>
                 {(() => {
                   const followupError = errors?.followups?.[index] as any;
@@ -142,7 +142,7 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
                   return (
                     <>
                       <VoiceInput
-                        label="Task / Action Notes *"
+                        label="Task / Action Notes"
                         value={watch(`followups.${index}.notes`) || ''}
                         onChange={val =>
                           setValue(`followups.${index}.notes` as any, val, { shouldValidate: true })

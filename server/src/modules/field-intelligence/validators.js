@@ -68,8 +68,10 @@ export const CreateReportSchema = z.object({
   whatsapp: optionalString,
   email: z.preprocess(val => {
     if (val === null || val === undefined || val === '') return undefined;
-    return String(val).trim();
-  }, z.string().email('Invalid email format').optional()),
+    const str = String(val).trim();
+    if (str.toUpperCase() === 'N/A') return 'N/A';
+    return str;
+  }, z.union([z.string().email('Invalid email format'), z.literal('N/A')]).optional()),
   gstNumber: optionalString,
   address: optionalString,
   city: optionalString,
@@ -97,15 +99,15 @@ export const CreateReportSchema = z.object({
   creditDays: numericField(z.number().int()).optional().default(0),
   outstandingAmount: numericField(z.number())
     .optional()
-    .transform(v => (v !== undefined ? String(v) : '0.00')),
+    .transform(v => (v !== undefined ? String(v) : undefined)),
   purchaseDecisionBy: optionalString,
   purchaseCycle: optionalString,
   potentialBusinessValue: numericField(z.number())
     .optional()
-    .transform(v => (v !== undefined ? String(v) : '0.00')),
+    .transform(v => (v !== undefined ? String(v) : undefined)),
   expectedMonthlyBusiness: numericField(z.number())
     .optional()
-    .transform(v => (v !== undefined ? String(v) : '0.00')),
+    .transform(v => (v !== undefined ? String(v) : undefined)),
   conversionProbability: numericField(z.number().int().min(0).max(100)).optional().default(0),
   discussionNotes: optionalString,
   importantObservations: optionalString,
@@ -114,12 +116,14 @@ export const CreateReportSchema = z.object({
   riskFactors: optionalString,
   immediateRequirement: optionalString,
   expectedOrderDate: z
-    .string()
-    .optional()
+    .preprocess(val => {
+      if (val === null || val === undefined || val === '' || String(val).trim().toUpperCase() === 'N/A') return undefined;
+      return String(val);
+    }, z.string().optional())
     .transform(v => (v ? new Date(v) : undefined)),
   expectedOrderQuantity: numericField(z.number())
     .optional()
-    .transform(v => (v !== undefined ? String(v) : '0.00')),
+    .transform(v => (v !== undefined ? String(v) : undefined)),
   trialApproved: z.boolean().optional().default(false),
   sampleGiven: z.boolean().optional().default(false),
   followupUrgencyScore: numericField(z.number().int().min(0).max(10)).optional().default(0),

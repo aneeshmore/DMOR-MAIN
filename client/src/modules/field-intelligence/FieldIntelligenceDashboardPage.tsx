@@ -100,7 +100,7 @@ export const FieldIntelligenceDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white p-6 rounded-2xl shadow-sm border">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <span className="bg-primary-500 text-white p-1 rounded-lg">
@@ -114,75 +114,75 @@ export const FieldIntelligenceDashboardPage: React.FC = () => {
         </div>
         <button
           onClick={() => navigate('/operations/field-intelligence/new')}
-          className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] px-4 py-2 shadow-md flex items-center gap-2 font-semibold"
+          className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] px-4 py-2.5 shadow-md flex items-center justify-center gap-2 font-semibold w-full sm:w-auto text-sm min-h-[44px]"
         >
           + Create Visit Report
         </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="card p-6 flex items-center justify-between hover-lift">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="card p-4 sm:p-6 flex items-center justify-between hover-lift rounded-xl shadow-sm">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <p className="text-[10px] sm:text-xs font-semibold text-gray-550 uppercase tracking-wider">
               Total Customer Visits
             </p>
-            <h3 className="text-3xl font-extrabold text-gray-800 mt-2">{data.totalVisits}</h3>
-            <p className="text-[11px] text-green-500 font-semibold mt-1 flex items-center gap-1">
+            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">{data.totalVisits}</h3>
+            <p className="text-[9px] sm:text-[11px] text-green-500 font-semibold mt-1 flex items-center gap-1">
               <TrendingUp className="h-3 w-3" />
               Active conversion tracking
             </p>
           </div>
-          <div className="bg-primary-50 text-primary p-4 rounded-xl">
-            <Calendar className="h-6 w-6" />
+          <div className="bg-primary-50 text-primary p-2.5 sm:p-4 rounded-lg sm:rounded-xl flex-shrink-0 ml-2 hidden sm:block">
+            <Calendar className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
         </div>
 
-        <div className="card p-6 flex items-center justify-between hover-lift">
+        <div className="card p-4 sm:p-6 flex items-center justify-between hover-lift rounded-xl shadow-sm">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <p className="text-[10px] sm:text-xs font-semibold text-gray-555 uppercase tracking-wider">
               Avg. Conversion Probability
             </p>
-            <h3 className="text-3xl font-extrabold text-gray-800 mt-2">{data.conversionRate}%</h3>
-            <p className="text-[11px] text-gray-500 font-semibold mt-1">
+            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">{data.conversionRate}%</h3>
+            <p className="text-[9px] sm:text-[11px] text-gray-500 font-semibold mt-1">
               Weighted conversion forecast
             </p>
           </div>
-          <div className="bg-success/15 text-success p-4 rounded-xl">
-            <TrendingUp className="h-6 w-6" />
+          <div className="bg-success/15 text-success p-2.5 sm:p-4 rounded-lg sm:rounded-xl flex-shrink-0 ml-2 hidden sm:block">
+            <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
         </div>
 
-        <div className="card p-6 flex items-center justify-between hover-lift">
+        <div className="card p-4 sm:p-6 flex items-center justify-between hover-lift rounded-xl shadow-sm">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Revenue Pipeline (Est. value)
+            <p className="text-[10px] sm:text-xs font-semibold text-gray-550 uppercase tracking-wider">
+              Revenue Pipeline
             </p>
-            <h3 className="text-2xl font-extrabold text-gray-800 mt-2">
+            <h3 className="text-lg sm:text-2xl font-extrabold text-gray-800 mt-1 sm:mt-2 font-mono">
               ₹{(data.expectedRevenue || 0).toLocaleString('en-IN')}
             </h3>
-            <p className="text-[11px] text-primary-500 font-semibold mt-1">
-              Total strategic opportunity value
+            <p className="text-[9px] sm:text-[11px] text-primary-500 font-semibold mt-1">
+              Total pipeline value
             </p>
           </div>
-          <div className="bg-info/15 text-info p-4 rounded-xl">
-            <ClipboardList className="h-6 w-6" />
+          <div className="bg-info/15 text-info p-2.5 sm:p-4 rounded-lg sm:rounded-xl flex-shrink-0 ml-2 hidden sm:block">
+            <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
         </div>
 
-        <div className="card p-6 flex items-center justify-between hover-lift">
+        <div className="card p-4 sm:p-6 flex items-center justify-between hover-lift rounded-xl shadow-sm">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <p className="text-[10px] sm:text-xs font-semibold text-gray-550 uppercase tracking-wider">
               Action Items Overdue
             </p>
-            <h3 className="text-3xl font-extrabold text-gray-800 mt-2">{data.followupsMissed}</h3>
-            <p className="text-[11px] text-red-500 font-semibold mt-1 flex items-center gap-1">
+            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">{data.followupsMissed}</h3>
+            <p className="text-[9px] sm:text-[11px] text-red-500 font-semibold mt-1 flex items-center gap-1">
               <TrendingDown className="h-3 w-3" />
-              Requires immediate action
+              Requires action
             </p>
           </div>
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl">
-            <AlertTriangle className="h-6 w-6" />
+          <div className="bg-red-50 text-red-600 p-2.5 sm:p-4 rounded-lg sm:rounded-xl flex-shrink-0 ml-2 hidden sm:block">
+            <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
         </div>
       </div>

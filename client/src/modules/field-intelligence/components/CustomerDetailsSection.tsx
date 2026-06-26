@@ -53,7 +53,7 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
     });
     register('businessCategory', { required: 'Business Category is required' });
     register('designation', { required: 'Designation / Role is required' });
-    register('purchaseDecisionBy', { required: 'Purchase Decision By is required' });
+    register('purchaseDecisionBy', { required: false });
     register('state', { required: 'State is required' });
     register('city', { required: 'City is required' });
 
@@ -105,31 +105,33 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
 
   return (
     <div className="card p-6 mb-6">
-      <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
-        <span className="bg-primary-100 text-primary-600 p-1.5 rounded-md">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-            />
-          </svg>
+      <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <span className="flex items-center gap-2">
+          <span className="bg-primary-100 text-primary-600 p-1.5 rounded-md flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
+            </svg>
+          </span>
+          <span>Customer Details</span>
         </span>
-        Customer Details
-        <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
+        <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full font-semibold whitespace-nowrap self-start sm:self-auto">
           Layer 1 – Required
         </span>
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {' '}
         {/* Customer Name */}
         <div className="md:col-span-2">
           <label
             className={`block text-sm font-semibold mb-1 ${errors.customerId || errors.customerName ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Customer / Organization Name *
+            Customer / Organization Name <span className="text-red-500">*</span>
           </label>
           <SearchableSelectUI<number>
             name="customerId"
@@ -248,7 +250,7 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.contactPerson ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Contact Person *
+            Contact Person <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -286,7 +288,7 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
           onChange={v => setValue('purchaseDecisionBy', v, { shouldValidate: true })}
           placeholder="Owner / MD / Purchase Head"
           allowCustom
-          required
+          required={false}
           error={errors.purchaseDecisionBy?.message}
         />
         {/* GST Number */}
@@ -294,16 +296,16 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.gstNumber ? 'text-red-500' : 'text-gray-700'}`}
           >
-            GST Number *
+            GST Number
           </label>
           <input
             type="text"
             className={`input ${errors.gstNumber ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="27ABCDE1234F1Z5 or N/A"
             {...register('gstNumber', {
-              required: 'GST Number is required',
+              required: false,
               validate: value => {
-                if (!value) return 'GST Number is required';
+                if (!value || value.trim() === '') return true;
                 if (value.toUpperCase() === 'N/A') return true;
                 const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
                 return gstinRegex.test(value.toUpperCase()) || 'Enter a valid GSTIN';
@@ -324,7 +326,7 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.mobile ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Mobile Number *
+            Mobile Number <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -352,17 +354,18 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.email ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Email ID *
+            Email ID
           </label>
           <input
             type="email"
             className={`input ${errors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="customer@domain.com"
             {...register('email', {
-              required: 'Email ID is required',
-              pattern: {
-                value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-                message: 'Enter valid email format',
+              required: false,
+              validate: value => {
+                if (!value || value.trim() === '' || value.toUpperCase() === 'N/A') return true;
+                const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                return emailRegex.test(value) || 'Enter valid email format';
               },
             })}
           />
@@ -407,7 +410,7 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.pinCode ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Pin Code *
+            Pin Code <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -571,7 +574,7 @@ export const CustomerDetailsSection: React.FC<SectionProps> = ({
         {/* Address */}
         <div className="md:col-span-3">
           <VoiceInput
-            label="Complete Address *"
+            label="Complete Address"
             value={watch('address') || ''}
             onChange={val => setValue('address', val, { shouldValidate: true })}
             placeholder="Plot No, Industrial Area, Phase... or N/A"

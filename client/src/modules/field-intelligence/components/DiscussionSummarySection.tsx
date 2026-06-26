@@ -48,7 +48,7 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
       <div className="space-y-4">
         {/* Discussion Notes with Voice Input */}
         <VoiceInput
-          label="Key Discussion Notes *"
+          label="Key Discussion Notes"
           value={discussionNotes}
           onChange={val => setValue('discussionNotes', val, { shouldValidate: true })}
           placeholder="Summarize the core conversation with the customer... (or tap mic to dictate)"
@@ -65,7 +65,7 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
 
         {/* Important Observations with Voice Input */}
         <VoiceInput
-          label="Important Observations *"
+          label="Important Observations"
           value={importantObservations}
           onChange={val => setValue('importantObservations', val, { shouldValidate: true })}
           placeholder="Substrate condition, painting line quality, factory footprint... (or tap mic) or N/A"
@@ -81,13 +81,13 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
           })}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Customer Mood */}
           <div>
             <label
               className={`block text-sm font-semibold mb-1 ${errors.customerMood ? 'text-red-500' : 'text-gray-700'}`}
             >
-              Customer Mood / Attitude *
+              Customer Mood / Attitude <span className="text-red-500">*</span>
             </label>
             <select
               className={`input ${errors.customerMood ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -116,7 +116,7 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
             <label
               className={`block text-sm font-semibold mb-1 ${errors.immediateRequirement ? 'text-red-500' : 'text-gray-700'}`}
             >
-              Immediate Painting Requirement *
+              Immediate Painting Requirement <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -139,18 +139,18 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
           {/* Hidden Opportunity */}
           <div className="md:col-span-2">
             <VoiceInput
-              label="Hidden Opportunity Detected *"
+              label="Hidden Opportunity Detected"
               value={hiddenOpportunity}
               onChange={val => setValue('hiddenOpportunity', val, { shouldValidate: true })}
               placeholder="e.g. Thinners are currently purchased at higher rate from another source or N/A"
               rows={2}
-              required
+              required={false}
               error={errors.hiddenOpportunity?.message}
               name="hiddenOpportunity"
             />
             <input
               type="hidden"
-              {...register('hiddenOpportunity', { required: 'Hidden opportunity is required' })}
+              {...register('hiddenOpportunity', { required: false })}
             />
           </div>
         </div>
