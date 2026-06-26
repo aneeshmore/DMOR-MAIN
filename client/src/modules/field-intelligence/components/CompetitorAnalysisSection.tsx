@@ -92,11 +92,11 @@ export const CompetitorAnalysisSection: React.FC<SectionProps> = ({
                   </svg>
                 </button>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Competitor Name – searchable select */}
                   <div className="md:col-span-2">
                     <SearchableSelect
-                      label="Competitor Brand *"
+                      label="Competitor Brand"
                       options={COMPETITOR_BRANDS}
                       value={currentName || ''}
                       onChange={v => setValue(`competitors.${index}.competitorName` as any, v)}
@@ -108,7 +108,7 @@ export const CompetitorAnalysisSection: React.FC<SectionProps> = ({
                     <input
                       type="hidden"
                       {...register(`competitors.${index}.competitorName` as const, {
-                        required: 'Competitor name is required',
+                        required: false,
                       })}
                     />
                   </div>

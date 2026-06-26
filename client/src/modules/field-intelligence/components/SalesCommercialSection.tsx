@@ -62,7 +62,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
         Sales & Commercial Details
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Required Product */}
         <MultiSearchableSelect
           label="Required Product"
@@ -102,7 +102,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.monthlyConsumption ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Monthly Consumption Value (₹) *
+            Monthly Consumption Value (₹) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -128,7 +128,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.monthlyConsumptionText ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Monthly Volume (e.g. Liters) *
+            Monthly Volume (e.g. Liters) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -172,7 +172,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.expectedRate ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Expected Rate (₹/Ltr) *
+            Expected Rate (₹/Ltr) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -198,7 +198,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.currentPurchaseRate ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Current Purchase Rate (₹/Ltr) *
+            Current Purchase Rate (₹/Ltr) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -224,7 +224,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.creditDays ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Credit Days Required *
+            Credit Days Required <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.creditDays ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
@@ -256,15 +256,18 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.outstandingAmount ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Outstanding Amount (₹) *
+            Outstanding Amount (₹)
           </label>
           <input
             type="text"
             className={`input ${errors.outstandingAmount ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. 250000.00 or N/A"
             {...register('outstandingAmount', {
-              required: 'Outstanding Amount is required',
-              validate: val => val === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A',
+              required: false,
+              validate: val => {
+                if (!val || val.toString().trim() === '') return true;
+                return val === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A';
+              },
             })}
           />
           {errors.outstandingAmount && (
@@ -282,7 +285,7 @@ export const SalesCommercialSection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.purchaseCycle ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Purchase Cycle *
+            Purchase Cycle <span className="text-red-500">*</span>
           </label>
           <select
             className={`input ${errors.purchaseCycle ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}

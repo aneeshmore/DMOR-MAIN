@@ -16,8 +16,6 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
   watch,
 }) => {
   const { errors } = formState;
-  const isExpectedOrderDateNA = watch('expectedOrderDate') === 'N/A';
-
   return (
     <div className="card p-6 mb-6">
       <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
@@ -34,7 +32,7 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
         Order & Business Possibility
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Hidden inputs to keep form state intact */}
         <input type="hidden" {...register('potentialBusinessValue')} />
         <input type="hidden" {...register('expectedMonthlyBusiness')} />
@@ -44,7 +42,7 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.conversionProbability ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Conversion Probability (%) *
+            Conversion Probability (%) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -73,38 +71,23 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.expectedOrderDate ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Expected Order Date *
+            Expected Order Date
           </label>
           <div className="flex flex-col">
             <input
-              type={isExpectedOrderDateNA ? 'text' : 'date'}
-              readOnly={isExpectedOrderDateNA}
-              className={`input ${errors.expectedOrderDate ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''} ${isExpectedOrderDateNA ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : ''}`}
+              type="date"
+              className={`input ${errors.expectedOrderDate ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
               {...register('expectedOrderDate', {
-                required: 'Expected Order Date is required',
+                required: false,
                 validate: val => {
-                  const s = val ? String(val) : '';
+                  if (!val || val.toString().trim() === '') return true;
+                  const s = String(val);
                   return (
                     s === 'N/A' || /^\d{4}-\d{2}-\d{2}$/.test(s) || 'Date must be selected or N/A'
                   );
                 },
               })}
             />
-            <label className="inline-flex items-center mt-2 gap-2 text-xs font-semibold text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
-                checked={isExpectedOrderDateNA}
-                onChange={e => {
-                  if (e.target.checked) {
-                    setValue('expectedOrderDate', 'N/A', { shouldValidate: true });
-                  } else {
-                    setValue('expectedOrderDate', '', { shouldValidate: true });
-                  }
-                }}
-              />
-              Not Applicable (N/A)
-            </label>
           </div>
           {errors.expectedOrderDate && (
             <p
@@ -121,7 +104,7 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
           <label
             className={`block text-sm font-semibold mb-1 ${errors.expectedOrderQuantity ? 'text-red-500' : 'text-gray-700'}`}
           >
-            Expected Order Quantity (Ltrs) *
+            Expected Order Quantity (Ltrs) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -160,6 +143,15 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
               {...register('sampleGiven')}
             />
             Samples Supplied to Customer
+          </label>
+
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
+              {...register('sampleRequired')}
+            />
+            Sample is Required
           </label>
         </div>
       </div>

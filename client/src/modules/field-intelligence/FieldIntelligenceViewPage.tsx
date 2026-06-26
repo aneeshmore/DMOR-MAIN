@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Calendar,
   User,
   Activity,
   MapPin,
@@ -20,6 +19,19 @@ import { FieldIntelligenceReport } from './types/fieldIntelligence.types';
 import { showToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
+const deserializeOrderStatus = (notes: string | undefined): { cleanNotes: string; statuses: string[] } => {
+  if (!notes) return { cleanNotes: '', statuses: [] };
+  const markerRegex = /\n\n\[Order Status:\s*([^\]]*)\]$/s;
+  const match = notes.match(markerRegex);
+  if (match) {
+    const statusesStr = match[1].trim();
+    const statuses = statusesStr ? statusesStr.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+    const cleanNotes = notes.replace(markerRegex, '');
+    return { cleanNotes, statuses };
+  }
+  return { cleanNotes: notes, statuses: [] };
+};
+
 export const FieldIntelligenceViewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -29,6 +41,10 @@ export const FieldIntelligenceViewPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     'profile' | 'technical' | 'commercial' | 'competitors' | 'followups' | 'ai' | 'logs'
   >('profile');
+
+  const { cleanNotes, statuses } = React.useMemo(() => {
+    return deserializeOrderStatus(report?.discussionNotes);
+  }, [report?.discussionNotes]);
 
   const fetchReport = async () => {
     try {
@@ -103,20 +119,27 @@ export const FieldIntelligenceViewPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in max-w-5xl mx-auto">
-      {/* Header bar */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white p-6 rounded-2xl shadow-sm border">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/operations/field-intelligence')}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 min-w-[44px] min-h-[44px] flex items-center justify-center"
             title="Back to list"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl font-bold text-gray-800">{report.reportNumber}</h1>
-              <span className={`badge ${statusBadges} border`}>{report.status}</span>
+              <span className={`badge ${statusBadges} border whitespace-normal`}>{report.status}</span>
+              {statuses.map(status => (
+                <span
+                  key={status}
+                  className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold px-2 py-0.5 rounded-full"
+                >
+                  {status}
+                </span>
+              ))}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               Logged by <span className="font-bold">{report.executiveName || 'System'}</span> on{' '}
@@ -125,11 +148,11 @@ export const FieldIntelligenceViewPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {(user?.Role === 'Admin' || user?.Role === 'SuperAdmin') && (
             <button
               onClick={() => navigate(`/operations/field-intelligence/${report.id}/edit`)}
-              className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 flex items-center gap-1.5"
+              className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2.5 flex items-center justify-center gap-1.5 flex-1 sm:flex-initial text-sm min-h-[44px] w-full sm:w-auto"
             >
               <Edit className="h-4 w-4" />
               Edit
@@ -138,7 +161,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
           {(user?.Role === 'Admin' || user?.Role === 'SuperAdmin') && (
             <button
               onClick={handleDelete}
-              className="btn border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 flex items-center gap-1.5"
+              className="btn border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2.5 flex items-center justify-center gap-1.5 flex-1 sm:flex-initial text-sm min-h-[44px] w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4" />
               Delete
@@ -165,7 +188,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+              className={`flex items-center justify-center text-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer min-h-[44px] flex-1 sm:flex-initial ${
                 activeTab === tab.id
                   ? 'bg-primary text-white shadow-sm'
                   : 'text-gray-600 hover:bg-gray-100'
@@ -371,7 +394,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
             <div className="border-t pt-4">
               <h4 className="font-bold text-gray-800 mb-2">Discussion Notes & Strategy</h4>
               <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border whitespace-pre-line">
-                {report.discussionNotes}
+                {cleanNotes}
               </p>
             </div>
           </div>

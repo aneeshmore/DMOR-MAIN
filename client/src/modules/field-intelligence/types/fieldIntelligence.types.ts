@@ -67,7 +67,7 @@ export interface FieldIntelligenceReport {
   visitDate: string | Date;
   timeIn?: string;
   timeOut?: string;
-  visitDuration?: number;
+  visitDuration?: number | string;
   gpsLatitude?: string | number;
   gpsLongitude?: string | number;
   executiveId: number;
@@ -144,6 +144,7 @@ export interface FieldIntelligenceReport {
   createdBy?: number;
   createdAt?: string;
   updatedAt?: string;
+  sampleRequired?: boolean;
 
   // Nested structures
   competitors?: Competitor[];

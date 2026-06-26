@@ -1,11 +1,17 @@
 export class FieldIntelligenceReportDTO {
   constructor(report) {
+    const mapNA = val => {
+      if (val === null || val === undefined) return 'N/A';
+      const strVal = String(val).trim();
+      return strVal === '' ? 'N/A' : val;
+    };
+
     this.id = report.id;
     this.reportNumber = report.reportNumber;
     this.visitDate = report.visitDate;
-    this.timeIn = report.timeIn;
+    this.timeIn = mapNA(report.timeIn);
     this.timeOut = report.timeOut;
-    this.visitDuration = report.visitDuration;
+    this.visitDuration = mapNA(report.visitDuration);
     this.gpsLatitude = report.gpsLatitude;
     this.gpsLongitude = report.gpsLongitude;
     this.executiveId = report.executiveId;
@@ -16,44 +22,44 @@ export class FieldIntelligenceReportDTO {
     this.visitPurpose = report.visitPurpose;
     this.customerName = report.customerName;
     this.customerId = report.customerId || report.customer_id;
-    this.contactPerson = report.contactPerson;
-    this.designation = report.designation;
-    this.mobile = report.mobile;
-    this.whatsapp = report.whatsapp;
-    this.email = report.email;
-    this.gstNumber = report.gstNumber;
+    this.contactPerson = mapNA(report.contactPerson);
+    this.designation = mapNA(report.designation);
+    this.mobile = mapNA(report.mobile);
+    this.whatsapp = mapNA(report.whatsapp);
+    this.email = mapNA(report.email);
+    this.gstNumber = mapNA(report.gstNumber);
     this.address = report.address;
     this.city = report.city;
     this.state = report.state;
-    this.pinCode = report.pinCode;
+    this.pinCode = mapNA(report.pinCode);
     this.businessCategory = report.businessCategory;
-    this.monthlyConsumption = report.monthlyConsumption;
-    this.currentSupplier = report.currentSupplier;
+    this.monthlyConsumption = mapNA(report.monthlyConsumption);
+    this.currentSupplier = mapNA(report.currentSupplier);
     this.paintRequirementTypes = report.paintRequirementTypes;
     this.surfaceTypes = report.surfaceTypes;
     this.applicationMethods = report.applicationMethods;
-    this.requiredShade = report.requiredShade;
-    this.requiredFinish = report.requiredFinish;
+    this.requiredShade = mapNA(report.requiredShade);
+    this.requiredFinish = mapNA(report.requiredFinish);
     this.technicalChallenges = report.technicalChallenges;
-    this.currentSystemUsed = report.currentSystemUsed;
-    this.monthlyConsumptionText = report.monthlyConsumptionText;
-    this.currentPurchaseRate = report.currentPurchaseRate;
-    this.expectedRate = report.expectedRate;
-    this.creditDays = report.creditDays;
-    this.outstandingAmount = report.outstandingAmount;
-    this.purchaseDecisionBy = report.purchaseDecisionBy;
-    this.purchaseCycle = report.purchaseCycle;
-    this.potentialBusinessValue = report.potentialBusinessValue;
-    this.expectedMonthlyBusiness = report.expectedMonthlyBusiness;
-    this.conversionProbability = report.conversionProbability;
+    this.currentSystemUsed = mapNA(report.currentSystemUsed);
+    this.monthlyConsumptionText = mapNA(report.monthlyConsumptionText);
+    this.currentPurchaseRate = mapNA(report.currentPurchaseRate);
+    this.expectedRate = mapNA(report.expectedRate);
+    this.creditDays = mapNA(report.creditDays);
+    this.outstandingAmount = mapNA(report.outstandingAmount);
+    this.purchaseDecisionBy = mapNA(report.purchaseDecisionBy);
+    this.purchaseCycle = mapNA(report.purchaseCycle);
+    this.potentialBusinessValue = mapNA(report.potentialBusinessValue);
+    this.expectedMonthlyBusiness = mapNA(report.expectedMonthlyBusiness);
+    this.conversionProbability = mapNA(report.conversionProbability);
     this.discussionNotes = report.discussionNotes;
-    this.importantObservations = report.importantObservations;
-    this.customerMood = report.customerMood;
-    this.hiddenOpportunity = report.hiddenOpportunity;
-    this.riskFactors = report.riskFactors;
-    this.immediateRequirement = report.immediateRequirement;
-    this.expectedOrderDate = report.expectedOrderDate;
-    this.expectedOrderQuantity = report.expectedOrderQuantity;
+    this.importantObservations = mapNA(report.importantObservations);
+    this.customerMood = mapNA(report.customerMood);
+    this.hiddenOpportunity = mapNA(report.hiddenOpportunity);
+    this.riskFactors = mapNA(report.riskFactors);
+    this.immediateRequirement = mapNA(report.immediateRequirement);
+    this.expectedOrderDate = report.expectedOrderDate !== null && report.expectedOrderDate !== undefined ? (report.expectedOrderDate instanceof Date ? report.expectedOrderDate.toISOString() : report.expectedOrderDate) : 'N/A';
+    this.expectedOrderQuantity = mapNA(report.expectedOrderQuantity);
     this.trialApproved = report.trialApproved;
     this.sampleGiven = report.sampleGiven;
     this.followupUrgencyScore = report.followupUrgencyScore;
@@ -62,7 +68,7 @@ export class FieldIntelligenceReportDTO {
     this.relationshipStrength = report.relationshipStrength;
     this.technicalCapability = report.technicalCapability;
     this.longTermPotential = report.longTermPotential;
-    this.executiveRecommendation = report.executiveRecommendation;
+    this.executiveRecommendation = mapNA(report.executiveRecommendation);
     this.status = report.status;
     this.companyId = report.companyId;
     this.tenantId = report.tenantId;
@@ -74,10 +80,15 @@ export class FieldIntelligenceReportDTO {
 
 export class FollowupDTO {
   constructor(followup) {
+    const mapNA = val => {
+      if (val === null || val === undefined) return 'N/A';
+      const strVal = String(val).trim();
+      return strVal === '' ? 'N/A' : val;
+    };
     this.id = followup.id;
     this.reportId = followup.reportId;
     this.followupDate = followup.followupDate;
-    this.notes = followup.notes;
+    this.notes = mapNA(followup.notes);
     this.status = followup.status;
     this.companyId = followup.companyId;
     this.tenantId = followup.tenantId;
@@ -89,13 +100,18 @@ export class FollowupDTO {
 
 export class CompetitorDTO {
   constructor(competitor) {
+    const mapNA = val => {
+      if (val === null || val === undefined) return 'N/A';
+      const strVal = String(val).trim();
+      return strVal === '' ? 'N/A' : val;
+    };
     this.id = competitor.id;
     this.reportId = competitor.reportId;
     this.competitorName = competitor.competitorName;
-    this.strengths = competitor.strengths;
-    this.weaknesses = competitor.weaknesses;
-    this.reasonUsingCompetitor = competitor.reasonUsingCompetitor;
-    this.reasonShiftToUs = competitor.reasonShiftToUs;
+    this.strengths = mapNA(competitor.strengths);
+    this.weaknesses = mapNA(competitor.weaknesses);
+    this.reasonUsingCompetitor = mapNA(competitor.reasonUsingCompetitor);
+    this.reasonShiftToUs = mapNA(competitor.reasonShiftToUs);
     this.companyId = competitor.companyId;
     this.tenantId = competitor.tenantId;
     this.createdBy = competitor.createdBy;

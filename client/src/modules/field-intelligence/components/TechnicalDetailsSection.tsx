@@ -32,12 +32,12 @@ export const TechnicalDetailsSection: React.FC<SectionProps> = ({ register, form
         Technical Specifications
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Paint Requirement Types
+            Paint Requirement Types *
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {[
               'PU Coatings',
               'Epoxy Primers',
@@ -64,9 +64,9 @@ export const TechnicalDetailsSection: React.FC<SectionProps> = ({ register, form
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Surface Substrates
+            Surface Substrates *
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {[
               'Mild Steel (MS)',
               'Stainless Steel (SS)',
@@ -93,9 +93,9 @@ export const TechnicalDetailsSection: React.FC<SectionProps> = ({ register, form
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Application Methods
+            Application Methods *
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {[
               'Conventional Air Spray',
               'Airless Spraying',
@@ -124,7 +124,7 @@ export const TechnicalDetailsSection: React.FC<SectionProps> = ({ register, form
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Technical Challenges Encountered
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {[
               'Adhesion Failure',
               'Color Variations',
@@ -150,7 +150,7 @@ export const TechnicalDetailsSection: React.FC<SectionProps> = ({ register, form
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             Required Shade / Code

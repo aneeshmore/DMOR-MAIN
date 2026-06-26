@@ -62,7 +62,7 @@ export const PhotoUploadSection: React.FC<SectionProps> = ({ control, register }
         Media & Document Attachments
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 items-end bg-gray-50 p-4 rounded-lg border">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4 items-end bg-gray-50 p-4 rounded-lg border">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">Attachment Type</label>
           <select
@@ -99,7 +99,7 @@ export const PhotoUploadSection: React.FC<SectionProps> = ({ control, register }
       {fields.length === 0 ? (
         <p className="text-sm text-gray-500 text-center py-4">No attachments uploaded yet.</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {fields.map((field, index) => (
             <div
               key={field.id}

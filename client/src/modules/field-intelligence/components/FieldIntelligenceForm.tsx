@@ -1,6 +1,7 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
+import MultiSearchableSelect from './shared/MultiSearchableSelect';
 import { fieldIntelligenceApi } from '../services/fieldIntelligenceApi';
 import { customerApi } from '@/features/masters/api/customerApi';
 import { Customer } from '@/features/masters/types';
@@ -28,6 +29,35 @@ interface FormProps {
   isSubmitting: boolean;
 }
 
+const deserializeOrderStatus = (notes: string | undefined): { cleanNotes: string; statuses: string[] } => {
+  if (!notes) return { cleanNotes: '', statuses: [] };
+  const markerRegex = /\n\n\[Order Status:\s*([^\]]*)\]$/s;
+  const match = notes.match(markerRegex);
+  if (match) {
+    const statusesStr = match[1].trim();
+    const statuses = statusesStr ? statusesStr.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+    const cleanNotes = notes.replace(markerRegex, '');
+    return { cleanNotes, statuses };
+  }
+  return { cleanNotes: notes, statuses: [] };
+};
+
+const serializeOrderStatus = (notes: string | undefined, statuses: string[]): string => {
+  const { cleanNotes } = deserializeOrderStatus(notes);
+  if (statuses.length === 0) return cleanNotes;
+  return `${cleanNotes.trim()}\n\n[Order Status: ${statuses.join(', ')}]`;
+};
+
+const getHighestBackendStatus = (selectedStatuses: string[]): string => {
+  if (selectedStatuses.includes('Order Received')) return 'Won';
+  if (selectedStatuses.includes('Quotation Sent')) return 'Proposal Sent';
+  if (selectedStatuses.includes('Quotation Required')) return 'Proposal Sent';
+  if (selectedStatuses.includes('Follow-up Required')) return 'Qualified';
+  if (selectedStatuses.includes('Meeting Done')) return 'Qualified';
+  if (selectedStatuses.includes('Customer Identified')) return 'Submitted';
+  return 'Submitted'; // fallback
+};
+
 const DEFAULT_VALUES: FieldIntelligenceReport = {
   // ── Only these two have non-empty defaults ──────────────────────────────
   visitDate: new Date().toISOString().slice(0, 10), // today
@@ -53,7 +83,7 @@ const DEFAULT_VALUES: FieldIntelligenceReport = {
   visitType: 'Dealer Visit',
   visitPurpose: [], // string[] per type definition
   timeIn: '',
-  timeOut: '',
+  timeOut: new Date().toTimeString().slice(0, 5),
   gpsLatitude: '',
   gpsLongitude: '',
 
@@ -65,6 +95,7 @@ const DEFAULT_VALUES: FieldIntelligenceReport = {
   competitors: [],
   followups: [],
   uploads: [],
+  sampleRequired: false,
 
   // ── Numeric scores – sensible defaults ───────────────────────────────────
   creditDays: 0,
@@ -82,91 +113,77 @@ const DEFAULT_VALUES: FieldIntelligenceReport = {
 const cleanPayloadForApi = (data: FieldIntelligenceReport): FieldIntelligenceReport => {
   const clean = { ...data };
   const isNA = (val: any) => typeof val === 'string' && val.trim().toUpperCase() === 'N/A';
+  const isBlank = (val: any) => val === undefined || val === null || (typeof val === 'string' && val.trim() === '');
 
-  // Format-dependent text fields
-  const textFieldsToClear = [
+  // 1. Optional text fields to map to "N/A" if blank
+  const optionalTextFields = [
     'email',
-    'expectedOrderDate',
-    'gpsLatitude',
-    'gpsLongitude',
+    'gstNumber',
+    'purchaseDecisionBy',
+    'timeIn',
+    'dealerStockLevel',
+    'competitorDisplayPresent',
+    'schemeDiscussionStatus',
+    'hiddenOpportunity',
+    'currentSupplier',
+    'currentSystemUsed',
+    'designation',
+    'purchaseCycle',
+    'importantObservations',
+    'customerMood',
+    'riskFactors',
+    'immediateRequirement',
+    'executiveRecommendation',
     'pinCode',
     'mobile',
-    'gstNumber',
-    'timeIn',
-    'timeOut',
+    'whatsapp',
+    'contactPerson'
   ];
-  textFieldsToClear.forEach(field => {
-    if (isNA((clean as any)[field])) {
-      (clean as any)[field] = undefined;
+
+  optionalTextFields.forEach(field => {
+    const val = (clean as any)[field];
+    if (isBlank(val)) {
+      (clean as any)[field] = 'N/A';
+    } else {
+      (clean as any)[field] = String(val).trim();
     }
   });
 
-  // Numeric fields
-  const numericFields = [
+  // 2. Optional numeric/date fields to map to "N/A" if blank.
+  const optionalNumericFields = [
     'visitDuration',
+    'outstandingAmount',
     'monthlyConsumption',
     'currentPurchaseRate',
     'expectedRate',
-    'outstandingAmount',
     'potentialBusinessValue',
     'expectedMonthlyBusiness',
     'expectedOrderQuantity',
     'estimatedArea',
+    'creditDays',
+    'conversionProbability'
   ];
-  numericFields.forEach(field => {
+
+  optionalNumericFields.forEach(field => {
     const val = (clean as any)[field];
-    if (isNA(val)) {
-      (clean as any)[field] = undefined;
-    } else if (val !== undefined && val !== null && val !== '') {
+    if (isBlank(val) || isNA(val)) {
+      (clean as any)[field] = 'N/A';
+    } else {
       const num = Number(val);
-      (clean as any)[field] = isNaN(num) ? undefined : num;
+      (clean as any)[field] = isNaN(num) ? 'N/A' : num;
     }
   });
 
-  const creditDaysVal = clean.creditDays as any;
-  if (isNA(creditDaysVal)) {
-    clean.creditDays = undefined;
-  } else if (creditDaysVal !== undefined && creditDaysVal !== null && creditDaysVal !== '') {
-    const num = Number(creditDaysVal);
-    clean.creditDays = isNaN(num) ? undefined : num;
-  }
-
-  const convProbVal = clean.conversionProbability as any;
-  if (isNA(convProbVal)) {
-    clean.conversionProbability = undefined;
-  } else if (convProbVal !== undefined && convProbVal !== null && convProbVal !== '') {
-    const num = Number(convProbVal);
-    clean.conversionProbability = isNaN(num) ? undefined : num;
-  }
-
-  // Dropdowns
-  const dropdownFields = [
-    'designation',
-    'purchaseDecisionBy',
-    'state',
-    'city',
-    'complaintType',
-    'complaintResolutionStatus',
-    'dealerStockLevel',
-    'competitorDisplayPresent',
-    'schemeDiscussionStatus',
-    'industrialApprovalStatus',
-    'trialRequirement',
-    'architectProjectScale',
-    'productPerformanceObserved',
-    'constructionStage',
-    'marketPriceTrend',
-    'marketDemandTrend',
-    'executiveRecommendation',
-    'riskFactors',
-    'requiredFinish',
-    'currentSupplier',
-  ];
-  dropdownFields.forEach(field => {
-    if (isNA((clean as any)[field])) {
-      (clean as any)[field] = undefined;
+  // Expected Order Date field
+  if (isBlank(clean.expectedOrderDate) || isNA(clean.expectedOrderDate)) {
+    clean.expectedOrderDate = 'N/A';
+  } else {
+    if (clean.expectedOrderDate instanceof Date) {
+      clean.expectedOrderDate = clean.expectedOrderDate.toISOString().slice(0, 10);
+    } else {
+      clean.expectedOrderDate = String(clean.expectedOrderDate).trim();
     }
-  });
+  }
 
   // Multi-select arrays (remove N/A)
   const arrayFields = [
@@ -179,7 +196,7 @@ const cleanPayloadForApi = (data: FieldIntelligenceReport): FieldIntelligenceRep
   arrayFields.forEach(field => {
     const arr = (clean as any)[field];
     if (Array.isArray(arr)) {
-      (clean as any)[field] = arr.filter(item => !isNA(item));
+      (clean as any)[field] = arr.filter(item => !isBlank(item) && !isNA(item));
     }
   });
 
@@ -202,9 +219,18 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
   const navigate = useNavigate();
   const { isCollapsed } = useSidebar();
 
-  // For NEW reports: always start blank (DEFAULT_VALUES).
-  // For EDIT reports: initialData is provided by the edit page.
-  // Draft auto-loading happens ONLY when the user selects a customer (handleCustomerChange).
+  const processedInitialData = useMemo(() => {
+    if (!initialData) return undefined;
+    const { cleanNotes } = deserializeOrderStatus(initialData.discussionNotes);
+    return {
+      ...initialData,
+      visitType: initialData.visitType || 'Dealer Visit',
+      potentialBusinessValue: initialData.potentialBusinessValue || 'N/A',
+      expectedMonthlyBusiness: initialData.expectedMonthlyBusiness || 'N/A',
+      discussionNotes: cleanNotes,
+    };
+  }, [initialData]);
+
   const {
     register,
     control,
@@ -217,15 +243,19 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
     trigger,
     setError,
   } = useForm<FieldIntelligenceReport>({
-    defaultValues: initialData
-      ? {
-          ...initialData,
-          visitType: initialData.visitType || 'Dealer Visit',
-          potentialBusinessValue: initialData.potentialBusinessValue || 'N/A',
-          expectedMonthlyBusiness: initialData.expectedMonthlyBusiness || 'N/A',
-        }
-      : DEFAULT_VALUES,
+    defaultValues: processedInitialData || DEFAULT_VALUES,
   });
+
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (initialData) {
+      const { statuses } = deserializeOrderStatus(initialData.discussionNotes);
+      setSelectedStatuses(statuses);
+    } else {
+      setSelectedStatuses([]);
+    }
+  }, [initialData]);
 
   const watchedValues = watch();
   const visitType: string = useWatch({ control, name: 'visitType' }) || 'Dealer Visit';
@@ -238,6 +268,7 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
   const clearDraft = () => {
     if (window.confirm('Clear all entered data and start fresh?')) {
       reset(DEFAULT_VALUES);
+      setSelectedStatuses([]);
     }
   };
 
@@ -264,6 +295,9 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
         // Load full draft details by ID
         const fullDraft = await fieldIntelligenceApi.getById(exactDraft.id);
 
+        const { cleanNotes, statuses } = deserializeOrderStatus(fullDraft.discussionNotes);
+        setSelectedStatuses(statuses);
+
         // Form expects date string format YYYY-MM-DD
         if (fullDraft.visitDate) {
           fullDraft.visitDate = new Date(fullDraft.visitDate).toISOString().slice(0, 10);
@@ -277,6 +311,7 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
         fullDraft.visitType = fullDraft.visitType || 'Dealer Visit';
         fullDraft.potentialBusinessValue = fullDraft.potentialBusinessValue || 'N/A';
         fullDraft.expectedMonthlyBusiness = fullDraft.expectedMonthlyBusiness || 'N/A';
+        fullDraft.discussionNotes = cleanNotes;
 
         // Load Draft data and populate entire form
         reset(fullDraft);
@@ -460,8 +495,27 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
         showToast.success(`Customer "${custRes.data.CompanyName}" created in Customer Master`);
       }
 
+      // Check Order Status validation
+      if (selectedStatuses.length === 0) {
+        setError('status', { type: 'manual', message: 'At least one Order Status must be selected' });
+        const element = document.getElementById('order-status-card');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+
       // 2. Clean payload and submit report
-      const cleanedData = cleanPayloadForApi(data);
+      const serializedNotes = serializeOrderStatus(data.discussionNotes, selectedStatuses);
+      const mappedStatus = getHighestBackendStatus(selectedStatuses);
+
+      const finalData = {
+        ...data,
+        discussionNotes: serializedNotes,
+        status: mappedStatus as any,
+      };
+
+      const cleanedData = cleanPayloadForApi(finalData);
       await onSubmit(cleanedData);
     } catch (err: any) {
       console.error('Submit error caught in form wrapper:', err);
@@ -482,10 +536,10 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
   return (
     <form
       onSubmit={handleSubmit(handleFormSubmit, onValidationError)}
-      className="space-y-0 max-w-6xl mx-auto pb-28 relative"
+      className="space-y-6 max-w-6xl mx-auto pb-12 relative"
     >
       {/* Form Header */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border mb-4">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-sm border mb-4">
         <div>
           <h2 className="text-xl font-bold text-gray-800">
             {initialData
@@ -498,12 +552,12 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
               : 'Draft autosaved · Complete in 2–4 minutes'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full sm:w-auto">
           {!initialData && (
             <button
               type="button"
               onClick={clearDraft}
-              className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 text-sm"
+              className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 text-sm w-full sm:w-auto text-center min-h-[44px]"
             >
               Clear Draft
             </button>
@@ -605,22 +659,29 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
         {/* Right: Status + AI Panel (sticky) */}
         <div className="lg:col-span-1">
           <div className="sticky top-6 space-y-4">
-            {/* Report Status */}
-            <div className="card p-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Report Status *
-              </label>
-              <select className="input font-bold" {...register('status')}>
-                <option value="Draft">Draft</option>
-                <option value="Submitted">Submitted</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Proposal Sent">Proposal Sent</option>
-                <option value="Trial Running">Trial Running</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Won">Won</option>
-                <option value="Lost">Lost</option>
-                <option value="Archived">Archived</option>
-              </select>
+            {/* Order Status */}
+            <div id="order-status-card" className="card p-4">
+              <MultiSearchableSelect
+                label="Order Status"
+                options={[
+                  'Customer Identified',
+                  'Meeting Done',
+                  'Follow-up Required',
+                  'Quotation Required',
+                  'Quotation Sent',
+                  'Order Received'
+                ]}
+                value={selectedStatuses}
+                onChange={v => {
+                  setSelectedStatuses(v);
+                  if (v.length > 0) {
+                    setError('status', { type: 'manual', message: '' });
+                  }
+                }}
+                placeholder="Select order statuses..."
+                required
+                error={formState.errors.status?.message}
+              />
             </div>
 
             {/* AI Intelligence Panel */}
@@ -629,13 +690,9 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
         </div>
       </div>
 
-      {/* ── Fixed Bottom Action Bar ────────────────────────────────────── */}
+      {/* ── Action Bar Positioned Statically at the End ────────────────────────────────────── */}
       <div
-        className={cn(
-          'fixed bottom-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex justify-between items-center z-50 transition-all duration-300',
-          'left-0 md:left-20',
-          !isCollapsed && 'lg:left-72'
-        )}
+        className="mt-8 bg-white border border-gray-200 p-4 rounded-xl shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 transition-all duration-200"
       >
         <div className="flex items-center text-xs text-gray-500 font-medium">
           {!initialData ? (
@@ -647,11 +704,11 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
             'Editing Mode'
           )}
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-row gap-2 w-full sm:w-auto justify-end">
           <button
             type="button"
             onClick={() => navigate('/operations/field-intelligence')}
-            className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-6 py-2.5 rounded-lg font-semibold transition-all cursor-pointer"
+            className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-3 sm:px-6 py-2.5 rounded-lg font-semibold text-xs sm:text-sm transition-all cursor-pointer flex-1 sm:flex-initial text-center min-h-[44px] whitespace-nowrap"
           >
             Cancel
           </button>
@@ -666,8 +723,10 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
                     return;
                   }
                   const currentValues = getValues();
+                  const serializedNotes = serializeOrderStatus(currentValues.discussionNotes, selectedStatuses);
                   const dataToSave = cleanPayloadForApi({
                     ...currentValues,
+                    discussionNotes: serializedNotes,
                     status: 'Draft' as const,
                   });
                   if (onSaveDraft) {
@@ -694,7 +753,7 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
                 };
                 runSave();
               }}
-              className="btn border border-[var(--primary)] text-[var(--primary)] hover:bg-blue-50 px-6 py-2.5 rounded-lg font-semibold transition-all cursor-pointer"
+              className="btn border border-[var(--primary)] text-[var(--primary)] hover:bg-blue-50 px-3 sm:px-6 py-2.5 rounded-lg font-semibold text-xs sm:text-sm transition-all cursor-pointer flex-1 sm:flex-initial text-center min-h-[44px] whitespace-nowrap"
             >
               Save Draft
             </button>
@@ -702,7 +761,7 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] px-8 py-2.5 rounded-lg shadow-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
+            className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] px-3 sm:px-8 py-2.5 rounded-lg shadow-sm font-semibold text-xs sm:text-sm transition-all cursor-pointer disabled:opacity-60 flex-1 sm:flex-initial text-center min-h-[44px] whitespace-nowrap"
           >
             {isSubmitting ? 'Saving...' : initialData ? 'Save Changes' : 'Submit Report'}
           </button>
