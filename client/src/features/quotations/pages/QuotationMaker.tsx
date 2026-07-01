@@ -7,7 +7,7 @@ import jsPDF from 'jspdf';
 import { ColumnDef } from '@tanstack/react-table';
 
 import { showToast } from '@/utils/toast';
-import { numberToWords } from '@/utils/formatters';
+import { numberToIndianWords } from '@/utils/formatters';
 import { QuotationData, QuotationItem } from '../types';
 import { addPdfFooter } from '@/utils/pdfUtils';
 import { formatGoogleDriveUrl } from '@/utils/stringUtils';
@@ -1542,7 +1542,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
           {/* Amount in words */}
           <div className="border border-black p-2 text-[8.5pt]">
             <span className="font-normal">Amount Chargeable (in words)</span>
-            <div className="font-bold italic mt-1">INR {numberToWords(finalTotal)} Only</div>
+            <div className="font-bold italic mt-1">INR {numberToIndianWords(finalTotal)}</div>
           </div>
 
           {/* Footer */}

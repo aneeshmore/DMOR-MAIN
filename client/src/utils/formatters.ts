@@ -84,6 +84,99 @@ export const numberToWords = (num: number): string => {
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
+const onesIndian = [
+  '',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
+];
+
+const tensIndian = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+function convertToIndianWords(num: number): string {
+  if (num === 0) return '';
+
+  const helper = (n: number): string => {
+    let str = '';
+    if (n >= 100000000000) { // Kharab (10^11)
+      str += helper(Math.floor(n / 100000000000)) + ' Kharab ';
+      n %= 100000000000;
+    }
+    if (n >= 1000000000) { // Arab (10^9)
+      str += helper(Math.floor(n / 1000000000)) + ' Arab ';
+      n %= 1000000000;
+    }
+    if (n >= 10000000) { // Crore (10^7)
+      str += helper(Math.floor(n / 10000000)) + ' Crore ';
+      n %= 10000000;
+    }
+    if (n >= 100000) { // Lakh (10^5)
+      str += helper(Math.floor(n / 100000)) + ' Lakh ';
+      n %= 100000;
+    }
+    if (n >= 1000) { // Thousand (10^3)
+      str += helper(Math.floor(n / 1000)) + ' Thousand ';
+      n %= 1000;
+    }
+    if (n >= 100) { // Hundred
+      str += helper(Math.floor(n / 100)) + ' Hundred ';
+      n %= 100;
+    }
+    if (n >= 20) {
+      str += tensIndian[Math.floor(n / 10)] + ' ';
+      n %= 10;
+    }
+    if (n > 0) {
+      str += onesIndian[n] + ' ';
+    }
+    return str.trim();
+  };
+
+  return helper(num).trim();
+}
+
+export const numberToIndianWords = (num: number): string => {
+  const normalized = Math.round(num * 100) / 100;
+  const integerPart = Math.floor(normalized);
+  const decimalPart = Math.round((normalized - integerPart) * 100);
+
+  if (integerPart === 0 && decimalPart === 0) {
+    return 'Zero Rupees Only';
+  }
+
+  let words = '';
+
+  if (integerPart > 0) {
+    words += convertToIndianWords(integerPart) + ' Rupees';
+  }
+
+  if (decimalPart > 0) {
+    if (integerPart > 0) {
+      words += ' and ';
+    }
+    words += convertToIndianWords(decimalPart) + ' Paise';
+  }
+
+  return words + ' Only';
+};
+
+
 // Date and Time formatting functions for IST (Indian Standard Time) and DD/MM/YY format
 export const formatDateIST = (dateString: string | null | undefined): string => {
   if (!dateString) return '-';
