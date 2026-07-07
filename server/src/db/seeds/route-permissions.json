@@ -547,6 +547,16 @@
             "label": "Create Order"
           },
           {
+            "route": "/orders/:id",
+            "method": "GET",
+            "label": "View Order Details"
+          },
+          {
+            "route": "/orders/:id",
+            "method": "PUT",
+            "label": "Update Order"
+          },
+          {
             "route": "/product-development/ratios/:baseMpId/:hardenerMpId",
             "method": "GET",
             "label": "Get Mixing Ratios"

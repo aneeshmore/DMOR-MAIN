@@ -594,6 +594,8 @@ export const routeRegistry: RouteNode[] = [
           { route: '/quotations/:id/convert', method: 'POST', label: 'Convert to Order' },
           { route: '/orders', method: 'GET', label: 'View Orders' },
           { route: '/orders', method: 'POST', label: 'Create Order' },
+          { route: '/orders/:id', method: 'GET', label: 'View Order Details' },
+          { route: '/orders/:id', method: 'PUT', label: 'Update Order' },
           {
             route: '/product-development/ratios/:baseMpId/:hardenerMpId',
             method: 'GET',

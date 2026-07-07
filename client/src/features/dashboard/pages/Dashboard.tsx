@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -10,9 +9,9 @@ import {
   ShoppingCart,
   UserPlus,
   PlusCircle,
-  FileText,
-  Download,
   CheckCircle,
+  Download,
+  GripHorizontal,
 } from 'lucide-react';
 import { productionManagerApi } from '@/features/production-manager/api/productionManagerApi';
 import { reportsApi } from '@/features/reports/api/reportsApi';
@@ -20,8 +19,25 @@ import { employeeApi } from '@/features/employees/api/employeeApi';
 import { customerApi } from '@/features/masters/api/customerApi';
 import { productApi } from '@/features/master-products/api';
 import { AlertsTicker } from '@/features/notifications/components/AlertsTicker';
-
 import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/utils/cn';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Define Card Interface
 interface DashboardCard {
@@ -35,6 +51,92 @@ interface DashboardCard {
   permission?: { module: string; action: string };
 }
 
+interface SortableDashboardCardProps {
+  card: DashboardCard;
+  isEditing: boolean;
+  navigate: (path: string) => void;
+}
+
+const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isEditing, navigate }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: card.title,
+    disabled: !isEditing,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? 'none' : transition,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const Icon = card.icon;
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={style}
+      {...(isEditing ? { ...attributes, ...listeners } : {})}
+      onClick={() => {
+        if (!isEditing) navigate(card.path);
+      }}
+      className={cn(
+        "group relative overflow-hidden rounded-xl border p-6 text-left transition-all select-none",
+        isEditing
+          ? "border-2 border-dashed border-[var(--primary)]/60 bg-[var(--surface-highlight)]/10 cursor-grab active:cursor-grabbing hover:border-[var(--primary)] hover:shadow-lg"
+          : "border-[var(--border)] bg-[var(--surface)] hover:shadow-lg hover:border-[var(--primary)] cursor-pointer"
+      )}
+    >
+      {isEditing && (
+        <div className="absolute top-2 right-2 p-1 text-[var(--text-secondary)] bg-[var(--surface)] border border-[var(--border)] rounded-md opacity-70 group-hover:opacity-100 transition-opacity">
+          <GripHorizontal className="h-4 w-4 text-[var(--primary)]" />
+        </div>
+      )}
+      <div className={cn("flex flex-col h-full", isDragging && "opacity-50")}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className={`inline-flex p-3 rounded-lg ${card.bg} mb-4`}>
+              <Icon className={`h-6 w-6 ${card.color}`} />
+            </div>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
+              {card.title}
+            </h3>
+            {card.description ? (
+              <p className="text-sm text-[var(--text-secondary)]">{card.description}</p>
+            ) : (
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{card.count}</p>
+            )}
+          </div>
+        </div>
+        {!isEditing && (
+          <div className="mt-4 flex items-center text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">
+            {card.description ? 'Access' : 'View details'}
+            <svg
+              className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </div>
+        )}
+      </div>
+    </button>
+  );
+};
+
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission, user } = useAuth();
@@ -44,16 +146,16 @@ export const Dashboard: React.FC = () => {
   const [customerCount, setCustomerCount] = useState<number>(0);
   const [productCount, setProductCount] = useState<number>(0);
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [items, setItems] = useState<DashboardCard[]>([]);
+
   // Fallback / Admin Dashboard Logic (Data Fetching)
-  // We can fetch this for everyone for now, OR conditionally fetch based on role if optimization is needed.
-  // Keeping it as is for simplicity, maybe wrap in permission checks which it already is.
   useEffect(() => {
     const fetchData = async () => {
       // Production Data
       if (hasPermission('production-manager', 'view')) {
         try {
           const productionData = await productionManagerApi.getPlanningDashboardData();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const uniqueMasterIds = new Set(productionData.map((item: any) => item.masterProductId));
           setActiveProductionCount(uniqueMasterIds.size);
         } catch (error) {
@@ -79,7 +181,6 @@ export const Dashboard: React.FC = () => {
       if (hasPermission('employees', 'view')) {
         try {
           const employeeResponse = await employeeApi.getAll();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const employees = (employeeResponse as any).data || [];
           setEmployeeCount(employees.length);
         } catch (error) {
@@ -91,7 +192,6 @@ export const Dashboard: React.FC = () => {
       if (hasPermission('Add New Customer', 'view')) {
         try {
           const customerResponse = await customerApi.getAll();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const customers = (customerResponse as any).data || [];
           setCustomerCount(customers.length);
         } catch (error) {
@@ -228,7 +328,6 @@ export const Dashboard: React.FC = () => {
     }
 
     // --- DEFAULT / ADMIN DASHBOARD ---
-    // Keep existing admin keys and filter by permission
     const defaultCards = [
       {
         title: 'Create Order',
@@ -301,7 +400,102 @@ export const Dashboard: React.FC = () => {
     );
   };
 
-  const visibleCards = getCards();
+  const rawVisibleCards = useMemo(() => getCards(), [
+    employeeCount,
+    customerCount,
+    productCount,
+    activeProductionCount,
+    lowStockCount,
+    user,
+    hasPermission
+  ]);
+
+  const storageKey = `morex_tab_order_${user?.EmployeeID || 'default'}_dashboard`;
+
+  // Sort and sync cards
+  useEffect(() => {
+    const savedOrder = localStorage.getItem(storageKey);
+    if (savedOrder) {
+      try {
+        const orderTitles = JSON.parse(savedOrder) as string[];
+        const sorted = [...rawVisibleCards].sort((a, b) => {
+          const idxA = orderTitles.indexOf(a.title);
+          const idxB = orderTitles.indexOf(b.title);
+          if (idxA === -1 && idxB === -1) return 0;
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+        });
+        setItems(sorted);
+      } catch (e) {
+        console.error('Failed to parse saved dashboard order', e);
+        setItems(rawVisibleCards);
+      }
+    } else {
+      setItems(rawVisibleCards);
+    }
+  }, [rawVisibleCards, storageKey]);
+
+  const isAdmin = user?.Role?.toLowerCase() === 'admin' || user?.Role?.toLowerCase() === 'superadmin';
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setItems(prev => {
+        const oldIndex = prev.findIndex(item => item.title === active.id);
+        const newIndex = prev.findIndex(item => item.title === over.id);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleSave = () => {
+    const orderTitles = items.map(item => item.title);
+    localStorage.setItem(storageKey, JSON.stringify(orderTitles));
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    const savedOrder = localStorage.getItem(storageKey);
+    if (savedOrder) {
+      try {
+        const orderTitles = JSON.parse(savedOrder) as string[];
+        const sorted = [...rawVisibleCards].sort((a, b) => {
+          const idxA = orderTitles.indexOf(a.title);
+          const idxB = orderTitles.indexOf(b.title);
+          if (idxA === -1 && idxB === -1) return 0;
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+        });
+        setItems(sorted);
+      } catch {
+        setItems(rawVisibleCards);
+      }
+    } else {
+      setItems(rawVisibleCards);
+    }
+    setIsEditing(false);
+  };
+
+  const handleReset = () => {
+    if (confirm('Reset dashboard cards to default order?')) {
+      localStorage.removeItem(storageKey);
+      setItems(rawVisibleCards);
+      setIsEditing(false);
+    }
+  };
 
   // Dynamic Header Text based on Role
   const getHeaderText = () => {
@@ -322,62 +516,73 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold text-[var(--text-primary)]">
-          {getHeaderText()}
-        </h1>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          {getSubHeaderText()}
-        </p>
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold text-[var(--text-primary)]">
+            {getHeaderText()}
+          </h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            {getSubHeaderText()}
+          </p>
+        </div>
+        {isAdmin && items.length > 1 && (
+          <div className="flex items-center gap-2 self-end md:self-auto">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm cursor-pointer"
+                >
+                  Save Layout
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2 border border-[var(--border)] hover:bg-[var(--surface-highlight)] text-[var(--text-primary)] rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="px-4 py-2 border border-[var(--border)] hover:bg-[var(--surface-highlight)] text-[var(--text-primary)] rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 border border-[var(--primary)] hover:bg-[var(--primary)]/10 text-[var(--primary)] rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Edit Tabs</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <AlertsTicker />
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {visibleCards.map(card => {
-          const Icon = card.icon;
-          return (
-            <button
-              key={card.title}
-              onClick={() => navigate(card.path)}
-              className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 text-left transition-all hover:shadow-lg hover:border-[var(--primary)]"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className={`inline-flex p-3 rounded-lg ${card.bg} mb-4`}>
-                    <Icon className={`h-6 w-6 ${card.color}`} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
-                    {card.title}
-                  </h3>
-                  {/* Conditionally render description if available, otherwise existing count logic */}
-                  {card.description ? (
-                    <p className="text-sm text-[var(--text-secondary)]">{card.description}</p>
-                  ) : (
-                    <p className="text-2xl font-bold text-[var(--text-primary)]">{card.count}</p>
-                  )}
-                </div>
-              </div>
-              <div className="mt-4 flex items-center text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">
-                {card.description ? 'Access' : 'View details'}
-                <svg
-                  className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={items.map(item => item.title)}
+          strategy={rectSortingStrategy}
+        >
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {items.map(card => (
+              <SortableDashboardCard
+                key={card.title}
+                card={card}
+                isEditing={isEditing}
+                navigate={navigate}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 };
