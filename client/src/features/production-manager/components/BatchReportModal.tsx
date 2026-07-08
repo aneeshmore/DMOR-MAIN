@@ -520,7 +520,7 @@ export default function BatchReportModal({
       tablesStartY = (doc as any).lastAutoTable.finalY + 6;
     }
 
-    const sideBySideStartPage = doc.internal.pages.length;
+    const sideBySideStartPage = doc.getNumberOfPages();
     const sideTableWidth = 88;
     const rightTableX = 108;
     const leftTableColumnStyles = {
@@ -594,7 +594,7 @@ export default function BatchReportModal({
     });
 
     const leftTableFinalY = (doc as any).lastAutoTable.finalY;
-    const leftTableFinalPage = doc.internal.pages.length;
+    const leftTableFinalPage = doc.getNumberOfPages();
 
     doc.setPage(sideBySideStartPage);
 
@@ -645,7 +645,7 @@ export default function BatchReportModal({
     });
     rightStackY = (doc as any).lastAutoTable.finalY;
 
-    const rightTableFinalPage = doc.internal.pages.length;
+    const rightTableFinalPage = doc.getNumberOfPages();
     const maxPage = Math.max(leftTableFinalPage, rightTableFinalPage);
     doc.setPage(maxPage);
 

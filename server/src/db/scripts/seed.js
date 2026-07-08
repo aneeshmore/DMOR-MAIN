@@ -632,126 +632,126 @@ async function seedDatabase() {
         rmDensity: '1.02',
         rmSolids: '60.00',
         purchaseCost: '170.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // PU 929
       {
         masterProductId: masterProductRows[11].masterProductId,
         rmDensity: '4.20',
         rmSolids: '100.00',
         purchaseCost: '250.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // TiO2 Rutile
       {
         masterProductId: masterProductRows[12].masterProductId,
         rmDensity: '2.00',
         rmSolids: '100.00',
         purchaseCost: '265.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Carbon Black
       {
         masterProductId: masterProductRows[13].masterProductId,
         rmDensity: '1.60',
         rmSolids: '100.00',
         purchaseCost: '850.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Blue Phthalocyanine
       {
         masterProductId: masterProductRows[14].masterProductId,
         rmDensity: '5.00',
         rmSolids: '100.00',
         purchaseCost: '95.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Red Oxide
       {
         masterProductId: masterProductRows[15].masterProductId,
         rmDensity: '5.20',
         rmSolids: '100.00',
         purchaseCost: '320.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Chrome Green
       {
         masterProductId: masterProductRows[16].masterProductId,
         rmDensity: '2.70',
         rmSolids: '100.00',
         purchaseCost: '12.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // CaCO3 8080
       {
         masterProductId: masterProductRows[17].masterProductId,
         rmDensity: '2.70',
         rmSolids: '100.00',
         purchaseCost: '12.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Talc
       {
         masterProductId: masterProductRows[18].masterProductId,
         rmDensity: '3.50',
         rmSolids: '100.00',
         purchaseCost: '45.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Yellow Oxide
       {
         masterProductId: masterProductRows[19].masterProductId,
         rmDensity: '0.94',
         rmSolids: '0.00',
         purchaseCost: '1330.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Anti-Terra U
       {
         masterProductId: masterProductRows[20].masterProductId,
         rmDensity: '2.00',
         rmSolids: '100.00',
         purchaseCost: '160.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // I-Clay
       {
         masterProductId: masterProductRows[21].masterProductId,
         rmDensity: '0.86',
         rmSolids: '0.00',
         purchaseCost: '90.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Xylene
       {
         masterProductId: masterProductRows[22].masterProductId,
         rmDensity: '0.97',
         rmSolids: '0.00',
         purchaseCost: '120.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Ethyl Cello
       {
         masterProductId: masterProductRows[23].masterProductId,
         rmDensity: '0.88',
         rmSolids: '0.00',
         purchaseCost: '145.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Butyl Acetate
       {
         masterProductId: masterProductRows[24].masterProductId,
         rmDensity: '0.96',
         rmSolids: '0.00',
         purchaseCost: '1300.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // DM100
       {
         masterProductId: masterProductRows[25].masterProductId,
         rmDensity: '1.05',
         rmSolids: '50.00',
         purchaseCost: '85.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Acrylic Resin
       {
         masterProductId: masterProductRows[26].masterProductId,
         rmDensity: '1.00',
         rmSolids: '0.00',
         purchaseCost: '0.50',
-        availableQty: 0,
+        availableQty: 10000,
       }, // DM Water
       {
         masterProductId: masterProductRows[27].masterProductId,
         rmDensity: '3.30',
         rmSolids: '100.00',
         purchaseCost: '180.00',
-        availableQty: 0,
+        availableQty: 10000,
       }, // Zinc Phosphate
     ]);
     console.log('   ✓ RM attributes set');
@@ -762,31 +762,31 @@ async function seedDatabase() {
         masterProductId: masterProductRows[28].masterProductId,
         capacity: '20.00',
         purchaseCost: '85.00',
-        availableQty: 0,
+        availableQty: 5000,
       },
       {
         masterProductId: masterProductRows[29].masterProductId,
         capacity: '4.00',
         purchaseCost: '30.00',
-        availableQty: 0,
+        availableQty: 5000,
       },
       {
         masterProductId: masterProductRows[30].masterProductId,
         capacity: '1.00',
         purchaseCost: '15.00',
-        availableQty: 0,
+        availableQty: 5000,
       },
       {
         masterProductId: masterProductRows[31].masterProductId,
         capacity: '20.00',
         purchaseCost: '45.00',
-        availableQty: 0,
+        availableQty: 5000,
       },
       {
         masterProductId: masterProductRows[32].masterProductId,
         capacity: '10.00',
         purchaseCost: '28.00',
-        availableQty: 0,
+        availableQty: 5000,
       },
     ]);
     console.log('   ✓ PM attributes set');

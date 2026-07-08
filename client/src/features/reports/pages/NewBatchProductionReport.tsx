@@ -220,37 +220,39 @@ const NewBatchProductionReport = () => {
         startY: infoStartY,
         margin: { left: margin },
         body: leftInfoData,
+        theme: 'grid',
+        styles: {
+          fontSize: 9.5,
+          cellPadding: 1.5,
+          font: 'helvetica',
+          textColor: colorGray700,
+          lineColor: [209, 213, 219],
+          lineWidth: 0.1,
+        },
+        columnStyles: {
+          0: { cellWidth: 22, fontStyle: 'bold' },
+          1: { cellWidth: 58 },
+        },
+        tableWidth: 80,
+      });
+
+      // Draw Right Table
+      autoTable(doc, {
+        startY: infoStartY,
+        margin: { left: 110 }, // Align with right column starting position
+        body: rightInfoData,
         theme: 'plain',
         styles: {
-          fontSize: 10,
+          fontSize: 9.5,
           cellPadding: 1.5,
           font: 'helvetica',
           textColor: colorGray700,
         },
         columnStyles: {
           0: { cellWidth: 35, fontStyle: 'bold' },
-          1: { cellWidth: 60 },
+          1: { cellWidth: 51 },
         },
-        tableWidth: 95,
-      });
-
-      // Draw Right Table
-      autoTable(doc, {
-        startY: infoStartY,
-        margin: { left: margin + 95 + 5 }, // Offset by left table width + gap
-        body: rightInfoData,
-        theme: 'plain',
-        styles: {
-          fontSize: 10,
-          cellPadding: 1.5,
-          font: 'helvetica',
-          textColor: colorGray700,
-        },
-        columnStyles: {
-          0: { cellWidth: 40, fontStyle: 'bold' },
-          1: { cellWidth: 60 },
-        },
-        tableWidth: 100,
+        tableWidth: 86,
       });
 
       const infoBlockFinalY = (doc as any).lastAutoTable.finalY;
@@ -269,9 +271,30 @@ const NewBatchProductionReport = () => {
 
       // 1. Ingredients Calculation (Left Table)
       const allIngredients = (batch.rawMaterials || []).filter(rm => rm.productType !== 'PM');
-      const regularIngredients = allIngredients.filter(rm => !rm.isAdditional);
-      const additionalIngredients = allIngredients.filter(rm => rm.isAdditional);
-      const ingredients = [...regularIngredients, ...additionalIngredients];
+      const plannedQtyTotal = parseNumber(batch.plannedQuantity) || 1;
+
+      const processedRegular = [];
+      const processedAdditional = [];
+
+      for (const rm of allIngredients) {
+        const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
+        const isReduced = !rm.isAdditional && (parseNumber(rm.actualQty) < plannedQty - 0.001);
+        const computedPercentage = (parseNumber(rm.actualQty) / plannedQtyTotal) * 100;
+
+        const processedObj = {
+          ...rm,
+          isReduced,
+          computedPercentage,
+        };
+
+        if (rm.isAdditional) {
+          processedAdditional.push(processedObj);
+        } else {
+          processedRegular.push(processedObj);
+        }
+      }
+
+      const ingredients = [...processedRegular, ...processedAdditional];
 
       // Total Actual Weight from Ingredients (Sum of Actual Qty)
       const totalActualWeight = ingredients.reduce(
@@ -279,9 +302,10 @@ const NewBatchProductionReport = () => {
         0
       );
       const totalPercentage = ingredients.reduce(
-        (sum, rm) => sum + parseNumber(rm.percentage || '0'),
+        (sum, rm) => sum + rm.computedPercentage,
         0
       );
+      const anyExceeds100 = ingredients.some(rm => rm.isAdditional || rm.isReduced);
 
       // 2. Sub Products Calculation (Right Table / Shade Table)
       const filteredSubProducts = (batch.subProducts || []).filter(sp => {
@@ -335,10 +359,11 @@ const NewBatchProductionReport = () => {
       // Separate regular and additional materials
       // Ingredients Body - Without Rate and Amount columns
       const ingredientsBody = ingredients.map((rm, index) => {
+        const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumber(rm.computedPercentage);
         return [
           index + 1,
           rm.rawMaterialName,
-          formatNumber(rm.percentage),
+          pctVal,
           formatNumber(rm.actualQty || rm.percentage),
         ];
       });
@@ -371,7 +396,7 @@ const NewBatchProductionReport = () => {
         ];
       });
 
-      const sideBySideStartPage = doc.internal.pages.length;
+      const sideBySideStartPage = doc.getNumberOfPages();
       const tableY = currentY;
 
       // Left Table: Ingredients (Side by Side - Left)
@@ -382,8 +407,8 @@ const NewBatchProductionReport = () => {
         body: ingredientsBody,
         theme: 'grid',
         styles: {
-          fontSize: 7,
-          cellPadding: 3,
+          fontSize: 9,
+          cellPadding: 1.2,
           lineColor: [229, 231, 235],
           lineWidth: 0.1,
           textColor: colorGray700,
@@ -394,15 +419,15 @@ const NewBatchProductionReport = () => {
           fillColor: colorGray100,
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 7,
+          fontSize: 9,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
         columnStyles: {
           0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 45, halign: 'left' },
-          2: { cellWidth: 18, halign: 'right' },
-          3: { cellWidth: 18, halign: 'right' },
+          1: { cellWidth: 43, halign: 'left' },
+          2: { cellWidth: 22, halign: 'right' },
+          3: { cellWidth: 16, halign: 'right' },
         },
         tableWidth: 91,
         foot: [['', 'Total', formatNumber(totalPercentage), formatNumber(totalActualWeight)]],
@@ -410,7 +435,7 @@ const NewBatchProductionReport = () => {
           fillColor: colorSuccess, // Green
           textColor: [255, 255, 255], // White
           fontStyle: 'bold',
-          fontSize: 7,
+          fontSize: 9,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
@@ -418,8 +443,9 @@ const NewBatchProductionReport = () => {
         didParseCell: data => {
           if (data.section === 'body') {
             const rm = ingredients[data.row.index];
-            // Bold styling for additional materials
-            if (rm && rm.isAdditional) {
+            // Bold styling for additional (if exceeds 100%) or reduced materials
+            const isHighlighted = rm && (rm.isAdditional ? anyExceeds100 : rm.isReduced);
+            if (isHighlighted) {
               data.cell.styles.fontStyle = 'bold';
             }
           }
@@ -432,10 +458,39 @@ const NewBatchProductionReport = () => {
             }
           }
         },
+        didDrawCell: data => {
+          if (data.section === 'body' && data.column.index === 1) {
+            const rm = ingredients[data.row.index];
+            const isHighlighted = rm && (rm.isAdditional ? anyExceeds100 : rm.isReduced);
+            if (isHighlighted) {
+              // Draw underline under the product name text
+              const cell = data.cell;
+              const textWidth = doc.getTextWidth(cell.text[0] || '');
+              const startX = cell.x + cell.padding('left');
+              const startY = cell.y + cell.height - cell.padding('bottom') + 0.1;
+              doc.setLineWidth(0.1);
+              doc.setDrawColor(0, 0, 0);
+              doc.line(startX, startY, startX + textWidth, startY);
+            }
+          }
+        },
       });
 
-      const leftTableFinalY = (doc as any).lastAutoTable.finalY;
-      const leftTableFinalPage = doc.internal.pages.length;
+      let leftTableFinalY = (doc as any).lastAutoTable.finalY;
+      const leftTableFinalPage = doc.getNumberOfPages();
+
+      if (anyExceeds100) {
+        doc.setPage(leftTableFinalPage);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        doc.setTextColor(239, 68, 68); // Red-500
+        doc.text(
+          '* Underlined raw materials were added or reduced separately during batch production.',
+          margin,
+          leftTableFinalY + 4
+        );
+        leftTableFinalY += 6;
+      }
 
       // Reset to starting page for Right Column
       doc.setPage(sideBySideStartPage);
@@ -453,7 +508,7 @@ const NewBatchProductionReport = () => {
       autoTable(doc, {
         startY: tableY,
         margin: { left: rightTableX, right: margin },
-        head: [['Parameter', 'Input', 'Output', 'Var']],
+        head: [['Parameter', 'Input', 'Output', 'Difference']],
         body: [
           [
             'Filling Density',
@@ -476,8 +531,8 @@ const NewBatchProductionReport = () => {
         ],
         theme: 'grid',
         styles: {
-          fontSize: 7,
-          cellPadding: 2,
+          fontSize: 9,
+          cellPadding: 1.2,
           lineColor: [229, 231, 235],
           lineWidth: 0.1,
           textColor: colorGray700,
@@ -486,31 +541,37 @@ const NewBatchProductionReport = () => {
           fillColor: colorGray100,
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 7,
+          fontSize: 9,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
         columnStyles: {
-          0: { cellWidth: 26 },
-          1: { cellWidth: 20, halign: 'right' },
-          2: { cellWidth: 20, halign: 'right' },
-          3: { cellWidth: 20, halign: 'right' },
+          0: { cellWidth: 35 },
+          1: { cellWidth: 14, halign: 'right' },
+          2: { cellWidth: 14, halign: 'right' },
+          3: { cellWidth: 23, halign: 'right' },
         },
         tableWidth: rightTableWidth,
       });
 
       let rightStackY = (doc as any).lastAutoTable.finalY + 8;
 
+      // Draw "Packing Table" title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Packing Table', rightTableX, rightStackY - 2);
+
       // 2. Shade Table (Sub Products)
       autoTable(doc, {
         startY: rightStackY,
         margin: { left: rightTableX, right: margin },
-        head: [['Packing', 'QTY', 'Filled', 'LTR', 'KG']],
+        head: [['Packing', 'Qty', 'Filled', 'LTR', 'KG']],
         body: subProductsBody,
         theme: 'grid',
         styles: {
-          fontSize: 7,
-          cellPadding: 2,
+          fontSize: 9,
+          cellPadding: 1.2,
           lineColor: [229, 231, 235],
           lineWidth: 0.1,
           textColor: colorGray700,
@@ -520,16 +581,16 @@ const NewBatchProductionReport = () => {
           fillColor: colorGray100,
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 7,
+          fontSize: 9,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
         columnStyles: {
-          0: { cellWidth: 30, halign: 'left' },
-          1: { cellWidth: 14, halign: 'right' },
-          2: { cellWidth: 14, halign: 'right' },
-          3: { cellWidth: 14, halign: 'right' },
-          4: { cellWidth: 14, halign: 'right' },
+          0: { cellWidth: 38, halign: 'left' },
+          1: { cellWidth: 12, halign: 'right' },
+          2: { cellWidth: 12, halign: 'right' },
+          3: { cellWidth: 12, halign: 'right' },
+          4: { cellWidth: 12, halign: 'right' },
         },
         tableWidth: rightTableWidth,
         foot: [
@@ -545,7 +606,7 @@ const NewBatchProductionReport = () => {
           fillColor: colorSuccess,
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 7,
+          fontSize: 9,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
@@ -591,8 +652,8 @@ const NewBatchProductionReport = () => {
           body: packagingBody,
           theme: 'grid',
           styles: {
-            fontSize: 7,
-            cellPadding: 2,
+            fontSize: 9,
+            cellPadding: 1.2,
             lineColor: [229, 231, 235],
             lineWidth: 0.1,
             textColor: colorGray700,
@@ -602,13 +663,13 @@ const NewBatchProductionReport = () => {
             fillColor: colorGray100,
             textColor: [0, 0, 0],
             fontStyle: 'bold',
-            fontSize: 7,
+            fontSize: 9,
             lineWidth: 0.1,
             lineColor: [229, 231, 235],
           },
           columnStyles: {
-            0: { cellWidth: 61, halign: 'left' },
-            1: { cellWidth: 25, halign: 'right' },
+            0: { cellWidth: 68, halign: 'left' },
+            1: { cellWidth: 18, halign: 'right' },
           },
           tableWidth: rightTableWidth,
           foot: [['Total', formatNumber(totalActualPM)]],
@@ -616,7 +677,7 @@ const NewBatchProductionReport = () => {
             fillColor: colorSuccess,
             textColor: [255, 255, 255],
             fontStyle: 'bold',
-            fontSize: 7,
+            fontSize: 9,
             lineWidth: 0.1,
             lineColor: [229, 231, 235],
           },
@@ -635,7 +696,7 @@ const NewBatchProductionReport = () => {
         rightStackY = (doc as any).lastAutoTable.finalY;
       }
 
-      const rightTableFinalPage = doc.internal.pages.length;
+      const rightTableFinalPage = doc.getNumberOfPages();
 
       // Determine max page reached
       const maxPage = Math.max(leftTableFinalPage, rightTableFinalPage);
@@ -674,7 +735,8 @@ const NewBatchProductionReport = () => {
       const remarks = doc.splitTextToSize(batch.productionRemarks || '-', pageWidth - margin * 2);
       doc.text(remarks, margin, currentY);
 
-      currentY += 20; // Space for signatures
+      const remarksHeight = remarks.length * 4.5;
+      currentY += remarksHeight + 8; // Reduced space for signatures, calculated dynamically based on remarks length
 
       // Signatures
       doc.setFont('helvetica', 'bold');
@@ -1533,77 +1595,106 @@ const NewBatchProductionReport = () => {
               <div className="ml-4 border-l-2 border-[var(--color-warning)] pl-4">
                 <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
                   Raw Materials (BOM)
-                </h4>
-                {row.original.rawMaterials && row.original.rawMaterials.length > 0 ? (
-                  <table className="w-full text-sm text-left bg-[var(--surface)] rounded-lg border border-[var(--border)]">
-                    <thead className="bg-[var(--color-neutral-100)] text-[var(--text-secondary)]">
-                      <tr>
-                        <th className="px-4 py-2">Material Name</th>
-                        <th className="px-4 py-2 text-right">Percentage (%)</th>
-                        <th className="px-4 py-2 text-right">Actual Weight</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--border)]">
-                      {/* Regular materials first - normal weight */}
-                      {row.original.rawMaterials
-                        .filter(
-                          rm => !rm.isAdditional && parseFloat(rm.percentage?.toString() || '0') > 0
-                        )
-                        .map((rm, index) => (
-                          <tr key={`${rm.rawMaterialId}-${index}`}>
-                            <td className="px-4 py-2 text-[var(--text-primary)] font-normal">
-                              {rm.rawMaterialName}
-                            </td>
-                            <td className="px-4 py-2 text-right text-[var(--text-secondary)]">
-                              {formatNumber(rm.percentage)}
-                            </td>
-                            <td className="px-4 py-2 text-right text-[var(--text-secondary)]">
-                              {formatNumber(rm.actualQty || rm.percentage)}
-                            </td>
-                          </tr>
-                        ))}
-                      {/* Additional materials in bold */}
-                      {row.original.rawMaterials
-                        .filter(
-                          rm => rm.isAdditional || parseFloat(rm.percentage?.toString() || '0') <= 0
-                        )
-                        .map((rm, index) => (
-                          <tr key={`extra-${rm.rawMaterialId}-${index}`}>
-                            <td className="px-4 py-2 text-[var(--text-primary)] font-bold">
-                              {rm.rawMaterialName}
-                            </td>
-                            <td className="px-4 py-2 text-right text-[var(--text-secondary)] font-bold">
-                              {formatNumber(rm.percentage)}
-                            </td>
-                            <td className="px-4 py-2 text-right text-[var(--text-secondary)] font-bold">
-                              {formatNumber(rm.actualQty || rm.percentage)}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                    <tfoot className="bg-[var(--color-neutral-100)] font-semibold">
-                      <tr>
-                        <td className="px-4 py-2 text-[var(--text-primary)]">Total</td>
-                        <td className="px-4 py-2 text-right text-[var(--text-primary)]">
-                          {formatNumber(
-                            row.original.rawMaterials.reduce(
-                              (sum, rm) => sum + parseNumber(rm.percentage || '0'),
-                              0
-                            )
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-right text-[var(--text-primary)]">
-                          {formatNumber(
-                            row.original.rawMaterials.reduce(
-                              (sum, rm) => sum + parseNumber(rm.actualQty || rm.percentage || '0'),
-                              0
-                            )
-                          )}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                ) : (
+                </h4>                 {row.original.rawMaterials && row.original.rawMaterials.length > 0 ? (() => {
+                    const rawMaterialsList = (row.original.rawMaterials || []).filter(rm => rm.productType !== 'PM');
+                    const plannedQtyTotal = parseNumber(row.original.plannedQuantity) || 1;
+
+                    const processedRegular = [];
+                    const processedAdditional = [];
+
+                    for (const rm of rawMaterialsList) {
+                      const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
+                      const isReduced = !rm.isAdditional && (parseNumber(rm.actualQty) < plannedQty - 0.001);
+                      const computedPercentage = (parseNumber(rm.actualQty) / plannedQtyTotal) * 100;
+
+                      const processedObj = {
+                        ...rm,
+                        isReduced,
+                        computedPercentage,
+                      };
+
+                      if (rm.isAdditional) {
+                        processedAdditional.push(processedObj);
+                      } else {
+                        processedRegular.push(processedObj);
+                      }
+                    }
+
+                    const all = [...processedRegular, ...processedAdditional];
+                    const regular = all.filter(rm => !rm.isAdditional);
+                    const additional = all.filter(rm => rm.isAdditional);
+
+                    const totalPercentage = all.reduce((sum, rm) => sum + rm.computedPercentage, 0);
+                    const totalActual = all.reduce((sum, rm) => sum + parseNumber(rm.actualQty || rm.percentage || '0'), 0);
+                    const anyExceeds100 = all.some(rm => rm.isAdditional || rm.isReduced);
+
+                    return (
+                      <>
+                        <table className="w-full text-sm text-left bg-[var(--surface)] rounded-lg border border-[var(--border)]">
+                          <thead className="bg-[var(--color-neutral-100)] text-[var(--text-secondary)]">
+                            <tr>
+                              <th className="px-4 py-2">Material Name</th>
+                              <th className="px-4 py-2 text-right">Percentage (%)</th>
+                              <th className="px-4 py-2 text-right">Actual Weight</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border)]">
+                            {/* Regular materials */}
+                            {regular.map((rm, index) => {
+                              const isUnderline = rm.isReduced;
+                              return (
+                                <tr key={`${rm.rawMaterialId}-${index}`}>
+                                  <td className={`px-4 py-2 text-[var(--text-primary)] ${isUnderline ? 'font-bold' : 'font-normal'}`}>
+                                    {isUnderline ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
+                                  </td>
+                                  <td className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}>
+                                    {formatNumber(rm.computedPercentage)}
+                                  </td>
+                                  <td className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}>
+                                    {formatNumber(rm.actualQty || rm.percentage)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {/* Additional materials */}
+                            {additional.map((rm, index) => {
+                              const isUnderline = anyExceeds100;
+                              const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumber(rm.computedPercentage);
+                              return (
+                                <tr key={`extra-${rm.rawMaterialId}-${index}`}>
+                                  <td className={`px-4 py-2 text-[var(--text-primary)] ${isUnderline ? 'font-bold' : 'font-normal'}`}>
+                                    {isUnderline ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
+                                  </td>
+                                  <td className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}>
+                                    {pctVal}
+                                  </td>
+                                  <td className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}>
+                                    {formatNumber(rm.actualQty || rm.percentage)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot className="bg-[var(--color-neutral-100)] font-semibold">
+                            <tr>
+                              <td className="px-4 py-2 text-[var(--text-primary)]">Total</td>
+                              <td className="px-4 py-2 text-right text-[var(--text-primary)]">
+                                {formatNumber(totalPercentage)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-[var(--text-primary)]">
+                                {formatNumber(totalActual)}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                        {anyExceeds100 && (
+                          <div className="text-[10px] text-red-500 font-semibold mt-2 pl-2">
+                            * Underlined raw materials were added or reduced separately during batch production.
+                          </div>
+                        )}
+                      </>
+                    );
+                  })() : (
                   <p className="text-sm text-[var(--text-secondary)] italic">
                     No raw materials found for this product.
                   </p>
@@ -1782,24 +1873,41 @@ const NewBatchProductionReport = () => {
             {/* Tables Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
               {/* Ingredients Table */}
-              {(() => {
+               {(() => {
                 const rms = (previewBatch.rawMaterials || []).filter(rm => rm.productType !== 'PM');
+                const plannedQtyTotal = parseNumber(previewBatch.plannedQuantity) || 1;
 
-                const regular = rms.filter(
-                  rm => !rm.isAdditional && Number(rm.percentage ?? '0') > 0
-                );
+                const processedRegular = [];
+                const processedAdditional = [];
 
-                const additional = rms.filter(
-                  rm => rm.isAdditional || Number(rm.percentage ?? '0') <= 0
-                );
+                for (const rm of rms) {
+                  const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
+                  const isReduced = !rm.isAdditional && (parseNumber(rm.actualQty) < plannedQty - 0.001);
+                  const computedPercentage = (parseNumber(rm.actualQty) / plannedQtyTotal) * 100;
 
-                const allMaterials = [...regular, ...additional];
+                  const processedObj = {
+                    ...rm,
+                    isReduced,
+                    computedPercentage,
+                  };
+
+                  if (rm.isAdditional) {
+                    processedAdditional.push(processedObj);
+                  } else {
+                    processedRegular.push(processedObj);
+                  }
+                }
+
+                const allMaterials = [...processedRegular, ...processedAdditional];
+                const regular = allMaterials.filter(rm => !rm.isAdditional);
+                const additional = allMaterials.filter(rm => rm.isAdditional);
+
                 const totalPercentage = allMaterials.reduce(
-                  (s, rm) => s + parseNumber(rm.percentage ?? '0'),
+                  (s, rm) => s + rm.computedPercentage,
                   0
                 );
                 const totalActual = allMaterials.reduce(
-                  (s, rm) => s + parseNumber(rm.actualQty ?? rm.percentage ?? '0'),
+                  (s, rm) => s + parseNumber(rm.actualQty || rm.percentage || '0'),
                   0
                 );
                 const totalAmount = allMaterials.reduce((s, rm) => {
@@ -1810,6 +1918,8 @@ const NewBatchProductionReport = () => {
                       : 0;
                   return s + actual * rate;
                 }, 0);
+
+                const anyExceeds100 = allMaterials.some(rm => rm.isAdditional || rm.isReduced);
 
                 return (
                   <div>
@@ -1826,39 +1936,46 @@ const NewBatchProductionReport = () => {
                       </thead>
                       <tbody>
                         {/* Regular Materials */}
-                        {regular.map((rm, idx) => (
-                          <tr key={`reg-${idx}`}>
-                            <td className="border border-gray-300 px-2 py-1 text-center">
-                              {idx + 1}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1">
-                              {rm.rawMaterialName}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(rm.percentage)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(rm.actualQty || rm.percentage)}
-                            </td>
-                          </tr>
-                        ))}
-                        {/* Additional Materials - All Bold */}
-                        {additional.map((rm, idx) => (
-                          <tr key={`add-${idx}`}>
-                            <td className="border border-gray-300 px-2 py-1 text-center font-bold">
-                              {regular.length + idx + 1}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 font-bold">
-                              {rm.rawMaterialName}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right font-bold">
-                              {formatNumberForPreview(rm.percentage)}
-                            </td>
-                            <td className="border border-gray-300 px-2 py-1 text-right font-bold">
-                              {formatNumberForPreview(rm.actualQty || rm.percentage)}
-                            </td>
-                          </tr>
-                        ))}
+                        {regular.map((rm, idx) => {
+                          const isUnderlinedOrBold = rm.isReduced;
+                          return (
+                            <tr key={`reg-${idx}`}>
+                              <td className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                                {idx + 1}
+                              </td>
+                              <td className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                                {isUnderlinedOrBold ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
+                              </td>
+                              <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                                {formatNumberForPreview(rm.computedPercentage)}
+                              </td>
+                              <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                                {formatNumberForPreview(rm.actualQty || rm.percentage)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {/* Additional Materials */}
+                        {additional.map((rm, idx) => {
+                          const isUnderlinedOrBold = anyExceeds100;
+                          const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumberForPreview(rm.computedPercentage);
+                          return (
+                            <tr key={`add-${idx}`}>
+                              <td className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                                {regular.length + idx + 1}
+                              </td>
+                              <td className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                                {isUnderlinedOrBold ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
+                              </td>
+                              <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                                {pctVal}
+                              </td>
+                              <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                                {formatNumberForPreview(rm.actualQty || rm.percentage)}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                       <tfoot className="bg-[var(--color-success)] text-white font-bold">
                         <tr>
@@ -1874,6 +1991,11 @@ const NewBatchProductionReport = () => {
                         </tr>
                       </tfoot>
                     </table>
+                    {anyExceeds100 && (
+                      <div className="text-[10px] text-red-500 font-semibold mt-2">
+                        * Underlined raw materials were added or reduced separately during batch production.
+                      </div>
+                    )}
                   </div>
                 );
               })()}

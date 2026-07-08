@@ -5,7 +5,7 @@
  * Manages inventory updates with weight-based tracking
  */
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql, and } from 'drizzle-orm';
 import db from '../../db/index.js';
 import {
   productionBatch,
@@ -258,29 +258,7 @@ export class ProductionSupervisorService {
           if (newSku) transactionProductId = newSku.productId;
         }
 
-        // 3. Log Transaction (calculate balance from RM table)
-        if (transactionProductId) {
-          const [rmStock] = await db
-            .select({ availableQty: masterProductRM.availableQty })
-            .from(masterProductRM)
-            .where(eq(masterProductRM.masterProductId, material.materialId));
-
-          const balance = rmStock ? parseFloat(rmStock.availableQty || 0) : 0;
-
-          await db.insert(inventoryTransactions).values({
-            masterProductId: material.materialId,
-            productId: transactionProductId,
-            transactionType: 'Production Consumption',
-            quantity: -quantityToDeduct,
-            balanceBefore: balance + quantityToDeduct, // Approximate
-            balanceAfter: balance,
-            referenceType: 'Batch',
-            referenceId: batchId,
-            notes: `Consumed in batch ${batch.batchNo} (RM)`,
-            createdBy: completionData.completedBy,
-            createdAt: new Date(),
-          });
-        }
+        // 3. Skip inline transaction write for RM logic (will be handled by consolidation step at completion)
       } else {
         // --- LEGACY/SKU LOGIC ---
         // Unreserve and deduct from available
@@ -292,22 +270,7 @@ export class ProductionSupervisorService {
           })
           .where(eq(products.productId, material.materialId));
 
-        // Record inventory transaction using centralized service
-        try {
-          await inventoryTransactionService.recordProductionConsumption({
-            productId: material.materialId,
-            quantity: quantityToDeduct,
-            weightKg: null,
-            batchId,
-            createdBy: completionData.completedBy,
-            notes: `Consumed in batch ${batch.batchNo}`,
-          });
-        } catch (txnError) {
-          console.error(
-            '[ProductionSupervisor] Failed to record consumption transaction:',
-            txnError
-          );
-        }
+        // Skip inline transaction write for SKU logic (will be handled by consolidation step at completion)
       }
 
       if (actualQty) {
@@ -508,6 +471,99 @@ export class ProductionSupervisorService {
       performedBy: completionData.completedBy,
       notes: `Completed with ${actualQuantity} qty (${actualWeightKg}kg at ${actualDensity}kg/L)`,
     });
+
+    // Group and consolidate Production Consumption transactions for the completed batch
+    try {
+      const numericBatchId = parseInt(batchId);
+      const finalMaterials = await db
+        .select()
+        .from(batchMaterials)
+        .where(eq(batchMaterials.batchId, numericBatchId));
+
+      if (finalMaterials.length > 0) {
+        // Group by materialId
+        const materialConsumptions = new Map();
+        for (const mat of finalMaterials) {
+          const matId = mat.materialId;
+          const qty = mat.actualQuantity !== null ? parseFloat(mat.actualQuantity) : parseFloat(mat.requiredQuantity) || 0;
+          materialConsumptions.set(matId, (materialConsumptions.get(matId) || 0) + qty);
+        }
+
+        // Update or insert Production Consumption transactions per raw material
+        for (const [materialId, totalQty] of materialConsumptions.entries()) {
+          if (totalQty <= 0) continue;
+
+          const existingTxs = await db
+            .select()
+            .from(inventoryTransactions)
+            .where(
+              and(
+                eq(inventoryTransactions.referenceType, 'Batch'),
+                eq(inventoryTransactions.referenceId, numericBatchId),
+                eq(inventoryTransactions.masterProductId, materialId),
+                eq(inventoryTransactions.transactionType, 'Production Consumption')
+              )
+            )
+            .orderBy(inventoryTransactions.transactionId);
+
+          // Fetch current stock from masterProductRM to align balances
+          const [rmStock] = await db
+            .select({ availableQty: masterProductRM.availableQty })
+            .from(masterProductRM)
+            .where(eq(masterProductRM.masterProductId, materialId));
+          const currentBalance = rmStock ? parseFloat(rmStock.availableQty || 0) : 0;
+
+          if (existingTxs.length > 0) {
+            const primaryTx = existingTxs[0];
+
+            // Update primary transaction with total quantity and updated balances
+            await db
+              .update(inventoryTransactions)
+              .set({
+                quantity: Math.round(-totalQty),
+                weightKg: String(-totalQty),
+                balanceBefore: Math.round(currentBalance + totalQty),
+                balanceAfter: Math.round(currentBalance),
+                notes: `Consolidated Production Consumption in batch ${batch.batchNo} (RM)`,
+              })
+              .where(eq(inventoryTransactions.transactionId, primaryTx.transactionId));
+
+            // If there are duplicate transactions, delete them
+            if (existingTxs.length > 1) {
+              const duplicateIds = existingTxs.slice(1).map(tx => tx.transactionId);
+              await db
+                .delete(inventoryTransactions)
+                .where(inArray(inventoryTransactions.transactionId, duplicateIds));
+            }
+          } else {
+            // Create one new transaction if none existed (nullable productId is safe)
+            const product = await db
+              .select({ productId: products.productId })
+              .from(products)
+              .where(eq(products.masterProductId, materialId))
+              .limit(1);
+
+            const productIdVal = product.length > 0 ? product[0].productId : null;
+
+            await db.insert(inventoryTransactions).values({
+              productId: productIdVal,
+              masterProductId: materialId,
+              transactionType: 'Production Consumption',
+              quantity: Math.round(-totalQty),
+              weightKg: String(-totalQty),
+              balanceBefore: Math.round(currentBalance + totalQty),
+              balanceAfter: Math.round(currentBalance),
+              referenceType: 'Batch',
+              referenceId: numericBatchId,
+              createdBy: completionData.completedBy,
+              notes: `Consolidated Production Consumption in batch ${batch.batchNo} (RM)`,
+            });
+          }
+        }
+      }
+    } catch (syncError) {
+      console.error('Failed to synchronize inventory transactions on batch completion:', syncError);
+    }
 
     return {
       batch: updatedBatch,
