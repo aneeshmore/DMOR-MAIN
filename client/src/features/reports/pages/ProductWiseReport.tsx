@@ -514,11 +514,17 @@ const ProductWiseReport = () => {
               consumptionMap[materialId] = { total: 0, entries: [] };
             }
             consumptionMap[materialId].total += qty;
-            consumptionMap[materialId].entries.push({
-              quantity: qty,
-              batchNo: batch.batchNo,
-              completedAt: batch.completedAt,
-            });
+            
+            const existingEntry = consumptionMap[materialId].entries.find(e => e.batchNo === batch.batchNo);
+            if (existingEntry) {
+              existingEntry.quantity += qty;
+            } else {
+              consumptionMap[materialId].entries.push({
+                quantity: qty,
+                batchNo: batch.batchNo,
+                completedAt: batch.completedAt,
+              });
+            }
           });
 
           // Packaging Materials Processing
@@ -532,11 +538,17 @@ const ProductWiseReport = () => {
               consumptionMap[materialId] = { total: 0, entries: [] };
             }
             consumptionMap[materialId].total += qty;
-            consumptionMap[materialId].entries.push({
-              quantity: qty,
-              batchNo: batch.batchNo,
-              completedAt: batch.completedAt,
-            });
+            
+            const existingEntry = consumptionMap[materialId].entries.find(e => e.batchNo === batch.batchNo);
+            if (existingEntry) {
+              existingEntry.quantity += qty;
+            } else {
+              consumptionMap[materialId].entries.push({
+                quantity: qty,
+                batchNo: batch.batchNo,
+                completedAt: batch.completedAt,
+              });
+            }
           });
         });
 

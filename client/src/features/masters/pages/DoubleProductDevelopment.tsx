@@ -1175,7 +1175,42 @@ const DoubleProductDevelopment = () => {
                   {calculateTotalPercentage(items).toFixed(3)}%
                 </td>
                 <td className="px-4 py-3">{calculateTotalWtInLtr(items).toFixed(3)}</td>
-                <td colSpan={3}></td>
+                <td colSpan={3} className="px-4 py-3 text-right">
+                  {!isHardener && linkedHardenerId && (() => {
+                    const targetValue =
+                      (parseFloat(ratioBase || '0') /
+                        (parseFloat(ratioHardener || '1') || 1)) *
+                      calculateTotalWtInLtr(hardenerItems);
+                    const totalWtLtr = calculateTotalWtInLtr(items);
+                    const difference = totalWtLtr - targetValue;
+                    const diffVal = parseFloat(difference.toFixed(3));
+
+                    let recText = '';
+                    let recColor = '';
+                    if (diffVal < 0) {
+                      recText = '↑ Increase Base Volume';
+                      recColor = '#d97706'; // Amber
+                    } else if (diffVal > 0) {
+                      recText = '↓ Reduce Base Volume';
+                      recColor = '#2563eb'; // Blue
+                    } else {
+                      recText = '✓ Base Volume is Accurate';
+                      recColor = '#16a34a'; // Green
+                    }
+
+                    return (
+                      <span
+                        style={{
+                          color: recColor,
+                          fontSize: '13px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {recText}
+                      </span>
+                    );
+                  })()}
+                </td>
               </tr>
               {showGrandTotal && (
                 <tr className="bg-[var(--surface)] border-t border-[var(--border)] border-dashed">
