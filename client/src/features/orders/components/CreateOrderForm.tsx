@@ -70,10 +70,14 @@ type FlexibleEmployee = Employee & {
 // =====================
 
 interface OrderDetailLine {
+  id: string; // Unique row ID
   productId: number;
   quantity: number;
   unitPrice: number;
   discount: number;
+  linkedHardenerRowId?: string; // For Base: points to its Hardener
+  linkedBaseRowId?: string; // For Hardener: points to its Base
+  isAutoHardener?: boolean; // True if this was auto-added by a Base
 }
 
 interface CreateOrderFormProps {
@@ -150,7 +154,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
 
   // Order details (line items)
   const [orderDetails, setOrderDetails] = useState<OrderDetailLine[]>([
-    { productId: 0, quantity: 1, unitPrice: 0, discount: 0 },
+    { id: crypto.randomUUID(), productId: 0, quantity: 1, unitPrice: 0, discount: 0 },
   ]);
 
   // UI State
@@ -191,15 +195,12 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
     items: [{ productId: false, quantity: false }],
   });
 
-  // Linked Products State (Base → Hardener mapping)
-  // Key: Base productId, Value: Hardener productId
-  const [linkedProducts, setLinkedProducts] = useState<Map<number, number>>(new Map());
-
   // Hardener Selection Modal State
   const [showHardenerModal, setShowHardenerModal] = useState(false);
   const [hardenerModalData, setHardenerModalData] = useState<{
     baseProduct: Product | null;
     baseProductId: number;
+    baseRowId: string;
     requiredPackSize: number;
     availableHardeners: Product[];
     baseQty: number;
@@ -299,14 +300,39 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
       setRemarks(editingOrder.remarks || '');
 
       if (editingOrder.orderDetails && editingOrder.orderDetails.length > 0) {
-        setOrderDetails(
-          editingOrder.orderDetails.map(d => ({
-            productId: d.productId,
-            quantity: d.quantity,
-            unitPrice: Number(d.unitPrice),
-            discount: d.discount || 0,
-          }))
-        );
+        const newDetails: OrderDetailLine[] = editingOrder.orderDetails.map(d => ({
+          id: crypto.randomUUID(),
+          productId: d.productId,
+          quantity: d.quantity,
+          unitPrice: Number(d.unitPrice),
+          discount: d.discount || 0,
+        }));
+
+        // Pass 2: Reconstruct bidirectional Auto-Hardener links
+        if (products.length > 0) {
+          newDetails.forEach((item, index) => {
+            const product = products.find(p => p.productId === item.productId);
+            if (product?.Subcategory === 'Base' && product?.HardenerId && !item.linkedHardenerRowId) {
+              const hardenerSkus = products.filter(p => p.masterProductId === product.HardenerId);
+              const hardenerProductIds = hardenerSkus.map(p => p.productId);
+              
+              // Find the NEXT available hardener row that matches
+              const hardenerIndex = newDetails.findIndex((d, i) => 
+                i > index && 
+                hardenerProductIds.includes(d.productId) && 
+                !d.linkedBaseRowId
+              );
+
+              if (hardenerIndex !== -1) {
+                item.linkedHardenerRowId = newDetails[hardenerIndex].id;
+                newDetails[hardenerIndex].linkedBaseRowId = item.id;
+                newDetails[hardenerIndex].isAutoHardener = true;
+              }
+            }
+          });
+        }
+
+        setOrderDetails(newDetails);
       }
 
       // Auto-validate form
@@ -316,7 +342,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         items: editingOrder.orderDetails.map(() => ({ productId: false, quantity: false })),
       });
     }
-  }, [editingOrder, viewMode]);
+  }, [editingOrder, viewMode, products.length]);
 
   // =====================
   // DATA FETCHING
@@ -492,7 +518,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
 
     setOrderDetails(prevDetails => [
       ...prevDetails,
-      { productId: 0, quantity: 1, unitPrice: 0, discount: 0 },
+      { id: crypto.randomUUID(), productId: 0, quantity: 1, unitPrice: 0, discount: 0 },
     ]);
 
     setValidationErrors(prev => ({
@@ -520,18 +546,67 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
   }, [orderDetails]);
 
   const handleRemoveOrderDetail = useCallback((index: number) => {
+    const idsToRemove: string[] = [];
+
     setOrderDetails(prevDetails => {
       if (prevDetails.length === 1) {
         showToast.error('At least one item is required');
         return prevDetails;
       }
-      return prevDetails.filter((_, i) => i !== index);
+      
+      const rowToRemove = prevDetails[index];
+      const newDetails = [...prevDetails];
+      idsToRemove.push(rowToRemove.id);
+      
+      // If deleting an Auto-Hardener directly
+      if (rowToRemove.isAutoHardener && rowToRemove.linkedBaseRowId) {
+        // Unlink it from its Base
+        const baseIndex = newDetails.findIndex(d => d.id === rowToRemove.linkedBaseRowId);
+        if (baseIndex !== -1) {
+          newDetails[baseIndex] = { ...newDetails[baseIndex], linkedHardenerRowId: undefined };
+        }
+      }
+      
+      // If deleting a Base that has a linked Auto-Hardener
+      if (rowToRemove.linkedHardenerRowId) {
+        const hardenerIndex = newDetails.findIndex(
+          d => d.id === rowToRemove.linkedHardenerRowId && d.isAutoHardener
+        );
+        if (hardenerIndex !== -1) {
+          idsToRemove.push(newDetails[hardenerIndex].id);
+        }
+      }
+      
+      return newDetails.filter(d => !idsToRemove.includes(d.id));
     });
 
-    setValidationErrors(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index),
-    }));
+    setValidationErrors(prev => {
+      // Re-map validation errors to match new order details length
+      // Because we might delete 1 or 2 items, it's safer to just rebuild it
+      // or filter based on the same logic. Let's just filter out the indexes.
+      // But we don't have the exact indexes in the prev state (it's just an array parallel to orderDetails).
+      // Since orderDetails isn't accessible synchronously here, we can use a functional update and the fact that we know the indexes.
+      // A cleaner way is to let the main submit handle validation, or just slice.
+      // Since we know idsToRemove, and items maps 1:1 with prevDetails... wait! We can't access prevDetails here.
+      // So we just remove the specific index. If a linked hardener was also removed, the lengths will mismatch.
+      // Let's just reset validation items to match the new length.
+      return {
+        ...prev,
+        // The safest fallback is to clear validation errors for items, they get re-validated on submit anyway
+        items: [],
+      };
+    });
+    
+    // Trigger a micro-task to properly sync validation array length
+    setTimeout(() => {
+      setOrderDetails(currentDetails => {
+        setValidationErrors(prev => ({
+          ...prev,
+          items: currentDetails.map(() => ({ productId: false, quantity: false }))
+        }));
+        return currentDetails;
+      });
+    }, 0);
   }, []);
 
   const handleOrderDetailChange = useCallback(
@@ -566,48 +641,64 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                 );
 
                 if (matchingHardener) {
-                  // Check if hardener is not already in order
-                  const hardenerExists = orderDetails.some(
-                    item => item.productId === matchingHardener.productId
+                  // Wait until the main setOrderDetails (at the end) to update everything together to avoid race conditions.
+                  // We will store the matching hardener to be processed in the setOrderDetails callback below.
+                  // Actually, it's safer to just do the state update here if we are careful, but doing it in one pass is best.
+                  // Let's do it right here using a functional update so we have the most current state.
+                  setOrderDetails(prev => {
+                    const newDetails = [...prev];
+                    const baseRow = newDetails[index];
+                    const baseQty = baseRow?.quantity || 1;
+                    
+                    if (baseRow.linkedHardenerRowId) {
+                      // Already has a linked hardener. Update it instead of creating a new one.
+                      const hardenerIdx = newDetails.findIndex(
+                        d => d.id === baseRow.linkedHardenerRowId && d.isAutoHardener
+                      );
+                      if (hardenerIdx !== -1) {
+                        newDetails[hardenerIdx] = {
+                          ...newDetails[hardenerIdx],
+                          productId: matchingHardener.productId,
+                          quantity: baseQty,
+                          unitPrice: Number(matchingHardener.sellingPrice) || 0,
+                        };
+                        return newDetails;
+                      }
+                    }
+
+                    // Create new linked hardener
+                    const hardenerRowId = crypto.randomUUID();
+                    const newHardener: OrderDetailLine = {
+                      id: hardenerRowId,
+                      productId: matchingHardener.productId,
+                      quantity: baseQty,
+                      unitPrice: Number(matchingHardener.sellingPrice) || 0,
+                      discount: 0,
+                      linkedBaseRowId: baseRow.id,
+                      isAutoHardener: true,
+                    };
+                    
+                    // Update base row to link to the new hardener
+                    newDetails[index] = { ...baseRow, linkedHardenerRowId: hardenerRowId };
+                    newDetails.push(newHardener);
+                    return newDetails;
+                  });
+
+                  setValidationErrors(prev => ({
+                    ...prev,
+                    items: [...prev.items, { productId: false, quantity: false }],
+                  }));
+
+                  showToast.success(
+                    `Added/Updated ${matchingHardener.productName} (Hardener) - ${hardenerPackSize}L × ${orderDetails[index]?.quantity || 1} qty`
                   );
-
-                  if (!hardenerExists) {
-                    // Get current quantity for this Base (default to 1)
-                    const baseQty = orderDetails[index]?.quantity || 1;
-
-                    // Add Hardener to order
-                    setOrderDetails(prev => [
-                      ...prev,
-                      {
-                        productId: matchingHardener.productId,
-                        quantity: baseQty,
-                        unitPrice: Number(matchingHardener.sellingPrice) || 0,
-                        discount: 0,
-                      },
-                    ]);
-
-                    setValidationErrors(prev => ({
-                      ...prev,
-                      items: [...prev.items, { productId: false, quantity: false }],
-                    }));
-
-                    // Track linked products for quantity sync
-                    setLinkedProducts(prev => {
-                      const newMap = new Map(prev);
-                      newMap.set(productId, matchingHardener.productId);
-                      return newMap;
-                    });
-
-                    showToast.success(
-                      `Added ${matchingHardener.productName} (Hardener) - ${hardenerPackSize}L × ${baseQty} qty`
-                    );
-                  }
                 } else {
                   // No exact match found - show modal with available options
                   const baseQty = orderDetails[index]?.quantity || 1;
                   setHardenerModalData({
                     baseProduct: selectedProduct,
                     baseProductId: productId,
+                    baseRowId: orderDetails[index]?.id || '',
                     requiredPackSize: hardenerPackSize,
                     availableHardeners: hardenerSkus,
                     baseQty,
@@ -626,11 +717,30 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         const newDetails = [...prevDetails];
         if (field === 'productId') {
           const productId = Number(value);
+          const oldRow = newDetails[index];
+          
+          // If this row had a linked Auto-Hardener and the product changed, we should unlink or delete it.
+          // Since it's a product switch, we can just let the above async logic handle updating it if the new product is a Base.
+          // BUT if the new product is NOT a Base, we need to delete the old Hardener.
+          const selectedProduct = products.find(p => p.productId === productId);
+          if (oldRow.linkedHardenerRowId && (!selectedProduct || selectedProduct.Subcategory !== 'Base')) {
+            const hardenerIdx = newDetails.findIndex(d => d.id === oldRow.linkedHardenerRowId && d.isAutoHardener);
+            if (hardenerIdx !== -1) {
+               // Remove the hardener since the base is no longer a Base
+               newDetails.splice(hardenerIdx, 1);
+            }
+          }
+
           newDetails[index] = {
             ...newDetails[index],
             productId,
             unitPrice: getProductPrice(productId),
           };
+          
+          // Clear link if it's no longer a base
+          if (!selectedProduct || selectedProduct.Subcategory !== 'Base') {
+            newDetails[index].linkedHardenerRowId = undefined;
+          }
 
           setValidationErrors(prev => {
             const newItems = [...prev.items];
@@ -643,11 +753,11 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
           if (qty > 5000) qty = 5000;
           newDetails[index] = { ...newDetails[index], quantity: qty };
 
-          // Update linked Hardener quantity if this is a Base product
-          const currentProductId = newDetails[index].productId;
-          const linkedHardenerId = linkedProducts.get(currentProductId);
-          if (linkedHardenerId && qty > 0) {
-            const hardenerIndex = newDetails.findIndex(d => d.productId === linkedHardenerId);
+          // Update linked Hardener quantity if this is a Base product (only for Auto-Hardeners)
+          const linkedHardenerRowId = newDetails[index].linkedHardenerRowId;
+          
+          if (linkedHardenerRowId && qty > 0) {
+            const hardenerIndex = newDetails.findIndex(d => d.id === linkedHardenerRowId && d.isAutoHardener);
             if (hardenerIndex !== -1) {
               newDetails[hardenerIndex] = { ...newDetails[hardenerIndex], quantity: qty };
             }
@@ -674,7 +784,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         return newDetails;
       });
     },
-    [getProductPrice, orderDetails, products, linkedProducts]
+    [getProductPrice, orderDetails, products]
   );
 
   const calculateLineTotal = (row: OrderDetailLine) => {
@@ -919,8 +1029,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
     setPriority('Normal');
     setDeliveryAddress('');
     setRemarks('');
-    setOrderDetails([{ productId: 0, quantity: 1, unitPrice: 0, discount: 0 }]);
-    setLinkedProducts(new Map());
+    setOrderDetails([{ id: crypto.randomUUID(), productId: 0, quantity: 1, unitPrice: 0, discount: 0 }]);
   }, [isSalesPerson]);
 
   /**
@@ -930,46 +1039,45 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
     (selectedHardener: Product) => {
       if (!hardenerModalData) return;
 
-      const { baseProductId, baseQty } = hardenerModalData;
-
-      // Check if already exists
-      const exists = orderDetails.some(item => item.productId === selectedHardener.productId);
-      if (exists) {
-        showToast.error('This Hardener is already in the order');
-        setShowHardenerModal(false);
-        setHardenerModalData(null);
-        return;
-      }
+      const { baseRowId, baseQty } = hardenerModalData;
 
       // Add Hardener to order
-      setOrderDetails(prev => [
-        ...prev,
-        {
-          productId: selectedHardener.productId,
-          quantity: baseQty,
-          unitPrice: Number(selectedHardener.sellingPrice) || 0,
-          discount: 0,
-        },
-      ]);
+      setOrderDetails(prev => {
+        const newDetails = [...prev];
+        const baseIndex = newDetails.findIndex(d => d.id === baseRowId);
+        
+        if (baseIndex !== -1) {
+          const hardenerRowId = crypto.randomUUID();
+          
+          newDetails[baseIndex] = {
+            ...newDetails[baseIndex],
+            linkedHardenerRowId: hardenerRowId
+          };
+          
+          newDetails.push({
+            id: hardenerRowId,
+            productId: selectedHardener.productId,
+            quantity: baseQty,
+            unitPrice: Number(selectedHardener.sellingPrice) || 0,
+            discount: 0,
+            linkedBaseRowId: baseRowId,
+            isAutoHardener: true,
+          });
+        }
+        return newDetails;
+      });
 
       setValidationErrors(prev => ({
         ...prev,
         items: [...prev.items, { productId: false, quantity: false }],
       }));
 
-      // Track linked products for quantity sync
-      setLinkedProducts(prev => {
-        const newMap = new Map(prev);
-        newMap.set(baseProductId, selectedHardener.productId);
-        return newMap;
-      });
-
       showToast.success(`Added ${selectedHardener.productName} (Hardener) × ${baseQty} qty`);
 
       setShowHardenerModal(false);
       setHardenerModalData(null);
     },
-    [hardenerModalData, orderDetails]
+    [hardenerModalData]
   );
 
   const totalAmount = calculateOrderTotal();
@@ -1191,12 +1299,37 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
             p => p.productId === item.productId || p.productName === item.description
           );
           return {
+            id: crypto.randomUUID(),
             productId: item.productId || product?.productId || 0,
             quantity: item.quantity || 1,
             unitPrice: item.rate || product?.sellingPrice || 0,
             discount: item.discount || 0,
           };
         });
+        
+        // Pass 2: Reconstruct bidirectional Auto-Hardener links
+        if (products.length > 0) {
+          loadedItems.forEach((item, index) => {
+            const product = products.find(p => p.productId === item.productId);
+            if (product?.Subcategory === 'Base' && product?.HardenerId && !item.linkedHardenerRowId) {
+              const hardenerSkus = products.filter(p => p.masterProductId === product.HardenerId);
+              const hardenerProductIds = hardenerSkus.map(p => p.productId);
+              
+              const hardenerIndex = loadedItems.findIndex((d, i) => 
+                i > index && 
+                hardenerProductIds.includes(d.productId) && 
+                !d.linkedBaseRowId
+              );
+
+              if (hardenerIndex !== -1) {
+                item.linkedHardenerRowId = loadedItems[hardenerIndex].id;
+                loadedItems[hardenerIndex].linkedBaseRowId = item.id;
+                loadedItems[hardenerIndex].isAutoHardener = true;
+              }
+            }
+          });
+        }
+        
         setOrderDetails(loadedItems);
       }
 
