@@ -1485,7 +1485,27 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         cell: ({ row }) => {
           try {
             if (row.original.createdAt) {
-              return format(new Date(row.original.createdAt), 'dd MMM yyyy, hh:mm a');
+              const createdDate = new Date(row.original.createdAt);
+              const updatedAtStr = row.original.updatedAt;
+              const updatedDate = updatedAtStr ? new Date(updatedAtStr) : null;
+              const isEdited = updatedDate && (updatedDate.getTime() - createdDate.getTime() > 1000);
+
+              return (
+                <div className="flex flex-col text-sm space-y-1">
+                  <div>
+                    <div className="text-gray-500 font-medium text-[10px] uppercase tracking-wider">Created:</div>
+                    <div className="font-semibold text-gray-800">{format(createdDate, 'dd MMM yyyy')}</div>
+                    <div className="text-xs text-gray-500">{format(createdDate, 'hh:mm a')}</div>
+                  </div>
+                  {isEdited && (
+                    <div>
+                      <div className="text-amber-500 font-medium text-[10px] uppercase tracking-wider">Edited:</div>
+                      <div className="font-semibold text-amber-700">{format(updatedDate, 'dd MMM yyyy')}</div>
+                      <div className="text-xs text-amber-600">{format(updatedDate, 'hh:mm a')}</div>
+                    </div>
+                  )}
+                </div>
+              );
             }
             return row.original.quotationDate || '-';
           } catch {
@@ -1624,13 +1644,13 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                 </Button>
               )}
 
-              {/* Edit Button for Approved Quotations */}
-              {isApproved && (
+              {/* Edit Button for Pending or Approved Quotations (only when managing quotations) */}
+              {(isPending || isApproved) && viewMode === 'quotations' && (
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => handleLoadQuotationForEdit(quotation)}
-                  title="Edit Approved Quotation"
+                  title="Edit Quotation"
                   className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 justify-start h-7"
                 >
                   <Edit size={14} className="mr-1.5" />
@@ -1642,7 +1662,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         },
       },
     ],
-    [handleDownloadQuotation, handleLoadQuotationForEdit, quotationsList]
+    [handleDownloadQuotation, handleLoadQuotationForEdit, quotationsList, viewMode]
   );
 
   // =====================
@@ -2463,7 +2483,9 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                 data={quotationsList
                   .filter(q => q.status !== 'Converted')
                   .sort(
-                    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                    (a, b) =>
+                      new Date(b.updatedAt || b.createdAt).getTime() -
+                      new Date(a.updatedAt || a.createdAt).getTime()
                   )}
                 searchPlaceholder="Search quotations..."
               />

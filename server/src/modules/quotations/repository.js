@@ -22,7 +22,7 @@ export class QuotationsRepository {
       query = query.where(eq(quotations.createdBy, createdBy));
     }
 
-    const results = await query.orderBy(desc(quotations.createdAt));
+    const results = await query.orderBy(desc(quotations.updatedAt));
 
     return results.map(row => ({
       ...row,
@@ -53,7 +53,7 @@ export class QuotationsRepository {
       .from(quotations)
       .leftJoin(employees, eq(quotations.createdBy, employees.employeeId))
       .where(and(...conditions))
-      .orderBy(desc(quotations.createdAt));
+      .orderBy(desc(quotations.updatedAt));
 
     return results.map(row => ({
       ...row,
@@ -66,7 +66,6 @@ export class QuotationsRepository {
   async updateStatus(id, status, rejectionRemark = null) {
     const updateData = {
       status,
-      updatedAt: new Date(),
     };
 
     // Add rejection remark if provided (for rejected quotations)
