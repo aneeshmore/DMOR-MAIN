@@ -1644,8 +1644,8 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                 </Button>
               )}
 
-              {/* Edit Button for Pending or Approved Quotations (only when managing quotations) */}
-              {(isPending || isApproved) && viewMode === 'quotations' && (
+              {/* Edit Button for Pending, Approved, or Rejected Quotations (only when managing quotations) */}
+              {(isPending || isApproved || isRejected) && viewMode === 'quotations' && (
                 <Button
                   variant="secondary"
                   size="sm"

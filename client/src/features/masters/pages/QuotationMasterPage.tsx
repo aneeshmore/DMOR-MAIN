@@ -467,19 +467,7 @@ const QuotationMasterPage: React.FC = () => {
                 </Button>
               )}
 
-              {/* Edit for Pending, Approved, or Rejected - Only for Admin or Creator */}
-              {(isPending || isApproved || isRejected) && (isAdmin || quotation.createdBy === user?.EmployeeID) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEdit(quotation)}
-                  title="Edit Quotation"
-                  className="text-orange-600 hover:bg-orange-50 justify-start h-7"
-                >
-                  <Edit size={14} className="mr-1.5" />
-                  Edit
-                </Button>
-              )}
+
             </div>
           );
         },
