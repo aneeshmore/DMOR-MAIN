@@ -223,7 +223,7 @@ export class OrdersService {
 
     // Create order details
     const details = [];
-    for (const item of detailsData) {
+    for (const [index, item] of detailsData.entries()) {
       const detail = await this.repository.createOrderDetail({
         orderId: order.orderId,
         productId: item.productId,
@@ -232,7 +232,7 @@ export class OrdersService {
         discount: String(parseFloat(item.discount || 0)),
         // Store calculated required weight based on package capacity
         requiredWeightKg: String(
-          weightInfo.breakdown.find(b => b.productId === item.productId)?.requiredWeightKg || 0
+          weightInfo.breakdown[index]?.requiredWeightKg || 0
         ),
         // Note: totalPrice is a generated column in the database, so we don't insert it
       });
@@ -363,7 +363,7 @@ export class OrdersService {
       const weightInfo = await this.calculateOrderWeight(detailsData);
       await this.repository.deleteOrderDetailsByOrderId(orderId);
 
-      for (const item of detailsData) {
+      for (const [index, item] of detailsData.entries()) {
         await this.repository.createOrderDetail({
           orderId,
           productId: item.productId,
@@ -371,7 +371,7 @@ export class OrdersService {
           unitPrice: String(parseFloat(item.unitPrice)),
           discount: String(parseFloat(item.discount || 0)),
           requiredWeightKg: String(
-            weightInfo.breakdown.find(b => b.productId === item.productId)?.requiredWeightKg || 0
+            weightInfo.breakdown[index]?.requiredWeightKg || 0
           ),
         });
       }

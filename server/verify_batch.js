@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import db from './db/index.js';
-import { productionBatch, batchProducts } from './db/schema/index.js';
+import { productionBatch, batchProducts } from './src/db/schema/index.js';
 
 async function verifyBatch() {
   const batchNo = '0015-12-2025';

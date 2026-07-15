@@ -230,6 +230,21 @@ export default function ScheduleBatchPage() {
   const [extraMaterials, setExtraMaterials] = useState<any[]>([]);
   const [selectedExtraMaterialId, setSelectedExtraMaterialId] = useState<number | null>(null);
   const [extraMaterialQty, setExtraMaterialQty] = useState<string>('');
+
+  // Reduced Materials State
+  const [reducedMaterials, setReducedMaterials] = useState<any[]>([]);
+  const [selectedReduceMaterialId, setSelectedReduceMaterialId] = useState<number | null>(null);
+  const [reduceMaterialQty, setReduceMaterialQty] = useState<string>('');
+
+  // Dynamic running totals for formulation balance
+  const totalReducedQuantity = useMemo(() => {
+    return reducedMaterials.reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
+  }, [reducedMaterials]);
+
+  const totalAddedQuantity = useMemo(() => {
+    return extraMaterials.reduce((sum, e) => sum + (parseFloat(e.quantity) || 0), 0);
+  }, [extraMaterials]);
+
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
   // Calculate Total Output Weight
@@ -1292,6 +1307,9 @@ export default function ScheduleBatchPage() {
     setExtraMaterials([]);
     setSelectedExtraMaterialId(null);
     setExtraMaterialQty('');
+    setReducedMaterials([]);
+    setSelectedReduceMaterialId(null);
+    setReduceMaterialQty('');
     setActualMaterials([]);
 
     setCompletingBatchId(batchId);
@@ -1442,32 +1460,134 @@ export default function ScheduleBatchPage() {
       showToast.warning(`Insufficient stock! Available: ${availableQty.toFixed(3)} kg`);
     }
 
-    // Check if already added in extra materials (only block if can't add multiple)
-    const alreadyAddedInExtra = extraMaterials.some(m => m.materialId === selectedExtraMaterialId);
-    if (alreadyAddedInExtra && !canAddMultiple) {
-      showToast.error('This material is already added');
-      return;
+    // Check if the material has active reductions. If so, reduce the reduction balance first.
+    const matReductions = reducedMaterials.filter(r => r.materialId === selectedExtraMaterialId);
+    const totalReducedForMat = matReductions.reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
+
+    if (totalReducedForMat > 0) {
+      if (qtyValue <= totalReducedForMat) {
+        // Fully absorbed by the active reduction. We subtract from the reductions.
+        let remainingToSubtract = qtyValue;
+        const newReduced = reducedMaterials
+          .map(r => {
+            if (r.materialId === selectedExtraMaterialId && remainingToSubtract > 0) {
+              const sub = Math.min(parseFloat(r.quantity) || 0, remainingToSubtract);
+              remainingToSubtract -= sub;
+              return { ...r, quantity: (parseFloat(r.quantity) || 0) - sub };
+            }
+            return r;
+          })
+          .filter(r => r.quantity > 0.0001);
+
+        setReducedMaterials(newReduced);
+        setSelectedExtraMaterialId(null);
+        setExtraMaterialQty('');
+        showToast.success(`Added back ${qtyValue.toFixed(3)} kg to ${material.masterProductName} (reduction balance decreased)`);
+      } else {
+        // Partially absorbed, remainder is treated as extra
+        const extraQty = qtyValue - totalReducedForMat;
+
+        // Apply changes: clear all reductions for this material
+        const filteredReduced = reducedMaterials.filter(r => r.materialId !== selectedExtraMaterialId);
+        setReducedMaterials(filteredReduced);
+
+        // Add the remainder to extraMaterials
+        const alreadyAddedInExtra = extraMaterials.some(m => m.materialId === selectedExtraMaterialId);
+        if (alreadyAddedInExtra && !canAddMultiple) {
+          showToast.error('This material is already added');
+          return;
+        }
+
+        const isWater = material.masterProductName.toLowerCase().includes('water');
+        const newExtraMaterial = {
+          materialId: selectedExtraMaterialId,
+          materialName: material.masterProductName,
+          quantity: extraQty,
+          isExtra: !isWater,
+          canAddMultiple,
+        };
+
+        setExtraMaterials(prev => [...prev, newExtraMaterial]);
+        setSelectedExtraMaterialId(null);
+        setExtraMaterialQty('');
+        showToast.success(`Restored original quantity of ${material.masterProductName} and added ${extraQty.toFixed(3)} kg as extra`);
+        return;
+      }
+    } else {
+      // Normal Add: No active reductions for this material.
+      // Check if already added in extra materials (only block if can't add multiple)
+      const alreadyAddedInExtra = extraMaterials.some(m => m.materialId === selectedExtraMaterialId);
+      if (alreadyAddedInExtra && !canAddMultiple) {
+        showToast.error('This material is already added');
+        return;
+      }
+
+      const isWater = material.masterProductName.toLowerCase().includes('water');
+      const newExtraMaterial = {
+        materialId: selectedExtraMaterialId,
+        materialName: material.masterProductName,
+        quantity: qtyValue,
+        isExtra: !isWater, // Water is not extra for manual add
+        canAddMultiple,
+      };
+
+      setExtraMaterials(prev => [...prev, newExtraMaterial]);
+      setSelectedExtraMaterialId(null);
+      setExtraMaterialQty('');
+      showToast.success('Extra material added');
     }
-
-    const isWater = material.masterProductName.toLowerCase().includes('water');
-
-    const newExtraMaterial = {
-      materialId: selectedExtraMaterialId,
-      materialName: material.masterProductName,
-      quantity: qtyValue,
-      isExtra: !isWater, // Water is not extra for manual add
-      canAddMultiple,
-    };
-
-    setExtraMaterials(prev => [...prev, newExtraMaterial]);
-    setSelectedExtraMaterialId(null);
-    setExtraMaterialQty('');
-    showToast.success('Extra material added');
   };
 
   // Handler to remove extra material
   const handleRemoveExtraMaterial = (index: number) => {
     setExtraMaterials(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Handler to reduce raw material quantity
+  const handleReduceMaterial = () => {
+    if (!selectedReduceMaterialId) {
+      showToast.error('Please select a raw material to reduce');
+      return;
+    }
+    const qtyValue = parseFloat(reduceMaterialQty);
+    if (!reduceMaterialQty || isNaN(qtyValue) || qtyValue <= 0) {
+      showToast.error('Please enter a valid quantity');
+      return;
+    }
+
+    const mat = actualMaterials.find(m => m.materialId === selectedReduceMaterialId);
+    if (!mat) {
+      showToast.error('Material not found in batch recipe');
+      return;
+    }
+
+    const existingReduction = reducedMaterials
+      .filter(r => r.materialId === selectedReduceMaterialId)
+      .reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
+
+    if (existingReduction + qtyValue >= mat.plannedQuantity) {
+      showToast.error(
+        `Cannot reduce to zero or less. Final quantity must be greater than 0 kg.`
+      );
+      return;
+    }
+
+    const newReduction = {
+      materialId: selectedReduceMaterialId,
+      materialName: mat.materialName,
+      quantity: qtyValue,
+    };
+
+    setReducedMaterials(prev => [...prev, newReduction]);
+    setSelectedReduceMaterialId(null);
+    setReduceMaterialQty('');
+    showToast.success('Material quantity reduced');
+  };
+
+  // Handler to remove a reduction
+  const handleRemoveReduction = (index: number) => {
+    setReducedMaterials(prev => prev.filter((_, i) => i !== index));
+    showToast.success('Reduction removed');
   };
 
   const handleCompleteSubmit = async () => {
@@ -1600,14 +1720,19 @@ export default function ScheduleBatchPage() {
         completedAt: `${endDate}T${endTime}:00.000Z`,
         productionRemarks,
         materials: [
-          // Planned materials
-          ...actualMaterials.map(m => ({
-            batchMaterialId: m.batchMaterialId,
-            materialId: m.materialId,
-            plannedQuantity: m.plannedQuantity,
-            actualQuantity: m.plannedQuantity, // Using planned as actual since we removed actual column
-            isAdditional: false,
-          })),
+          // Planned materials adjusted for reductions
+          ...actualMaterials.map(m => {
+            const reduction = reducedMaterials
+              .filter(r => r.materialId === m.materialId)
+              .reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
+            return {
+              batchMaterialId: m.batchMaterialId,
+              materialId: m.materialId,
+              plannedQuantity: m.plannedQuantity,
+              actualQuantity: m.plannedQuantity - reduction,
+              isAdditional: false,
+            };
+          }),
           // Extra materials
           ...extraMaterials.map(m => ({
             batchMaterialId: 0,
@@ -1631,6 +1756,9 @@ export default function ScheduleBatchPage() {
       setExtraMaterials([]); // Reset extra materials
       setSelectedExtraMaterialId(null);
       setExtraMaterialQty('');
+      setReducedMaterials([]); // Reset reduced materials
+      setSelectedReduceMaterialId(null);
+      setReduceMaterialQty('');
       setActualMaterials([]);
       fetchScheduledBatches();
 
@@ -1871,6 +1999,9 @@ export default function ScheduleBatchPage() {
                       setExtraMaterials([]);
                       setSelectedExtraMaterialId(null);
                       setExtraMaterialQty('');
+                      setReducedMaterials([]);
+                      setSelectedReduceMaterialId(null);
+                      setReduceMaterialQty('');
                       setActualMaterials([]);
                     }}
                     className="text-white/80 hover:text-white"
@@ -2052,7 +2183,12 @@ export default function ScheduleBatchPage() {
                                 <td
                                   className={`py-2 px-3 text-right text-[var(--text-secondary)] ${mat.materialName.toLowerCase().includes('water') ? 'font-bold' : ''}`}
                                 >
-                                  {mat.plannedQuantity.toFixed(3)}
+                                  {(() => {
+                                    const reduction = reducedMaterials
+                                      .filter(r => r.materialId === mat.materialId)
+                                      .reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
+                                    return (mat.plannedQuantity - reduction).toFixed(3);
+                                  })()}
                                 </td>
                                 <td className="py-2 px-3"></td>
                               </tr>
@@ -2175,6 +2311,112 @@ export default function ScheduleBatchPage() {
                           Add
                         </button>
                       </div>
+                    </div>
+
+                    {/* Reduce Extra Raw Material Section */}
+                    <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+                          Reduce Extra Raw Material
+                        </h4>
+                        {totalReducedQuantity > 0 && (
+                          <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                            Total Reduced: {totalReducedQuantity.toFixed(3)} kg (Added: {totalAddedQuantity.toFixed(3)} kg)
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3 items-end">
+                        <div className="flex-1">
+                          <SearchableSelect
+                            label="Select Raw Material"
+                            placeholder="Search raw material to reduce..."
+                            options={actualMaterials
+                              .filter(mat => mat.plannedQuantity > 0)
+                              .filter(mat => {
+                                const masterProduct = allMasterProducts.find(
+                                  p => p.masterProductId === mat.materialId
+                                );
+                                if (!masterProduct) return false;
+                                const pType = masterProduct.productType || masterProduct.ProductType;
+                                if (pType !== 'RM') return false;
+                                const pStatus = masterProduct.status || masterProduct.Status;
+                                if (pStatus === 'Inactive' || pStatus === 'inactive') return false;
+                                return true;
+                              })
+                              .map(mat => ({
+                                id: mat.materialId,
+                                label: mat.materialName,
+                                value: mat.materialId,
+                              }))}
+                            value={selectedReduceMaterialId || undefined}
+                            onChange={(val: any) => setSelectedReduceMaterialId(val || null)}
+                            onCreateNew={undefined}
+                          />
+                        </div>
+                        <div className="w-full sm:w-32">
+                          <label className="block text-xs text-[var(--text-secondary)] mb-1">
+                            Quantity (kg)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            value={reduceMaterialQty}
+                            onChange={e => setReduceMaterialQty(e.target.value)}
+                            onWheel={e => e.preventDefault()}
+                            onKeyDown={e => {
+                              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+                            }}
+                            placeholder="0.000"
+                            className="w-full px-3 py-2 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleReduceMaterial}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-medium"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Reduce
+                        </button>
+                      </div>
+
+                      {/* Active Reductions List */}
+                      {reducedMaterials.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <label className="block text-xs font-medium text-[var(--text-secondary)]">
+                            Active Reductions:
+                          </label>
+                          <div className="space-y-1">
+                            {reducedMaterials.map((red, idx) => (
+                              <div
+                                key={`reduction-${red.materialId}-${idx}`}
+                                className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-950 px-3 py-2 rounded text-sm text-[var(--text-primary)]"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 text-xs bg-red-500 text-white rounded-full font-medium">
+                                    Reduced
+                                  </span>
+                                  <span>{red.materialName}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-semibold text-red-600 dark:text-red-400">
+                                    -{red.quantity.toFixed(3)} kg
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveReduction(idx)}
+                                    className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                                    title="Remove Reduction"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

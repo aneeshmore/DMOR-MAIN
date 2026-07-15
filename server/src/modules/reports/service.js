@@ -179,9 +179,7 @@ export class ReportsService {
         const batchMaterialsData = materialsByBatchMap.get(batch.batchId) || [];
         const rawMaterials = batchMaterialsData
           .map(bm => {
-            const isWater = (bm.materialName || '').toLowerCase().includes('water');
-            const hasPercentage = bm.percentage != null && parseFloat(bm.percentage) > 0;
-            const isAdditional = bm.isAdditional || isWater || !hasPercentage;
+            const isAdditional = !!bm.isAdditional;
 
             return {
               bomId: bm.batchMaterialId,

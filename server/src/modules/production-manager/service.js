@@ -12,8 +12,8 @@ import { ProductionManagerRepository } from './repository.js';
 import { AppError } from '../../utils/AppError.js';
 import logger from '../../config/logger.js';
 import { db } from '../../db/index.js';
-import { orderDetails, products, batchProducts } from '../../db/schema/index.js';
-import { eq, and } from 'drizzle-orm';
+import { orderDetails, products, batchProducts, batchMaterials, inventoryTransactions, masterProductRM } from '../../db/schema/index.js';
+import { eq, and, inArray } from 'drizzle-orm';
 
 export class ProductionManagerService {
   constructor() {
@@ -1076,6 +1076,38 @@ export class ProductionManagerService {
         actualTimeHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
       }
 
+      // PRE-VALIDATION: Validate formulation balance and positive quantities
+      let totalReduced = 0;
+      let totalAdded = 0;
+
+      if (completionData.materials && completionData.materials.length > 0) {
+        for (const m of completionData.materials) {
+          const planned = parseFloat(m.plannedQuantity) || 0;
+          const actual = parseFloat(m.actualQuantity) || 0;
+
+          if (actual < 0) {
+            throw new AppError(`Cannot complete batch: Material quantity cannot be negative.`, 400);
+          }
+
+          if (m.isAdditional === false) {
+            if (actual === 0) {
+              throw new AppError(`Cannot complete batch: Final quantity for standard material ${m.materialId} cannot be zero.`, 400);
+            }
+            if (actual > planned) {
+              throw new AppError(`Cannot complete batch: Final quantity for standard material ${m.materialId} cannot exceed planned quantity.`, 400);
+            }
+            totalReduced += (planned - actual);
+          } else {
+            if (actual === 0) {
+              throw new AppError(`Cannot complete batch: Quantity for added material ${m.materialId} cannot be zero.`, 400);
+            }
+            totalAdded += actual;
+          }
+        }
+      }
+
+      // Allow complete batch without forcing additions to be less than or equal to reductions
+
       // PRE-VALIDATION: Check extra materials stock BEFORE updating batch
       let extraMaterials = [];
       if (completionData.materials && completionData.materials.length > 0) {
@@ -1190,17 +1222,54 @@ export class ProductionManagerService {
       const [completedBatch] = await this.repo.completeBatch(batchId, batchUpdate);
       logger.info('Batch completed', { batchId, batchNo: completedBatch?.batchNo });
 
+      // 4a. Handle standard materials (reductions) at completion
+      if (completionData.materials && completionData.materials.length > 0) {
+        const standardMaterials = completionData.materials.filter(m => m.isAdditional === false);
+        for (const mat of standardMaterials) {
+          const plannedQty = parseFloat(mat.plannedQuantity) || 0;
+          const actualQty = parseFloat(mat.actualQuantity) || 0;
+          const diff = plannedQty - actualQty;
+
+          if (diff > 0) {
+            logger.info('Processing reduced material at completion', {
+              materialId: mat.materialId,
+              plannedQuantity: plannedQty,
+              actualQuantity: actualQty,
+              reducedAmount: diff,
+            });
+
+            // Update requiredQuantity in batch_materials table to the final adjusted quantity
+            await db
+              .update(batchMaterials)
+              .set({ requiredQuantity: String(actualQty) })
+              .where(eq(batchMaterials.batchMaterialId, mat.batchMaterialId));
+            // Release the reduced quantity back to inventory (add back to availableQty)
+            await this.repo.releaseRawMaterial(mat.materialId, diff);
+          }
+        }
+      }
+
       // 4. Handle materials at completion
       if (extraMaterials.length > 0) {
         logger.info('Processing extra materials at completion', { count: extraMaterials.length });
+
+        // Clear out any previously recorded additional materials for this batch to prevent duplicates on completion retries
+        await db
+          .delete(batchMaterials)
+          .where(
+            and(
+              eq(batchMaterials.batchId, batchId),
+              eq(batchMaterials.isAdditional, true)
+            )
+          );
 
         // Deduct stock and create batch_materials records for extra materials
         // Stock check already passed in validation
         for (const mat of extraMaterials) {
           const qty = parseFloat(mat.actualQuantity) || 0;
 
-          // Reserve (deduct) from raw material stock
-          await this.repo.reserveRawMaterial(mat.materialId, qty, batchId, performedBy);
+          // Reserve (deduct) from raw material stock without generating inline transaction logs
+          await this.repo.reserveRawMaterial(mat.materialId, qty, null, null);
           logger.info('Extra material stock deducted', {
             materialId: mat.materialId,
             quantity: qty,
@@ -1413,6 +1482,99 @@ export class ProductionManagerService {
           await this.repo.updateMultipleOrdersStatus(ordersToDispatch, 'Ready for Dispatch');
           logger.info('Orders updated to Ready for Dispatch', { orderIds: ordersToDispatch });
         }
+      }
+
+      // Group and consolidate Production Consumption transactions for the completed batch
+      try {
+        const numericBatchId = parseInt(batchId);
+        const finalMaterials = await db
+          .select()
+          .from(batchMaterials)
+          .where(eq(batchMaterials.batchId, numericBatchId));
+
+        if (finalMaterials.length > 0) {
+          // Group by materialId
+          const materialConsumptions = new Map();
+          for (const mat of finalMaterials) {
+            const matId = mat.materialId;
+            const qty = parseFloat(mat.requiredQuantity) || 0;
+            materialConsumptions.set(matId, (materialConsumptions.get(matId) || 0) + qty);
+          }
+
+          // Update or insert Production Consumption transactions per raw material
+          for (const [materialId, totalQty] of materialConsumptions.entries()) {
+            if (totalQty <= 0) continue;
+
+            const existingTxs = await db
+              .select()
+              .from(inventoryTransactions)
+              .where(
+                and(
+                  eq(inventoryTransactions.referenceType, 'Batch'),
+                  eq(inventoryTransactions.referenceId, numericBatchId),
+                  eq(inventoryTransactions.masterProductId, materialId),
+                  eq(inventoryTransactions.transactionType, 'Production Consumption')
+                )
+              )
+              .orderBy(inventoryTransactions.transactionId);
+
+            // Fetch current stock from masterProductRM to align balances
+            const [rmStock] = await db
+              .select({ availableQty: masterProductRM.availableQty })
+              .from(masterProductRM)
+              .where(eq(masterProductRM.masterProductId, materialId));
+            const currentBalance = rmStock ? parseFloat(rmStock.availableQty || 0) : 0;
+
+            if (existingTxs.length > 0) {
+              const primaryTx = existingTxs[0];
+
+              // Update primary transaction with total quantity and updated balances
+              await db
+                .update(inventoryTransactions)
+                .set({
+                  quantity: Math.round(-totalQty),
+                  weightKg: String(-totalQty),
+                  balanceBefore: Math.round(currentBalance + totalQty),
+                  balanceAfter: Math.round(currentBalance),
+                  notes: `Consolidated Production Consumption for Batch #${numericBatchId}`,
+                })
+                .where(eq(inventoryTransactions.transactionId, primaryTx.transactionId));
+
+              // If there are duplicate transactions, delete them
+              if (existingTxs.length > 1) {
+                const duplicateIds = existingTxs.slice(1).map(tx => tx.transactionId);
+                await db
+                  .delete(inventoryTransactions)
+                  .where(inArray(inventoryTransactions.transactionId, duplicateIds));
+              }
+            } else {
+              // Create one new transaction if none existed (nullable productId is safe)
+              const product = await db
+                .select({ productId: products.productId })
+                .from(products)
+                .where(eq(products.masterProductId, materialId))
+                .limit(1);
+
+              const productIdVal = product.length > 0 ? product[0].productId : null;
+
+              await db.insert(inventoryTransactions).values({
+                productId: productIdVal,
+                masterProductId: materialId,
+                transactionType: 'Production Consumption',
+                quantity: Math.round(-totalQty),
+                weightKg: String(-totalQty),
+                balanceBefore: Math.round(currentBalance + totalQty),
+                balanceAfter: Math.round(currentBalance),
+                referenceType: 'Batch',
+                referenceId: numericBatchId,
+                createdBy: performedBy,
+                notes: `Consolidated Production Consumption for Batch #${numericBatchId}`,
+              });
+            }
+          }
+        }
+      } catch (syncError) {
+        logger.error('Failed to synchronize inventory transactions on batch completion:', syncError);
       }
 
       return {
