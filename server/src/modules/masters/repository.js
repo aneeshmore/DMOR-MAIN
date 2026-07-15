@@ -47,10 +47,8 @@ export class MastersRepository {
   }
 
   async deleteDepartment(departmentId) {
-    // Soft delete
     const result = await db
-      .update(departments)
-      .set({ isActive: false, updatedAt: new Date() })
+      .delete(departments)
       .where(eq(departments.departmentId, departmentId))
       .returning();
 

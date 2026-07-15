@@ -285,7 +285,7 @@ const ProductMaster = () => {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <PageHeader title="Product Sub Master" description="Manage individual SKUs" />
+      <PageHeader title="Sub Product Master" description="Manage individual SKUs" />
 
       <div className="flex flex-col gap-6">
         {/* Top: Form */}
@@ -573,7 +573,6 @@ const ProductMaster = () => {
                   <th className="px-6 py-3">Price</th>
                   <th className="px-6 py-3">Min Stock</th>
                   <th className="px-6 py-3 text-center">Available</th>
-                  <th className="px-6 py-3 text-center">Reserved</th>
                   <th className="px-6 py-3 text-center">Free</th>
                   <th className="px-6 py-3 w-20 text-right">Actions</th>
                 </tr>
@@ -581,7 +580,7 @@ const ProductMaster = () => {
               <tbody className="divide-y divide-[var(--border)]">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center">
+                    <td colSpan={8} className="px-6 py-8 text-center">
                       <div className="flex justify-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)]"></div>
                       </div>
@@ -589,7 +588,7 @@ const ProductMaster = () => {
                   </tr>
                 ) : filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-[var(--text-secondary)]">
+                    <td colSpan={8} className="px-6 py-8 text-center text-[var(--text-secondary)]">
                       No products found.
                     </td>
                   </tr>
@@ -625,11 +624,6 @@ const ProductMaster = () => {
                       <td className="px-6 py-3 text-center">
                         <span className="font-medium text-blue-600">
                           {product.AvailableQuantity || 0}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3 text-center">
-                        <span className="font-medium text-orange-600">
-                          {product.ReservedQuantity || 0}
                         </span>
                       </td>
                       <td className="px-6 py-3 text-center">

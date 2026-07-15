@@ -311,15 +311,15 @@ const MasterProduct = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
-        title="Master Product"
-        description="Manage master products (Finished Goods, Raw Materials, Packing Materials)"
+        title="Product Master"
+        description="Manage products (Finished Goods, Raw Materials, Packing Materials)"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Side: Form */}
         <div className="lg:col-span-4 card p-4 flex flex-col gap-4 lg:h-[calc(100vh-240px)] lg:sticky lg:top-6 overflow-hidden">
           <h2 className="text-lg font-semibold text-[var(--text-primary)] border-b border-[var(--border)] pb-2">
-            {isEditing ? 'Edit Master Product' : 'New Master Product'}
+            {isEditing ? 'Edit Product Master' : 'New Product'}
           </h2>
 
           {/* Type Selection Buttons */}
@@ -351,11 +351,10 @@ const MasterProduct = () => {
                     setSelectedHardenerId(null);
                     setHighlightedIndex(-1);
                   }}
-                  className={`py-2 px-1 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                    activeTab === type
-                      ? 'bg-[var(--primary)] text-white shadow-md'
-                      : 'bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                  }`}
+                  className={`py-2 px-1 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-colors ${activeTab === type
+                    ? 'bg-[var(--primary)] text-white shadow-md'
+                    : 'bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                    }`}
                 >
                   {fullForm}
                 </button>
@@ -415,11 +414,10 @@ const MasterProduct = () => {
                         setShowNameDropdown(false);
                         setNameSearchQuery('');
                       }}
-                      className={`px-3 py-2 text-sm cursor-pointer transition-colors border-b border-[var(--border)] last:border-b-0 ${
-                        index === highlightedIndex
-                          ? 'bg-[var(--primary)]/10 text-[var(--text-primary)]'
-                          : 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]'
-                      }`}
+                      className={`px-3 py-2 text-sm cursor-pointer transition-colors border-b border-[var(--border)] last:border-b-0 ${index === highlightedIndex
+                        ? 'bg-[var(--primary)]/10 text-[var(--text-primary)]'
+                        : 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]'
+                        }`}
                     >
                       <div className="font-medium">{product.masterProductName}</div>
                       <div className="text-xs text-[var(--text-secondary)]">
@@ -711,26 +709,24 @@ const MasterProduct = () => {
                     <tr
                       key={product.masterProductId}
                       onClick={() => handleEdit(product)}
-                      className={`transition-colors cursor-pointer ${
-                        index === highlightedIndex
-                          ? 'bg-[var(--primary)]/10 border-l-4 border-l-[var(--primary)]'
-                          : selectedProduct?.masterProductId === product.masterProductId
-                            ? 'bg-[var(--surface-highlight)]'
-                            : 'hover:bg-[var(--surface-hover)]'
-                      }`}
+                      className={`transition-colors cursor-pointer ${index === highlightedIndex
+                        ? 'bg-[var(--primary)]/10 border-l-4 border-l-[var(--primary)]'
+                        : selectedProduct?.masterProductId === product.masterProductId
+                          ? 'bg-[var(--surface-highlight)]'
+                          : 'hover:bg-[var(--surface-hover)]'
+                        }`}
                     >
                       <td className="px-6 py-3 font-mono text-[var(--text-secondary)]">
                         {product.masterProductId}
                       </td>
                       <td className="px-6 py-3">
                         <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            product.productType === 'FG'
-                              ? 'bg-blue-100 text-blue-700'
-                              : product.productType === 'RM'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-purple-100 text-purple-700'
-                          }`}
+                          className={`px-2 py-1 rounded text-xs font-medium ${product.productType === 'FG'
+                            ? 'bg-blue-100 text-blue-700'
+                            : product.productType === 'RM'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-purple-100 text-purple-700'
+                            }`}
                         >
                           {product.productType || 'FG'}
                         </span>

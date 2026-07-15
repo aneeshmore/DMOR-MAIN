@@ -549,9 +549,12 @@ class AuthorityController {
         throw new NotFoundError('Role not found');
       }
 
-      // Prevent deletion of system roles
-      if (existingRole.isSystemRole) {
-        throw new ConflictError('Cannot delete system roles');
+      // Prevent deletion of system roles or default admin roles
+      if (
+        existingRole.isSystemRole ||
+        ['Admin', 'Administrator', 'SuperAdmin'].includes(existingRole.roleName)
+      ) {
+        throw new ConflictError('Cannot delete system or default admin roles');
       }
 
       await this.repository.deleteRole(roleId);

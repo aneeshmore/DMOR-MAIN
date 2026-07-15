@@ -402,7 +402,7 @@ export const routeRegistry: RouteNode[] = [
       {
         id: 'master-product',
         path: '/masters/master-product',
-        label: 'Master Product',
+        label: 'Product Master',
         icon: Package,
         component: MasterProduct,
         permission: { module: 'master-product' },
@@ -415,7 +415,7 @@ export const routeRegistry: RouteNode[] = [
       {
         id: 'product-sub-master',
         path: '/masters/product-sub-master',
-        label: 'Product Sub Master',
+        label: 'Sub Product Master',
         icon: Database,
         component: ProductMaster,
         permission: { module: 'products' },
@@ -471,7 +471,7 @@ export const routeRegistry: RouteNode[] = [
       {
         id: 'suppliers',
         path: '/masters/suppliers',
-        label: 'Create Vendor',
+        label: 'Create Vendor/Supplier',
         icon: Truck,
         component: SupplierMaster,
         permission: { module: 'suppliers' },

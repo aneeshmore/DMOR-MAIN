@@ -722,7 +722,7 @@ export default function SupplierMaster() {
     <>
       <div className="space-y-6 animate-fade-in">
         {/* Page Header */}
-        <PageHeader title="Create Vendor" description="Manage your vendor records" />
+        <PageHeader title="Create Vendor/Supplier" description="Manage your vendor/supplier records" />
 
         {/* ── FORM (top) ── */}
         <div
@@ -730,7 +730,7 @@ export default function SupplierMaster() {
           className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 shadow-sm"
         >
           <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-6">
-            {editingSupplier ? 'Edit Vendor' : 'Add New Vendor'}
+            {editingSupplier ? 'Edit Vendor/Supplier' : 'Add New Vendor/Supplier'}
           </h2>
           <SupplierForm
             key={formResetKey}
