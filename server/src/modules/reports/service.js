@@ -18,6 +18,8 @@ import {
   batchProducts,
   materialDiscard,
   employees,
+  dispatches,
+  vehicles,
 } from '../../db/schema/index.js';
 
 export class ReportsService {
@@ -708,7 +710,7 @@ export class ReportsService {
 
       // Fetch FG products (from products table)
       if (!type || type === 'All' || type === 'FG' || type === 'Sub-Product') {
-        const fgConditions = [eq(masterProducts.productType, 'FG')];
+        const fgConditions = [eq(masterProducts.productType, 'FG'), eq(products.isActive, true)];
         if (type === 'Sub-Product') {
           fgConditions.push(eq(masterProductFG.subcategory, 'Sub-Product'));
         }
@@ -725,7 +727,7 @@ export class ReportsService {
             availableQuantity: products.availableQuantity,
             availableWeightKg: products.availableWeightKg,
             reservedQuantity: products.reservedQuantity,
-            minStockLevel: masterProducts.minStockLevel,
+            minStockLevel: products.minStockLevel,
             sellingPrice: products.sellingPrice,
             packageCapacityKg: products.packageCapacityKg,
             isActive: products.isActive,
@@ -751,9 +753,9 @@ export class ReportsService {
             products.packageCapacityKg,
             products.isActive,
             products.updatedAt,
+            products.minStockLevel,
             masterProducts.masterProductName,
-            masterProducts.productType,
-            masterProducts.minStockLevel
+            masterProducts.productType
           )
           .orderBy(products.productName);
 
@@ -762,7 +764,10 @@ export class ReportsService {
 
       // Fetch RM products (from master_product_rm table)
       if (!type || type === 'All' || type === 'RM') {
-        const rmConditions = [eq(masterProducts.productType, 'RM')];
+        const rmConditions = [
+          eq(masterProducts.productType, 'RM'),
+          eq(masterProducts.isActive, true),
+        ];
         if (productId) {
           rmConditions.push(eq(masterProducts.masterProductId, parseInt(productId)));
         }
@@ -793,7 +798,8 @@ export class ReportsService {
             totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
           })
           .from(masterProducts)
-          .innerJoin(
+          // LEFT JOIN: active RM masters without a legacy sub-row still report (qty treated as 0)
+          .leftJoin(
             masterProductRM,
             eq(masterProducts.masterProductId, masterProductRM.masterProductId)
           )
@@ -820,7 +826,10 @@ export class ReportsService {
 
       // Fetch PM products (from master_product_pm table)
       if (!type || type === 'All' || type === 'PM') {
-        const pmConditions = [eq(masterProducts.productType, 'PM')];
+        const pmConditions = [
+          eq(masterProducts.productType, 'PM'),
+          eq(masterProducts.isActive, true),
+        ];
         if (productId) {
           pmConditions.push(eq(masterProducts.masterProductId, parseInt(productId)));
         }
@@ -843,7 +852,8 @@ export class ReportsService {
             totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
           })
           .from(masterProducts)
-          .innerJoin(
+          // LEFT JOIN: active PM masters without a legacy sub-row still report (qty treated as 0)
+          .leftJoin(
             masterProductPM,
             eq(masterProducts.masterProductId, masterProductPM.masterProductId)
           )
@@ -1496,6 +1506,80 @@ export class ReportsService {
       return result.rows;
     } catch (error) {
       console.error('Error in getCancelledOrders service', error);
+      throw error;
+    }
+  }
+
+  async getDispatchReport(startDate, endDate) {
+    try {
+      const conditions = [];
+
+      if (startDate) {
+        conditions.push(gte(dispatches.dispatchDate, new Date(startDate)));
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        conditions.push(lte(dispatches.dispatchDate, end));
+      }
+
+      const results = await db
+        .select({
+          dispatchId: dispatches.dispatchId,
+          dispatchDate: dispatches.dispatchDate,
+          vehicleNumber: dispatches.vehicleNo,
+          driverName: dispatches.driverName,
+          status: dispatches.status,
+          remarks: dispatches.remarks,
+          dispatchManifest: sql`array_agg(DISTINCT jsonb_build_object('orderNumber', ${orders.orderNumber}, 'customerName', ${customers.companyName}, 'productName', ${products.productName}, 'quantity', ${orderDetails.quantity}))`,
+          totalQuantity: sql`SUM(${orderDetails.quantity})`,
+          loadedWeight: sql`SUM(${orderDetails.quantity} * COALESCE(${products.packageCapacityKg}, 0))`,
+          vehicleCapacity: vehicles.capacity,
+        })
+        .from(dispatches)
+        .leftJoin(orders, eq(dispatches.dispatchId, orders.dispatchId))
+        .leftJoin(customers, eq(orders.customerId, customers.customerId))
+        .leftJoin(orderDetails, eq(orders.orderId, orderDetails.orderId))
+        .leftJoin(products, eq(orderDetails.productId, products.productId))
+        .leftJoin(vehicles, eq(dispatches.vehicleNo, vehicles.vehicleNumber))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .groupBy(
+          dispatches.dispatchId,
+          dispatches.dispatchDate,
+          dispatches.vehicleNo,
+          dispatches.driverName,
+          dispatches.status,
+          dispatches.remarks,
+          vehicles.capacity
+        )
+        .orderBy(desc(dispatches.dispatchDate));
+
+      return results.map(row => {
+        const rawManifest = Array.isArray(row.dispatchManifest) ? row.dispatchManifest : [];
+        const validManifest = rawManifest.filter(item => item && item.orderNumber);
+
+        const orderNumbers = [...new Set(validManifest.map(m => m.orderNumber).filter(Boolean))];
+        const customerNames = [...new Set(validManifest.map(m => m.customerName).filter(Boolean))];
+        const productNames = [...new Set(validManifest.map(m => m.productName).filter(Boolean))];
+
+        return {
+          dispatchNo: row.dispatchId ? `DSP-${row.dispatchId}` : '-',
+          dispatchDate: row.dispatchDate,
+          vehicleNumber: row.vehicleNumber || '-',
+          driverName: row.driverName || '-',
+          orderNumbers,
+          customers: customerNames,
+          products: productNames,
+          dispatchManifest: validManifest,
+          totalQuantity: row.totalQuantity ? Number(row.totalQuantity) : 0,
+          loadedWeight: row.loadedWeight ? parseFloat(row.loadedWeight) : 0,
+          vehicleCapacity: row.vehicleCapacity != null ? parseFloat(row.vehicleCapacity) : null,
+          status: row.status || '-',
+          remarks: row.remarks || '-',
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching dispatch report:', error);
       throw error;
     }
   }

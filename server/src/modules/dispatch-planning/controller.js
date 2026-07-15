@@ -1,5 +1,5 @@
 import { DispatchPlanningService } from './service.js';
-import { createDispatchSchema } from './schema.js';
+import { createDispatchSchema, createVehicleSchema } from './schema.js';
 import logger from '../../config/logger.js';
 
 export class DispatchPlanningController {
@@ -25,6 +25,36 @@ export class DispatchPlanningController {
       res.json({
         success: true,
         data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getVehicles = async (req, res, next) => {
+    try {
+      const data = await this.service.getVehicles();
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  addVehicle = async (req, res, next) => {
+    try {
+      const payload = createVehicleSchema.parse(req.body);
+      const vehicle = await this.service.addVehicle(payload);
+
+      logger.info('Vehicle added from Dispatch Planning', {
+        vehicleNumber: vehicle.vehicleNumber,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: vehicle,
       });
     } catch (error) {
       next(error);

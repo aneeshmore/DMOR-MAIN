@@ -16,6 +16,19 @@ router.get(
   requirePermission('GET:/dispatch-planning/returned-queue'),
   controller.getReturnedQueue
 );
+router.get(
+  '/vehicles',
+  requirePermission('GET:/dispatch-planning/vehicles'),
+  controller.getVehicles
+);
+// Guarded by the dispatch-create permission: creating a dispatch already
+// creates vehicles implicitly (ensureVehicleExists), so the audience is identical
+// and no new permission grants are required for existing roles.
+router.post(
+  '/vehicles',
+  requirePermission('POST:/dispatch-planning/create'),
+  controller.addVehicle
+);
 router.post(
   '/create',
   requirePermission('POST:/dispatch-planning/create'),
