@@ -878,6 +878,11 @@
             "label": "Create Dispatch"
           },
           {
+            "route": "/dispatch-planning/vehicles",
+            "method": "GET",
+            "label": "View Vehicles"
+          },
+          {
             "route": "/dispatch-planning/:id/requeue",
             "method": "PATCH",
             "label": "Requeue Order"
@@ -1603,6 +1608,21 @@
             "route": "/reports/daily-consumption",
             "method": "GET",
             "label": "View Daily Consumption"
+          }
+        ]
+      },
+      {
+        "id": "dispatch-report",
+        "path": "/reports/dispatch",
+        "label": "Dispatch Report",
+        "permission": {
+          "module": "report-dispatch"
+        },
+        "apis": [
+          {
+            "route": "/reports/dispatch",
+            "method": "GET",
+            "label": "View Dispatch Report"
           }
         ]
       },

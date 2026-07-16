@@ -148,6 +148,7 @@ const ProductWiseReport = lazy(() => import('@/features/reports/pages/ProductWis
 const DailyConsumptionReport = lazy(
   () => import('@/features/reports/pages/DailyConsumptionReport')
 );
+const DispatchReport = lazy(() => import('@/features/reports/pages/DispatchReport'));
 const TestCertificateReportList = lazy(
   () => import('@/modules/test-certificate/TestCertificateReportList')
 );
@@ -778,6 +779,7 @@ export const routeRegistry: RouteNode[] = [
             label: 'View Returned Queue',
           },
           { route: '/dispatch-planning/create', method: 'POST', label: 'Create Dispatch' },
+          { route: '/dispatch-planning/vehicles', method: 'GET', label: 'View Vehicles' },
           { route: '/dispatch-planning/:id/requeue', method: 'PATCH', label: 'Requeue Order' },
           {
             route: '/production-manager/planning-dashboard',
@@ -1228,6 +1230,15 @@ export const routeRegistry: RouteNode[] = [
             label: 'View Daily Consumption',
           },
         ],
+      },
+      {
+        id: 'dispatch-report',
+        path: '/reports/dispatch',
+        label: 'Dispatch Report',
+        icon: Truck,
+        component: DispatchReport,
+        permission: { module: 'report-dispatch' },
+        apis: [{ route: '/reports/dispatch', method: 'GET', label: 'View Dispatch Report' }],
       },
       {
         id: 'report-test-certificate',

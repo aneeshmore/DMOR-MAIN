@@ -45,6 +45,20 @@ export const dispatchPlanningApi = {
     return data;
   },
 
+  getVehicles: async () => {
+    const { data } = await apiClient.get('/dispatch-planning/vehicles');
+    return data.data;
+  },
+
+  addVehicle: async (payload: {
+    vehicleNumber: string;
+    driverName?: string;
+    capacity?: number;
+  }) => {
+    const { data } = await apiClient.post('/dispatch-planning/vehicles', payload);
+    return data.data;
+  },
+
   requeueOrder: async (orderId: number) => {
     const { data } = await apiClient.patch(`/dispatch-planning/${orderId}/requeue`);
     return data;

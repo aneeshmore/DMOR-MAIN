@@ -183,4 +183,11 @@ export const reportsApi = {
     });
     return response.data.data;
   },
+
+  getDispatchReport: async (startDate?: string, endDate?: string) => {
+    const response = await apiClient.get('/reports/dispatch', {
+      params: { startDate, endDate },
+    });
+    return response.data.data;
+  },
 };
