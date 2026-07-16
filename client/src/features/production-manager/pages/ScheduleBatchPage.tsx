@@ -94,6 +94,19 @@ interface DistributionInfo {
   totalDistributionWeight: number;
 }
 
+/**
+ * Display helper for material quantities.
+ * Internally all calculations keep full precision (up to 6 decimals).
+ * UI shows 3 decimals; if a NON-ZERO value would display as 0.000,
+ * show '0.000+' so it is never mistaken for exactly zero.
+ */
+const formatQty = (value: number | string | null | undefined): string => {
+  const num = Number(value) || 0;
+  const rounded = num.toFixed(3);
+  if (num > 0 && parseFloat(rounded) === 0) return '0.000+';
+  return rounded;
+};
+
 // Sortable Row Component for DnD
 function SortableRow({
   id,
@@ -150,23 +163,9 @@ export default function ScheduleBatchPage() {
   const { user, hasPermission, isAuthenticated } = useAuth();
 
   // Check if user has permission to create batches
+  // NOTE: Access-denied guard is rendered AFTER all hooks (below, before the main return)
+  // so that hooks always execute in the same order on every render (React Rules of Hooks).
   const canCreateBatch = hasPermission('production-manager', 'create');
-
-  // If not authenticated or no permission, show access denied
-  if (!isAuthenticated || !canCreateBatch) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="text-red-500 text-lg font-semibold mb-2">Access Denied</div>
-          <div className="text-gray-600">
-            {!isAuthenticated
-              ? 'Please log in to access this page.'
-              : 'You do not have permission to create production batches.'}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [distributions, setDistributions] = useState<DistributionInfo[]>([]);
@@ -272,7 +271,7 @@ export default function ScheduleBatchPage() {
   // Auto-set actual quantity to total output weight when completing batch
   useEffect(() => {
     if (isCompletingBatch && totalOutputWeight > 0) {
-      setActualQuantity(totalOutputWeight.toFixed(2));
+      setActualQuantity(Number(totalOutputWeight.toFixed(6)));
     }
   }, [totalOutputWeight, isCompletingBatch]);
 
@@ -1457,12 +1456,15 @@ export default function ScheduleBatchPage() {
 
     const availableQty = getAvailableStock(selectedExtraMaterialId);
     if (qtyValue > availableQty) {
-      showToast.warning(`Insufficient stock! Available: ${availableQty.toFixed(3)} kg`);
+      showToast.warning(`Insufficient stock! Available: ${formatQty(availableQty)} kg`);
     }
 
     // Check if the material has active reductions. If so, reduce the reduction balance first.
     const matReductions = reducedMaterials.filter(r => r.materialId === selectedExtraMaterialId);
-    const totalReducedForMat = matReductions.reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
+    const totalReducedForMat = matReductions.reduce(
+      (sum, r) => sum + (parseFloat(r.quantity) || 0),
+      0
+    );
 
     if (totalReducedForMat > 0) {
       if (qtyValue <= totalReducedForMat) {
@@ -1482,17 +1484,23 @@ export default function ScheduleBatchPage() {
         setReducedMaterials(newReduced);
         setSelectedExtraMaterialId(null);
         setExtraMaterialQty('');
-        showToast.success(`Added back ${qtyValue.toFixed(3)} kg to ${material.masterProductName} (reduction balance decreased)`);
+        showToast.success(
+          `Added back ${formatQty(qtyValue)} kg to ${material.masterProductName} (reduction balance decreased)`
+        );
       } else {
         // Partially absorbed, remainder is treated as extra
         const extraQty = qtyValue - totalReducedForMat;
 
         // Apply changes: clear all reductions for this material
-        const filteredReduced = reducedMaterials.filter(r => r.materialId !== selectedExtraMaterialId);
+        const filteredReduced = reducedMaterials.filter(
+          r => r.materialId !== selectedExtraMaterialId
+        );
         setReducedMaterials(filteredReduced);
 
         // Add the remainder to extraMaterials
-        const alreadyAddedInExtra = extraMaterials.some(m => m.materialId === selectedExtraMaterialId);
+        const alreadyAddedInExtra = extraMaterials.some(
+          m => m.materialId === selectedExtraMaterialId
+        );
         if (alreadyAddedInExtra && !canAddMultiple) {
           showToast.error('This material is already added');
           return;
@@ -1510,13 +1518,17 @@ export default function ScheduleBatchPage() {
         setExtraMaterials(prev => [...prev, newExtraMaterial]);
         setSelectedExtraMaterialId(null);
         setExtraMaterialQty('');
-        showToast.success(`Restored original quantity of ${material.masterProductName} and added ${extraQty.toFixed(3)} kg as extra`);
+        showToast.success(
+          `Restored original quantity of ${material.masterProductName} and added ${formatQty(extraQty)} kg as extra`
+        );
         return;
       }
     } else {
       // Normal Add: No active reductions for this material.
       // Check if already added in extra materials (only block if can't add multiple)
-      const alreadyAddedInExtra = extraMaterials.some(m => m.materialId === selectedExtraMaterialId);
+      const alreadyAddedInExtra = extraMaterials.some(
+        m => m.materialId === selectedExtraMaterialId
+      );
       if (alreadyAddedInExtra && !canAddMultiple) {
         showToast.error('This material is already added');
         return;
@@ -1566,9 +1578,7 @@ export default function ScheduleBatchPage() {
       .reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
 
     if (existingReduction + qtyValue >= mat.plannedQuantity) {
-      showToast.error(
-        `Cannot reduce to zero or less. Final quantity must be greater than 0 kg.`
-      );
+      showToast.error(`Cannot reduce to zero or less. Final quantity must be greater than 0 kg.`);
       return;
     }
 
@@ -1664,7 +1674,7 @@ export default function ScheduleBatchPage() {
       const available = getAvailableStock(mat.materialId);
       if (mat.quantity > available) {
         showToast.error(
-          `Insufficient stock for extra material: ${mat.materialName} (Available: ${available.toFixed(3)} kg)`
+          `Insufficient stock for extra material: ${mat.materialName} (Available: ${formatQty(available)} kg)`
         );
         return;
       }
@@ -1689,7 +1699,7 @@ export default function ScheduleBatchPage() {
         return {
           productId,
           producedUnits: qty,
-          weightKg: Number(weight.toFixed(4)),
+          weightKg: Number(weight.toFixed(6)),
         };
       });
 
@@ -1745,7 +1755,7 @@ export default function ScheduleBatchPage() {
         outputSkus: outputSkus.map(s => ({
           productId: s.productId,
           producedUnits: s.producedUnits,
-          weightKg: s.weightKg.toFixed(4),
+          weightKg: s.weightKg.toFixed(6),
         })),
       };
 
@@ -1829,7 +1839,7 @@ export default function ScheduleBatchPage() {
 
       const bomData = standardMaterials.map((m: any) => [
         m.material?.productName || m.materialName || 'Unknown',
-        parseFloat(m.batchMaterial.requiredQuantity).toFixed(3),
+        formatQty(m.batchMaterial.requiredQuantity),
         '',
       ]);
 
@@ -1928,7 +1938,7 @@ export default function ScheduleBatchPage() {
 
         const addData = additionalMaterials.map((m: any) => [
           m.material?.productName || m.materialName || 'Unknown',
-          parseFloat(m.batchMaterial.requiredQuantity).toFixed(3),
+          formatQty(m.batchMaterial.requiredQuantity),
           '',
         ]);
 
@@ -1964,6 +1974,23 @@ export default function ScheduleBatchPage() {
       showToast.error('Failed to generate PDF');
     }
   };
+
+  // If not authenticated or no permission, show access denied.
+  // Placed here (after all hooks) to comply with the React Rules of Hooks.
+  if (!isAuthenticated || !canCreateBatch) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-red-500 text-lg font-semibold mb-2">Access Denied</div>
+          <div className="text-gray-600">
+            {!isAuthenticated
+              ? 'Please log in to access this page.'
+              : 'You do not have permission to create production batches.'}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -2187,7 +2214,7 @@ export default function ScheduleBatchPage() {
                                     const reduction = reducedMaterials
                                       .filter(r => r.materialId === mat.materialId)
                                       .reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
-                                    return (mat.plannedQuantity - reduction).toFixed(3);
+                                    return formatQty(mat.plannedQuantity - reduction);
                                   })()}
                                 </td>
                                 <td className="py-2 px-3"></td>
@@ -2213,15 +2240,15 @@ export default function ScheduleBatchPage() {
                                   </div>
                                   {isInsufficient && (
                                     <div className="text-xs text-red-500 font-medium mt-1 ml-14">
-                                      Required: {mat.quantity.toFixed(3)} / Avail:{' '}
-                                      {available.toFixed(3)}
+                                      Required: {formatQty(mat.quantity)} / Avail:{' '}
+                                      {formatQty(available)}
                                     </div>
                                   )}
                                 </td>
                                 <td
                                   className={`py-2 px-3 text-right font-medium ${isInsufficient ? 'text-red-600' : 'text-green-600 dark:text-green-400'}`}
                                 >
-                                  {mat.quantity.toFixed(3)}
+                                  {formatQty(mat.quantity)}
                                 </td>
                                 <td className="py-2 px-3 text-center">
                                   <button
@@ -2236,6 +2263,31 @@ export default function ScheduleBatchPage() {
                               </tr>
                             );
                           })}
+
+                          {/* Total Consumption Row */}
+                          <tr className="border-t-2 border-[var(--border)] font-semibold bg-gray-50/30 dark:bg-gray-900/10">
+                            <td className="py-2.5 px-3 text-[var(--text-primary)]">
+                              Total Actual Consumption
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-[var(--text-primary)]">
+                              {(() => {
+                                const plannedSum = actualMaterials
+                                  .filter(mat => mat.plannedQuantity > 0)
+                                  .reduce((sum, mat) => {
+                                    const reduction = reducedMaterials
+                                      .filter(r => r.materialId === mat.materialId)
+                                      .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
+                                    return sum + (mat.plannedQuantity - reduction);
+                                  }, 0);
+                                const extraSum = extraMaterials.reduce(
+                                  (sum, mat) => sum + (parseFloat(mat.quantity?.toString()) || 0),
+                                  0
+                                );
+                                return formatQty(plannedSum + extraSum);
+                              })()}
+                            </td>
+                            <td className="py-2.5 px-3"></td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
@@ -2290,7 +2342,7 @@ export default function ScheduleBatchPage() {
                           </label>
                           <input
                             type="number"
-                            step="0.001"
+                            step="0.000001"
                             min="0"
                             value={extraMaterialQty}
                             onChange={e => setExtraMaterialQty(e.target.value)}
@@ -2321,7 +2373,8 @@ export default function ScheduleBatchPage() {
                         </h4>
                         {totalReducedQuantity > 0 && (
                           <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                            Total Reduced: {totalReducedQuantity.toFixed(3)} kg (Added: {totalAddedQuantity.toFixed(3)} kg)
+                            Total Reduced: {formatQty(totalReducedQuantity)} kg (Added:{' '}
+                            {formatQty(totalAddedQuantity)} kg)
                           </span>
                         )}
                       </div>
@@ -2337,7 +2390,8 @@ export default function ScheduleBatchPage() {
                                   p => p.masterProductId === mat.materialId
                                 );
                                 if (!masterProduct) return false;
-                                const pType = masterProduct.productType || masterProduct.ProductType;
+                                const pType =
+                                  masterProduct.productType || masterProduct.ProductType;
                                 if (pType !== 'RM') return false;
                                 const pStatus = masterProduct.status || masterProduct.Status;
                                 if (pStatus === 'Inactive' || pStatus === 'inactive') return false;
@@ -2359,7 +2413,7 @@ export default function ScheduleBatchPage() {
                           </label>
                           <input
                             type="number"
-                            step="0.001"
+                            step="0.000001"
                             min="0"
                             value={reduceMaterialQty}
                             onChange={e => setReduceMaterialQty(e.target.value)}
@@ -2401,7 +2455,7 @@ export default function ScheduleBatchPage() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <span className="font-semibold text-red-600 dark:text-red-400">
-                                    -{red.quantity.toFixed(3)} kg
+                                    -{formatQty(red.quantity)} kg
                                   </span>
                                   <button
                                     type="button"
@@ -2766,10 +2820,10 @@ export default function ScheduleBatchPage() {
                                   <td
                                     className={`px-4 py-3 text-sm font-semibold ${insufficientMaterials.has(material.materialId) ? 'text-red-600 dark:text-red-400' : 'text-[var(--text-primary)]'}`}
                                   >
-                                    {material.requiredQuantity.toFixed(3)} kg
+                                    {formatQty(material.requiredQuantity)} kg
                                     {insufficientMaterials.has(material.materialId) && (
                                       <div className="text-xs text-red-500 font-normal">
-                                        Avail: {material.availableQuantity.toFixed(3)}
+                                        Avail: {formatQty(material.availableQuantity)}
                                       </div>
                                     )}
                                   </td>
@@ -2942,12 +2996,12 @@ export default function ScheduleBatchPage() {
                           <td className="px-4 py-3 text-sm">
                             {batch.startedAt || batch.createdAt
                               ? new Date(
-                                batch.startedAt || batch.createdAt || ''
-                              ).toLocaleDateString('en-IN', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                              })
+                                  batch.startedAt || batch.createdAt || ''
+                                ).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                })
                               : '-'}
                           </td>
                           <td className="px-4 py-3 min-w-[150px]">{batch.masterProductName}</td>

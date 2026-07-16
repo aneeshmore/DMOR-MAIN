@@ -39,6 +39,20 @@ interface RawMaterialItem {
   waitingTime: number | string;
 }
 
+// Helper to truncate display percentage to 3 decimal places without rounding/changing formulation
+const formatDisplayPercentage = (val: string | number) => {
+  if (val === undefined || val === null || val === '') return '';
+  const strVal = String(val);
+  const dotIndex = strVal.indexOf('.');
+  if (dotIndex !== -1) {
+    const decimals = strVal.substring(dotIndex + 1);
+    if (decimals.length > 3) {
+      return strVal.substring(0, dotIndex + 4);
+    }
+  }
+  return strVal;
+};
+
 // Sortable Row Component for DnD
 function SortableRow({
   id,
@@ -84,6 +98,7 @@ const DoubleProductDevelopment = () => {
   const [rmMasterProducts, setRmMasterProducts] = useState<MasterProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [focusedPercentId, setFocusedPercentId] = useState<number | null>(null);
 
   // Form State
   const [selectedMasterProductId, setSelectedMasterProductId] = useState<number | ''>('');
@@ -708,9 +723,13 @@ const DoubleProductDevelopment = () => {
       return;
     }
 
-    // Check if any base item has Total % = 0
+    // Check if any base item has Total % = 0 or Percent % = 0.000
     if (baseItems.some(item => Number(item.totalPercentage) === 0)) {
       showToast.error('Some base items have Total % as 0. Please configure properly.');
+      return;
+    }
+    if (baseItems.some(item => parseFloat(String(item.percentage || '0')) === 0)) {
+      showToast.error('Recipe cannot be saved if any Base item Percent % is 0.000');
       return;
     }
 
@@ -725,6 +744,10 @@ const DoubleProductDevelopment = () => {
         hardenerItems.some(item => Number(item.totalPercentage) === 0)
       ) {
         showToast.error('Set the hardener first');
+        return;
+      }
+      if (hardenerItems.some(item => parseFloat(String(item.percentage || '0')) === 0)) {
+        showToast.error('Recipe cannot be saved if any Hardener item Percent % is 0.000');
         return;
       }
     }
@@ -1040,7 +1063,13 @@ const DoubleProductDevelopment = () => {
                       <td className="px-4 py-2">
                         <input
                           type="number"
-                          value={item.percentage}
+                          value={
+                            focusedPercentId === item.id
+                              ? item.percentage
+                              : formatDisplayPercentage(item.percentage)
+                          }
+                          onFocus={() => setFocusedPercentId(item.id)}
+                          onBlur={() => setFocusedPercentId(null)}
                           onChange={e =>
                             handleUpdateItem(item.id, 'percentage', e.target.value, isHardener)
                           }
@@ -1176,40 +1205,41 @@ const DoubleProductDevelopment = () => {
                 </td>
                 <td className="px-4 py-3">{calculateTotalWtInLtr(items).toFixed(3)}</td>
                 <td colSpan={3} className="px-4 py-3 text-right">
-                  {!isHardener && linkedHardenerId && (() => {
-                    const targetValue =
-                      (parseFloat(ratioBase || '0') /
-                        (parseFloat(ratioHardener || '1') || 1)) *
-                      calculateTotalWtInLtr(hardenerItems);
-                    const totalWtLtr = calculateTotalWtInLtr(items);
-                    const difference = totalWtLtr - targetValue;
-                    const diffVal = parseFloat(difference.toFixed(3));
+                  {!isHardener &&
+                    linkedHardenerId &&
+                    (() => {
+                      const targetValue =
+                        (parseFloat(ratioBase || '0') / (parseFloat(ratioHardener || '1') || 1)) *
+                        calculateTotalWtInLtr(hardenerItems);
+                      const totalWtLtr = calculateTotalWtInLtr(items);
+                      const difference = totalWtLtr - targetValue;
+                      const diffVal = parseFloat(difference.toFixed(3));
 
-                    let recText = '';
-                    let recColor = '';
-                    if (diffVal < 0) {
-                      recText = '↑ Increase Base Volume';
-                      recColor = '#d97706'; // Amber
-                    } else if (diffVal > 0) {
-                      recText = '↓ Reduce Base Volume';
-                      recColor = '#2563eb'; // Blue
-                    } else {
-                      recText = '✓ Base Volume is Accurate';
-                      recColor = '#16a34a'; // Green
-                    }
+                      let recText = '';
+                      let recColor = '';
+                      if (diffVal < 0) {
+                        recText = '↑ Increase Base Volume';
+                        recColor = '#d97706'; // Amber
+                      } else if (diffVal > 0) {
+                        recText = '↓ Reduce Base Volume';
+                        recColor = '#2563eb'; // Blue
+                      } else {
+                        recText = '✓ Base Volume is Accurate';
+                        recColor = '#16a34a'; // Green
+                      }
 
-                    return (
-                      <span
-                        style={{
-                          color: recColor,
-                          fontSize: '13px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {recText}
-                      </span>
-                    );
-                  })()}
+                      return (
+                        <span
+                          style={{
+                            color: recColor,
+                            fontSize: '13px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {recText}
+                        </span>
+                      );
+                    })()}
                 </td>
               </tr>
               {showGrandTotal && (
