@@ -182,7 +182,7 @@
       {
         "id": "master-product",
         "path": "/masters/master-product",
-        "label": "Master Product",
+        "label": "Product Master",
         "permission": {
           "module": "master-product"
         },
@@ -207,7 +207,7 @@
       {
         "id": "product-sub-master",
         "path": "/masters/product-sub-master",
-        "label": "Product Sub Master",
+        "label": "Sub Product Master",
         "permission": {
           "module": "products"
         },
@@ -322,7 +322,7 @@
       {
         "id": "suppliers",
         "path": "/masters/suppliers",
-        "label": "Create Vendor",
+        "label": "Create Vendor/Supplier",
         "permission": {
           "module": "suppliers"
         },

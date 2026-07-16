@@ -351,6 +351,7 @@ export default function DepartmentMaster() {
   const [newDepartmentName, setNewDepartmentName] = useState('');
   const [addError, setAddError] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [formResetKey, setFormResetKey] = useState(0);
 
   // Edit & Confirmation States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -364,6 +365,13 @@ export default function DepartmentMaster() {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | null>(null);
   const [isSavingRole, setIsSavingRole] = useState(false);
+
+  // Delete Modals States
+  const [isDeleteDeptModalOpen, setIsDeleteDeptModalOpen] = useState(false);
+  const [deptToDelete, setDeptToDelete] = useState<number | null>(null);
+  
+  const [isDeleteRoleModalOpen, setIsDeleteRoleModalOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<number | null>(null);
 
   const [permissions, setPermissions] = useState<Permission[]>([]);
 
@@ -412,6 +420,7 @@ export default function DepartmentMaster() {
         setNewDepartmentName('');
         setAddError('');
         setIsAddConfirmModalOpen(false);
+        setFormResetKey(prev => prev + 1);
       } else if (!response.success) {
         logger.error('Create failed:', response.error);
       }
@@ -463,20 +472,21 @@ export default function DepartmentMaster() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this department? This will also remove any roles associated with it. This action cannot be undone.'
-    );
-    if (!confirmed) return;
+  const handleDelete = (id: number) => {
+    setDeptToDelete(id);
+    setIsDeleteDeptModalOpen(true);
+  };
 
+  const confirmDeleteDept = async () => {
+    if (!deptToDelete) return;
     try {
-      logger.info('Deleting department:', { id });
-      const response = await departmentApi.delete(id);
+      logger.info('Deleting department:', { id: deptToDelete });
+      const response = await departmentApi.delete(deptToDelete);
 
       if (response.success) {
-        setDepartments(prev => prev.filter(d => d.DepartmentID !== id));
+        setDepartments(prev => prev.filter(d => d.DepartmentID !== deptToDelete));
         showToast.success('Department deleted successfully');
-        logger.info('Department deleted successfully:', { id });
+        logger.info('Department deleted successfully:', { id: deptToDelete });
       } else {
         // Handle error from backend (e.g., system department)
         showToast.error(response.error || 'Failed to delete department');
@@ -487,6 +497,9 @@ export default function DepartmentMaster() {
         error?.response?.data?.error || error?.message || 'Failed to delete department';
       showToast.error(errorMessage);
       logger.error('Failed to delete department:', error);
+    } finally {
+      setIsDeleteDeptModalOpen(false);
+      setDeptToDelete(null);
     }
   };
 
@@ -503,19 +516,23 @@ export default function DepartmentMaster() {
     setIsRoleModalOpen(true);
   };
 
-  const handleDeleteRole = async (roleId: number) => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this role? This action cannot be undone.'
-    );
-    if (!confirmed) return;
+  const handleDeleteRole = (roleId: number) => {
+    setRoleToDelete(roleId);
+    setIsDeleteRoleModalOpen(true);
+  };
 
+  const confirmDeleteRole = async () => {
+    if (!roleToDelete) return;
     try {
-      await authApi.deleteRole(roleId);
+      await authApi.deleteRole(roleToDelete);
       showToast.success('Role deleted successfully');
       // Refresh the expanded rows
       loadDepartments();
     } catch (error) {
       logger.error('Failed to delete role:', error);
+    } finally {
+      setIsDeleteRoleModalOpen(false);
+      setRoleToDelete(null);
     }
   };
 
@@ -572,9 +589,9 @@ export default function DepartmentMaster() {
 
   const columns: ColumnDef<Department>[] = [
     {
-      accessorKey: 'DepartmentID',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
-      cell: ({ row }) => <span>{row.original.DepartmentID}</span>,
+      id: 'srNo',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Sr. No." />,
+      cell: ({ row }) => <span>{row.index + 1}</span>,
     },
     {
       accessorKey: 'DepartmentName',
@@ -584,16 +601,26 @@ export default function DepartmentMaster() {
     {
       id: 'actions',
       header: 'Actions',
-      cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2">
-          {![
-            'Accounts',
-            'Administration',
-            'Production',
-            'Sales & Marketing',
-            'Dealer',
-            'Administrator',
-          ].includes(row.original.DepartmentName) && (
+      cell: ({ row }) => {
+        const isDefault = [
+          'Accounts',
+          'Administration',
+          'Production',
+          'Sales & Marketing',
+          'Dealer',
+          'Administrator',
+        ].includes(row.original.DepartmentName);
+
+        if (isDefault) {
+          return (
+            <div className="flex items-center justify-end">
+              <span className="text-[var(--text-secondary)] italic text-sm">Default</span>
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => handleEdit(row.original)}
               className="p-2 rounded-lg hover:bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors border border-transparent hover:border-[var(--border)] focus-ring"
@@ -602,16 +629,7 @@ export default function DepartmentMaster() {
             >
               <Edit2 size={16} />
             </button>
-          )}
-          {!row.original.IsSystemDepartment &&
-            ![
-              'Accounts',
-              'Administration',
-              'Production',
-              'Sales & Marketing',
-              'Dealer',
-              'Administrator',
-            ].includes(row.original.DepartmentName) && (
+            {!row.original.IsSystemDepartment && (
               <button
                 onClick={() => handleDelete(row.original.DepartmentID)}
                 className="p-2 rounded-lg hover:bg-red-50 text-[var(--text-secondary)] hover:text-[var(--danger)] transition-colors border border-transparent hover:border-red-200 focus-ring"
@@ -621,8 +639,9 @@ export default function DepartmentMaster() {
                 <Trash2 size={16} />
               </button>
             )}
-        </div>
-      ),
+          </div>
+        );
+      },
     },
   ];
 
@@ -651,6 +670,7 @@ export default function DepartmentMaster() {
                 {editingItem ? 'Edit Department' : 'Add New Department'}
               </h2>
               <DepartmentForm
+                key={`add-form-${formResetKey}`}
                 item={editingItem}
                 existingDepartments={departments}
                 onSave={
@@ -795,6 +815,49 @@ export default function DepartmentMaster() {
             isSaving={isSavingRole}
           />
         )}
+      </Modal>
+      {/* Delete Department Modal */}
+      <Modal
+        isOpen={isDeleteDeptModalOpen}
+        onClose={() => setIsDeleteDeptModalOpen(false)}
+        title="Delete Department"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Are you sure you want to delete this department? This will also remove any roles associated with it. This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--border)]">
+            <Button variant="ghost" onClick={() => setIsDeleteDeptModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={confirmDeleteDept} className="bg-red-600 hover:bg-red-700 text-white border-transparent">
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Role Modal */}
+      <Modal
+        isOpen={isDeleteRoleModalOpen}
+        onClose={() => setIsDeleteRoleModalOpen(false)}
+        title="Delete Role"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Are you sure you want to delete this role? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--border)]">
+            <Button variant="ghost" onClick={() => setIsDeleteRoleModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={confirmDeleteRole} className="bg-red-600 hover:bg-red-700 text-white border-transparent">
+              Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </>
   );
