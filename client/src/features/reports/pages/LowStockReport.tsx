@@ -335,7 +335,7 @@ const LowStockReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Available Qty" />,
         cell: ({ row }) => (
           <div className="text-right text-[var(--color-error)] font-bold flex items-center justify-end gap-1">
-            {row.original.availableQuantity}
+            {parseFloat(Number(row.original.availableQuantity).toFixed(2))}
             <AlertTriangle className="h-4 w-4" />
           </div>
         ),
@@ -354,7 +354,11 @@ const LowStockReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Shortage" />,
         cell: ({ row }) => {
           const shortage = row.original.minStockLevel - row.original.availableQuantity;
-          return <div className="text-right text-[var(--color-error)] font-bold">-{shortage}</div>;
+          return (
+            <div className="text-right text-[var(--color-error)] font-bold">
+              -{parseFloat(shortage.toFixed(2))}
+            </div>
+          );
         },
       },
 
@@ -458,7 +462,7 @@ const LowStockReport = () => {
               Total Quantity Shortage
             </p>
             <p className="text-3xl font-bold text-[var(--color-warning)] mt-1">
-              {stats.totalShortage}
+              {Number(stats.totalShortage).toFixed(2)}
             </p>
           </div>
         </div>
