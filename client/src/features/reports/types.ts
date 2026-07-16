@@ -164,3 +164,26 @@ export interface ProductWiseReportItem {
   transactionType: string;
   productCategory?: string;
 }
+
+export interface DispatchManifestItem {
+  orderNumber: string;
+  customerName: string;
+  productName: string;
+  quantity?: number | string | null;
+}
+
+export interface DispatchReportItem {
+  dispatchNo: string;
+  dispatchDate: string;
+  vehicleNumber: string;
+  driverName: string;
+  orderNumbers: string[];
+  customers: string[];
+  products: string[];
+  dispatchManifest: DispatchManifestItem[];
+  totalQuantity: number;
+  loadedWeight: number;
+  vehicleCapacity: number | null;
+  status: string;
+  remarks: string;
+}

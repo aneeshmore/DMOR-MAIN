@@ -1,6 +1,7 @@
 import { DispatchPlanningRepository } from './repository.js';
 import { NotificationsService } from '../notifications/service.js';
 import { DispatchOrderDTO } from './dto.js';
+import { AppError } from '../../utils/AppError.js';
 
 export class DispatchPlanningService {
   constructor() {
@@ -16,6 +17,40 @@ export class DispatchPlanningService {
   async getReturnedQueue() {
     const results = await this.repository.findReturnedOrders();
     return results.map(group => new DispatchOrderDTO(group.order, group.customer, group.items));
+  }
+
+  async getVehicles() {
+    const vehicles = await this.repository.getVehicles();
+    return vehicles.map(v => ({
+      id: v.id,
+      vehicleNumber: v.vehicleNumber,
+      driverName: v.driverName || 'N/A',
+      capacity: v.capacity ? parseFloat(v.capacity) : 0,
+      isAvailable: v.isAvailable,
+    }));
+  }
+
+  async addVehicle(payload) {
+    // Reuses the same insertion path as dispatch creation (ensureVehicleExists):
+    // duplicate-safe and whitespace-trimmed
+    const vehicle = await this.repository.ensureVehicleExists({
+      vehicleNumber: payload.vehicleNumber,
+      driverName: payload.driverName,
+      capacity: payload.capacity,
+    });
+
+    if (!vehicle) {
+      throw new AppError('A valid vehicle number is required', 400);
+    }
+
+    // Same shape as getVehicles() items so the frontend can use it directly
+    return {
+      id: vehicle.vehicleId,
+      vehicleNumber: vehicle.vehicleNumber,
+      driverName: vehicle.driverName || 'N/A',
+      capacity: vehicle.capacity ? parseFloat(vehicle.capacity) : 0,
+      isAvailable: vehicle.isAvailable,
+    };
   }
 
   async createDispatch(payload) {
@@ -38,7 +73,15 @@ export class DispatchPlanningService {
       );
     }
 
-    // 3. Create Dispatch Record
+    // 3. Ensure vehicle exists in master (persists capacity for dispatch reporting)
+    const { capacity } = payload;
+    await this.repository.ensureVehicleExists({
+      vehicleNumber: vehicleNo,
+      driverName,
+      capacity,
+    });
+
+    // 4. Create Dispatch Record
     const dispatchRecord = await this.repository.createDispatchRecord({
       vehicleNo,
       driverName,

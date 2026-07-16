@@ -280,7 +280,27 @@ const QuotationMasterPage: React.FC = () => {
         enableColumnFilter: true,
         cell: ({ row }) => {
           try {
-            return format(new Date(row.original.createdAt), 'dd MMM yyyy');
+            const createdDate = new Date(row.original.createdAt);
+            const updatedAtStr = row.original.updatedAt;
+            const updatedDate = updatedAtStr ? new Date(updatedAtStr) : null;
+            const isEdited = updatedDate && (updatedDate.getTime() - createdDate.getTime() > 1000);
+
+            return (
+              <div className="flex flex-col text-sm space-y-1">
+                <div>
+                  <div className="text-gray-500 font-medium text-[10px] uppercase tracking-wider">Created:</div>
+                  <div className="font-semibold text-gray-800">{format(createdDate, 'dd MMM yyyy')}</div>
+                  <div className="text-xs text-gray-500">{format(createdDate, 'hh:mm a')}</div>
+                </div>
+                {isEdited && (
+                  <div>
+                    <div className="text-amber-500 font-medium text-[10px] uppercase tracking-wider">Edited:</div>
+                    <div className="font-semibold text-amber-700">{format(updatedDate, 'dd MMM yyyy')}</div>
+                    <div className="text-xs text-amber-600">{format(updatedDate, 'hh:mm a')}</div>
+                  </div>
+                )}
+              </div>
+            );
           } catch {
             return row.original.quotationDate || '-';
           }
@@ -447,20 +467,7 @@ const QuotationMasterPage: React.FC = () => {
                 </Button>
               )}
 
-              {/* Edit for Approved - Only for Admin or Creator */}
-              {isApproved ||
-                (isRejected && (isAdmin || quotation.createdBy === user?.EmployeeID) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(quotation)}
-                    title="Edit Quotation"
-                    className="text-orange-600 hover:bg-orange-50 justify-start h-7"
-                  >
-                    <Edit size={14} className="mr-1.5" />
-                    Edit
-                  </Button>
-                ))}
+
             </div>
           );
         },

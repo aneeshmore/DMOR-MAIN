@@ -182,7 +182,7 @@
       {
         "id": "master-product",
         "path": "/masters/master-product",
-        "label": "Master Product",
+        "label": "Product Master",
         "permission": {
           "module": "master-product"
         },
@@ -207,7 +207,7 @@
       {
         "id": "product-sub-master",
         "path": "/masters/product-sub-master",
-        "label": "Product Sub Master",
+        "label": "Sub Product Master",
         "permission": {
           "module": "products"
         },
@@ -322,7 +322,7 @@
       {
         "id": "suppliers",
         "path": "/masters/suppliers",
-        "label": "Create Vendor",
+        "label": "Create Vendor/Supplier",
         "permission": {
           "module": "suppliers"
         },
@@ -876,6 +876,11 @@
             "route": "/dispatch-planning/create",
             "method": "POST",
             "label": "Create Dispatch"
+          },
+          {
+            "route": "/dispatch-planning/vehicles",
+            "method": "GET",
+            "label": "View Vehicles"
           },
           {
             "route": "/dispatch-planning/:id/requeue",
@@ -1603,6 +1608,21 @@
             "route": "/reports/daily-consumption",
             "method": "GET",
             "label": "View Daily Consumption"
+          }
+        ]
+      },
+      {
+        "id": "dispatch-report",
+        "path": "/reports/dispatch",
+        "label": "Dispatch Report",
+        "permission": {
+          "module": "report-dispatch"
+        },
+        "apis": [
+          {
+            "route": "/reports/dispatch",
+            "method": "GET",
+            "label": "View Dispatch Report"
           }
         ]
       },

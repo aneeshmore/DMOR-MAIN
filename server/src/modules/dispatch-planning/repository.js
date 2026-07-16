@@ -8,6 +8,7 @@ import {
   inventoryTransactions,
   dispatches,
   accounts,
+  vehicles,
 } from '../../db/schema/index.js';
 import inventoryTransactionService from '../../services/inventory-transaction.service.js';
 
@@ -242,6 +243,46 @@ export class DispatchPlanningRepository {
 
   async createDispatchRecord(data) {
     const result = await db.insert(dispatches).values(data).returning();
+    return result[0];
+  }
+
+  async getVehicles() {
+    return await db
+      .select({
+        id: vehicles.vehicleId,
+        vehicleNumber: vehicles.vehicleNumber,
+        driverName: vehicles.driverName,
+        capacity: vehicles.capacity,
+        isAvailable: vehicles.isAvailable,
+      })
+      .from(vehicles)
+      .orderBy(vehicles.vehicleNumber);
+  }
+
+  async ensureVehicleExists(data) {
+    const { vehicleNumber, driverName, capacity } = data;
+
+    // Normalize: trim whitespace; keep original casing (dispatch records join
+    // vehicles by the raw vehicle_number string, so casing must not be rewritten)
+    const normalizedNumber = (vehicleNumber || '').toString().trim();
+    if (!normalizedNumber || normalizedNumber === 'Customer Pickup') return null;
+
+    // Duplicate check: case-insensitive
+    const [existing] = await db
+      .select()
+      .from(vehicles)
+      .where(sql`LOWER(${vehicles.vehicleNumber}) = LOWER(${normalizedNumber})`);
+    if (existing) return existing;
+
+    const result = await db
+      .insert(vehicles)
+      .values({
+        vehicleNumber: normalizedNumber,
+        driverName: driverName ? driverName.toString().trim() : driverName,
+        capacity,
+        isAvailable: true,
+      })
+      .returning();
     return result[0];
   }
 

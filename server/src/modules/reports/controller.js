@@ -144,3 +144,16 @@ export const getSalespersonIncentiveReport = async (req, res, next) => {
   }
 };
 
+export const getDispatchReport = async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const data = await reportsService.getDispatchReport(startDate, endDate);
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

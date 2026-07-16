@@ -73,8 +73,698 @@ interface Employee {
   designation?: string;
 }
 
+// Lightweight copy of raw orders kept from the existing /orders fetch.
+// Powers the per-customer drilldown (orders + revenue trend) without any extra API calls.
+interface RawOrderSummary {
+  orderId: number;
+  orderNumber: string;
+  orderDate: string;
+  status: string;
+  totalAmount: number;
+  customerId: number;
+  salespersonId: number | null;
+}
+
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+function computeTrendData(
+  orders: RawOrderSummary[],
+  mode: 'yearly' | 'monthly' | 'custom',
+  year: string,
+  month: string,
+  customFrom: string,
+  customTo: string,
+  salespersonId: string,
+  customerId?: number
+): { labels: string[]; activeData: number[]; compData: number[] } {
+  const filtered = orders.filter(o => {
+    if (customerId !== undefined && o.customerId !== customerId) return false;
+    if (salespersonId && String(o.salespersonId) !== salespersonId) return false;
+    return true;
+  });
+
+  const MONTHS = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
+  ];
+  const yVal = parseInt(year) || new Date().getFullYear();
+
+  if (mode === 'yearly') {
+    const activeData = new Array(12).fill(0);
+    const compData = new Array(12).fill(0);
+    const compYear = (yVal - 1).toString();
+
+    filtered.forEach(o => {
+      const d = new Date(o.orderDate);
+      if (isNaN(d.getTime())) return;
+      const oYear = d.getFullYear().toString();
+      const oMonth = d.getMonth();
+      if (oYear === year) {
+        activeData[oMonth] += o.totalAmount;
+      } else if (oYear === compYear) {
+        compData[oMonth] += o.totalAmount;
+      }
+    });
+
+    return { labels: MONTHS, activeData, compData };
+  }
+
+  if (mode === 'monthly') {
+    const mVal = parseInt(month) || 0;
+    const numDays = new Date(yVal, mVal + 1, 0).getDate();
+    const labels = Array.from({ length: numDays }, (_, i) => String(i + 1));
+    const activeData = new Array(numDays).fill(0);
+    const compData = new Array(numDays).fill(0);
+
+    let compMonthVal = mVal - 1;
+    let compYearVal = yVal;
+    if (compMonthVal < 0) {
+      compMonthVal = 11;
+      compYearVal = yVal - 1;
+    }
+    const compYearStr = compYearVal.toString();
+    const compMonthStr = compMonthVal.toString();
+
+    filtered.forEach(o => {
+      const d = new Date(o.orderDate);
+      if (isNaN(d.getTime())) return;
+      const oYear = d.getFullYear().toString();
+      const oMonth = d.getMonth().toString();
+      const oDay = d.getDate();
+
+      if (oYear === year && oMonth === month) {
+        const idx = oDay - 1;
+        if (idx >= 0 && idx < numDays) {
+          activeData[idx] += o.totalAmount;
+        }
+      } else if (oYear === compYearStr && oMonth === compMonthStr) {
+        const idx = oDay - 1;
+        if (idx >= 0 && idx < numDays) {
+          compData[idx] += o.totalAmount;
+        }
+      }
+    });
+
+    return { labels, activeData, compData };
+  }
+
+  if (mode === 'custom') {
+    if (!customFrom || !customTo) {
+      return { labels: [], activeData: [], compData: [] };
+    }
+    const start = new Date(customFrom);
+    const end = new Date(customTo);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+      return { labels: [], activeData: [], compData: [] };
+    }
+
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 31) {
+      const labels: string[] = [];
+      const activeData: number[] = [];
+      const compData: number[] = [];
+      const activeMap = new Map<string, number>();
+      const compMap = new Map<string, number>();
+
+      const compStart = new Date(start);
+      compStart.setFullYear(compStart.getFullYear() - 1);
+
+      const currentActive = new Date(start);
+      const currentComp = new Date(compStart);
+
+      while (currentActive <= end) {
+        const y = currentActive.getFullYear();
+        const m = String(currentActive.getMonth() + 1).padStart(2, '0');
+        const d = String(currentActive.getDate()).padStart(2, '0');
+        const activeStr = `${y}-${m}-${d}`;
+
+        const cy = currentComp.getFullYear();
+        const cm = String(currentComp.getMonth() + 1).padStart(2, '0');
+        const cd = String(currentComp.getDate()).padStart(2, '0');
+        const compStr = `${cy}-${cm}-${cd}`;
+
+        const label =
+          currentActive.getDate() + ' ' + MONTHS[currentActive.getMonth()].substring(0, 3);
+        labels.push(label);
+
+        activeMap.set(activeStr, labels.length - 1);
+        compMap.set(compStr, labels.length - 1);
+
+        activeData.push(0);
+        compData.push(0);
+
+        currentActive.setDate(currentActive.getDate() + 1);
+        currentComp.setDate(currentComp.getDate() + 1);
+      }
+
+      filtered.forEach(o => {
+        const d = new Date(o.orderDate);
+        if (isNaN(d.getTime())) return;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${day}`;
+
+        const actIdx = activeMap.get(dateStr);
+        if (actIdx !== undefined) {
+          activeData[actIdx] += o.totalAmount;
+        }
+
+        const compIdx = compMap.get(dateStr);
+        if (compIdx !== undefined) {
+          compData[compIdx] += o.totalAmount;
+        }
+      });
+
+      return { labels, activeData, compData };
+    } else if (diffDays <= 366) {
+      const labels: string[] = [];
+      const activeData: number[] = [];
+      const compData: number[] = [];
+
+      const activeMonthMap = new Map<string, number>();
+      const compMonthMap = new Map<string, number>();
+
+      const current = new Date(start);
+      current.setDate(1);
+      const endMonthMarker = new Date(end);
+      endMonthMarker.setDate(1);
+
+      while (current <= endMonthMarker) {
+        const key = current.getFullYear() + '-' + current.getMonth();
+
+        const compDate = new Date(current);
+        compDate.setFullYear(compDate.getFullYear() - 1);
+        const compKey = compDate.getFullYear() + '-' + compDate.getMonth();
+
+        const label = MONTHS[current.getMonth()] + ' ' + current.getFullYear();
+        labels.push(label);
+        activeMonthMap.set(key, labels.length - 1);
+        compMonthMap.set(compKey, labels.length - 1);
+
+        activeData.push(0);
+        compData.push(0);
+        current.setMonth(current.getMonth() + 1);
+      }
+
+      filtered.forEach(o => {
+        const d = new Date(o.orderDate);
+        if (isNaN(d.getTime())) return;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${day}`;
+
+        if (dateStr >= customFrom && dateStr <= customTo) {
+          const key = d.getFullYear() + '-' + d.getMonth();
+          const idx = activeMonthMap.get(key);
+          if (idx !== undefined) {
+            activeData[idx] += o.totalAmount;
+          }
+        }
+
+        const startComp = new Date(start);
+        startComp.setFullYear(startComp.getFullYear() - 1);
+        const endComp = new Date(end);
+        endComp.setFullYear(endComp.getFullYear() - 1);
+
+        const format = (dt: Date) =>
+          dt.getFullYear() +
+          '-' +
+          String(dt.getMonth() + 1).padStart(2, '0') +
+          '-' +
+          String(dt.getDate()).padStart(2, '0');
+        const compFromStr = format(startComp);
+        const compToStr = format(endComp);
+
+        if (dateStr >= compFromStr && dateStr <= compToStr) {
+          const key = d.getFullYear() + '-' + d.getMonth();
+          const idx = compMonthMap.get(key);
+          if (idx !== undefined) {
+            compData[idx] += o.totalAmount;
+          }
+        }
+      });
+
+      return { labels, activeData, compData };
+    } else {
+      const labels: string[] = [];
+      const activeData: number[] = [];
+      const compData: number[] = [];
+
+      const activeYearMap = new Map<string, number>();
+      const compYearMap = new Map<string, number>();
+
+      let currentYear = start.getFullYear();
+      const endYear = end.getFullYear();
+
+      while (currentYear <= endYear) {
+        labels.push(String(currentYear));
+        activeYearMap.set(String(currentYear), labels.length - 1);
+        compYearMap.set(String(currentYear - 1), labels.length - 1);
+        activeData.push(0);
+        compData.push(0);
+        currentYear++;
+      }
+
+      filtered.forEach(o => {
+        const d = new Date(o.orderDate);
+        if (isNaN(d.getTime())) return;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${day}`;
+
+        if (dateStr >= customFrom && dateStr <= customTo) {
+          const key = String(d.getFullYear());
+          const idx = activeYearMap.get(key);
+          if (idx !== undefined) {
+            activeData[idx] += o.totalAmount;
+          }
+        }
+
+        const startComp = new Date(start);
+        startComp.setFullYear(startComp.getFullYear() - 1);
+        const endComp = new Date(end);
+        endComp.setFullYear(endComp.getFullYear() - 1);
+
+        const format = (dt: Date) =>
+          dt.getFullYear() +
+          '-' +
+          String(dt.getMonth() + 1).padStart(2, '0') +
+          '-' +
+          String(dt.getDate()).padStart(2, '0');
+        const compFromStr = format(startComp);
+        const compToStr = format(endComp);
+
+        if (dateStr >= compFromStr && dateStr <= compToStr) {
+          const key = String(d.getFullYear());
+          const idx = compYearMap.get(key);
+          if (idx !== undefined) {
+            compData[idx] += o.totalAmount;
+          }
+        }
+      });
+
+      return { labels, activeData, compData };
+    }
+  }
+  return { labels: [], activeData: [], compData: [] };
+}
+
+interface ExpandedCustomerRowProps {
+  customer: CustomerMonthlyData;
+  allOrders: RawOrderSummary[];
+  selectedSalesperson: string;
+  globalYear: string;
+  globalMonth: string;
+  MONTHS: string[];
+  chartOptions: any;
+}
+
+const ExpandedCustomerRow: React.FC<ExpandedCustomerRowProps> = ({
+  customer,
+  allOrders,
+  selectedSalesperson,
+  globalYear,
+  globalMonth,
+  MONTHS,
+  chartOptions,
+}) => {
+  const [trendMode, setTrendMode] = useState<'yearly' | 'monthly' | 'custom'>('yearly');
+  const [trendYear, setTrendYear] = useState<string>(globalYear);
+  const [trendMonth, setTrendMonth] = useState<string>(
+    globalMonth !== '' ? globalMonth : String(new Date().getMonth())
+  );
+  const [customFrom, setCustomFrom] = useState<string>(`${globalYear}-01-01`);
+  const [customTo, setCustomTo] = useState<string>(`${globalYear}-12-31`);
+
+  useEffect(() => {
+    setTrendYear(globalYear);
+    setCustomFrom(`${globalYear}-01-01`);
+    setCustomTo(`${globalYear}-12-31`);
+  }, [globalYear]);
+
+  useEffect(() => {
+    if (globalMonth !== '') {
+      setTrendMonth(globalMonth);
+      setTrendMode('monthly');
+    }
+  }, [globalMonth]);
+
+  const drillOrders = useMemo(() => {
+    return allOrders
+      .filter(o => {
+        if (o.customerId !== customer.customerId) return false;
+        if (selectedSalesperson && String(o.salespersonId) !== selectedSalesperson) return false;
+
+        const d = new Date(o.orderDate);
+        if (trendMode === 'yearly') {
+          return d.getFullYear().toString() === trendYear;
+        } else if (trendMode === 'monthly') {
+          return d.getFullYear().toString() === trendYear && d.getMonth().toString() === trendMonth;
+        } else if (trendMode === 'custom') {
+          if (!customFrom || !customTo) return false;
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          const dateStr = `${y}-${m}-${day}`;
+          return dateStr >= customFrom && dateStr <= customTo;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+  }, [
+    allOrders,
+    customer.customerId,
+    selectedSalesperson,
+    trendMode,
+    trendYear,
+    trendMonth,
+    customFrom,
+    customTo,
+  ]);
+
+  const trendData = useMemo(() => {
+    return computeTrendData(
+      allOrders,
+      trendMode,
+      trendYear,
+      trendMonth,
+      customFrom,
+      customTo,
+      selectedSalesperson,
+      customer.customerId
+    );
+  }, [
+    allOrders,
+    trendMode,
+    trendYear,
+    trendMonth,
+    customFrom,
+    customTo,
+    selectedSalesperson,
+    customer.customerId,
+  ]);
+
+  const periodLabel = useMemo(() => {
+    if (trendMode === 'yearly') return trendYear;
+    if (trendMode === 'monthly') return `${MONTHS[parseInt(trendMonth)]} ${trendYear}`;
+    return `${customFrom} to ${customTo}`;
+  }, [trendMode, trendYear, trendMonth, customFrom, customTo, MONTHS]);
+
+  const chartData = useMemo(() => {
+    const activeLabel =
+      trendMode === 'yearly'
+        ? `Revenue ${trendYear}`
+        : trendMode === 'monthly'
+          ? `Revenue ${MONTHS[parseInt(trendMonth)]} ${trendYear}`
+          : `Revenue Selected Period`;
+
+    let compMonthVal = parseInt(trendMonth) - 1;
+    let compYearVal = parseInt(trendYear);
+    if (compMonthVal < 0) {
+      compMonthVal = 11;
+      compYearVal = compYearVal - 1;
+    }
+
+    const compLabel =
+      trendMode === 'yearly'
+        ? `${parseInt(trendYear) - 1} (comparison)`
+        : trendMode === 'monthly'
+          ? `${MONTHS[compMonthVal]} ${compYearVal} (comparison)`
+          : `Prev. Period (comparison)`;
+
+    const datasets: any[] = [
+      {
+        label: activeLabel,
+        data: trendData.activeData,
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        borderColor: 'rgb(59, 130, 246)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: 'rgb(59, 130, 246)',
+        pointHoverBackgroundColor: 'rgb(59, 130, 246)',
+        pointHoverBorderColor: '#fff',
+      },
+    ];
+
+    if (trendData.compData.length > 0) {
+      datasets.push({
+        label: compLabel,
+        data: trendData.compData,
+        backgroundColor: 'rgba(239, 68, 68, 0.03)',
+        borderColor: 'rgb(239, 68, 68)',
+        borderWidth: 2,
+        borderDash: [5, 5],
+        fill: false,
+        tension: 0.4,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: 'rgb(239, 68, 68)',
+        pointHoverBackgroundColor: 'rgb(239, 68, 68)',
+        pointHoverBorderColor: '#fff',
+      });
+    }
+
+    return {
+      labels: trendData.labels,
+      datasets,
+    };
+  }, [trendData, trendMode, trendYear, trendMonth, MONTHS]);
+
+  return (
+    <tr>
+      {/* Spacer for expansion button column */}
+      <td className="bg-[var(--background)]/60"></td>
+
+      {/* Content spans from Company Name column to OCT (13 columns) */}
+      <td colSpan={13} className="p-0 bg-[var(--background)]/60 align-top">
+        <div className="mr-4 my-4 rounded-xl border border-[var(--border-color)] bg-[var(--card-background)] shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="px-5 py-3 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--background)]">
+            <span className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--primary)]"></span>
+              Details — {decodeHtml(customer.companyName)}
+            </span>
+            <span className="inline-flex items-center rounded-full bg-[var(--primary)]/10 px-2.5 py-0.5 text-[11px] font-bold text-[var(--primary)]">
+              {drillOrders.length} order{drillOrders.length !== 1 ? 's' : ''} in selected period
+            </span>
+          </div>
+
+          <div className="p-5 space-y-6">
+            {/* 1. Orders List Section (Full Width inside layout block) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  Orders List
+                </span>
+              </div>
+
+              {drillOrders.length === 0 ? (
+                <div className="py-8 text-center text-sm text-[var(--text-secondary)] border border-dashed border-[var(--border-color)] rounded-lg animate-in fade-in duration-200">
+                  No orders found for {periodLabel}.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
+                  <table className="w-full text-[13px] border-collapse">
+                    <thead>
+                      <tr className="text-[var(--text-secondary)] bg-[var(--background)] border-b border-[var(--border-color)]">
+                        <th className="px-3 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider">
+                          Order No
+                        </th>
+                        <th className="px-3 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-3 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider">
+                          Month
+                        </th>
+                        <th className="px-3 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-3 py-1.5 text-right text-[11px] font-bold uppercase tracking-wider">
+                          Amount (₹)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border-color)] bg-[var(--card-background)]">
+                      {drillOrders.map(order => {
+                        const orderDate = new Date(order.orderDate);
+                        return (
+                          <tr
+                            key={order.orderId}
+                            className="hover:bg-[var(--background)] transition-colors"
+                          >
+                            <td className="px-3 py-1.5 font-semibold text-[var(--primary)]">
+                              {order.orderNumber}
+                            </td>
+                            <td className="px-3 py-1.5 text-[var(--foreground)] whitespace-nowrap">
+                              {formatDate(order.orderDate)}
+                            </td>
+                            <td className="px-3 py-1.5 text-[var(--foreground)]">
+                              {MONTHS[orderDate.getMonth()]}
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                  order.status === 'Delivered' || order.status === 'Completed'
+                                    ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400'
+                                    : 'bg-[var(--primary)]/10 text-[var(--primary)]'
+                                }`}
+                              >
+                                {order.status || '-'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-1.5 text-right font-semibold text-[var(--foreground)] tabular-nums whitespace-nowrap">
+                              {order.totalAmount.toLocaleString('en-IN', {
+                                maximumFractionDigits: 0,
+                              })}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Revenue Trend Section (Full Width inside layout block) */}
+            <div className="space-y-4 border-t border-[var(--border-color)] pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  Revenue Trend
+                </span>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex rounded-md border border-[var(--border-color)] bg-[var(--background)] p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setTrendMode('monthly')}
+                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${
+                        trendMode === 'monthly'
+                          ? 'bg-[var(--primary)] text-white shadow-sm'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTrendMode('yearly')}
+                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${
+                        trendMode === 'yearly'
+                          ? 'bg-[var(--primary)] text-white shadow-sm'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      Yearly
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTrendMode('custom')}
+                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${
+                        trendMode === 'custom'
+                          ? 'bg-[var(--primary)] text-white shadow-sm'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      Custom
+                    </button>
+                  </div>
+
+                  {trendMode === 'yearly' && (
+                    <select
+                      value={trendYear}
+                      onChange={e => setTrendYear(e.target.value)}
+                      className="rounded border border-[var(--border-color)] bg-[var(--surface)] px-1.5 py-0.5 text-xs text-[var(--text-primary)] focus:outline-none"
+                    >
+                      {Array.from({ length: 6 }, (_, i) => {
+                        const y = (new Date().getFullYear() - 5 + i).toString();
+                        return (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+
+                  {trendMode === 'monthly' && (
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={trendMonth}
+                        onChange={e => setTrendMonth(e.target.value)}
+                        className="rounded border border-[var(--border-color)] bg-[var(--surface)] px-1.5 py-0.5 text-xs text-[var(--text-primary)] focus:outline-none"
+                      >
+                        {MONTHS.map((month, idx) => (
+                          <option key={month} value={String(idx)}>
+                            {month}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={trendYear}
+                        onChange={e => setTrendYear(e.target.value)}
+                        className="rounded border border-[var(--border-color)] bg-[var(--surface)] px-1.5 py-0.5 text-xs text-[var(--text-primary)] focus:outline-none"
+                      >
+                        {Array.from({ length: 6 }, (_, i) => {
+                          const y = (new Date().getFullYear() - 5 + i).toString();
+                          return (
+                            <option key={y} value={y}>
+                              {y}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {trendMode === 'custom' && (
+                <div className="flex items-center gap-2 bg-[var(--background)] p-2 rounded-lg border border-[var(--border-color)] animate-in fade-in duration-200 w-full max-w-md">
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={e => setCustomFrom(e.target.value)}
+                    className="rounded border border-[var(--border-color)] bg-[var(--surface)] px-1.5 py-0.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                  />
+                  <span className="text-xs text-[var(--text-secondary)]">to</span>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={e => setCustomTo(e.target.value)}
+                    className="rounded border border-[var(--border-color)] bg-[var(--surface)] px-1.5 py-0.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                  />
+                </div>
+              )}
+
+              <div className="w-full" style={{ height: '240px' }}>
+                <Line data={chartData} options={chartOptions} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </td>
+
+      {/* Spacer for remaining columns (NOV to TOTAL) to constrain width to OCT */}
+      <td colSpan={3} className="bg-[var(--background)]/60"></td>
+    </tr>
+  );
+};
 
 const CustomerReport: React.FC = () => {
   const { user } = useAuth();
@@ -100,6 +790,32 @@ const CustomerReport: React.FC = () => {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [districtByPincode, setDistrictByPincode] = useState<Record<string, string>>({});
 
+  // Expandable customer rows (orders drilldown + per-customer revenue trend)
+  const [allOrders, setAllOrders] = useState<RawOrderSummary[]>([]);
+  const [expandedCustomers, setExpandedCustomers] = useState<Set<number>>(new Set());
+
+  // Main Revenue Trend filter state
+  const [mainTrendMode, setMainTrendMode] = useState<'yearly' | 'monthly' | 'custom'>('yearly');
+  const [mainTrendMonth, setMainTrendMonth] = useState<string>(String(new Date().getMonth()));
+  const [mainTrendYear, setMainTrendYear] = useState<string>(selectedYear);
+  const [mainCustomFrom, setMainCustomFrom] = useState<string>(`${selectedYear}-01-01`);
+  const [mainCustomTo, setMainCustomTo] = useState<string>(`${selectedYear}-12-31`);
+
+  useEffect(() => {
+    setMainTrendYear(selectedYear);
+    setMainCustomFrom(`${selectedYear}-01-01`);
+    setMainCustomTo(`${selectedYear}-12-31`);
+  }, [selectedYear]);
+
+  const toggleCustomerExpanded = (customerId: number) => {
+    setExpandedCustomers(prev => {
+      const next = new Set(prev);
+      if (next.has(customerId)) next.delete(customerId);
+      else next.add(customerId);
+      return next;
+    });
+  };
+
   // Fetch Company Info
   useEffect(() => {
     const fetchCompanyInfo = async () => {
@@ -109,7 +825,7 @@ const CustomerReport: React.FC = () => {
           setCompanyInfo((res.data as any).data || res.data);
         }
       } catch (err) {
-        console.error("Failed to fetch company info", err);
+        console.error('Failed to fetch company info', err);
       }
     };
     fetchCompanyInfo();
@@ -175,7 +891,8 @@ const CustomerReport: React.FC = () => {
               customer.ContactPerson ?? customer.contactPerson ?? customer.contact_person ?? 'N/A',
             location: customer.Location ?? customer.location ?? customer.city ?? '',
             district: customer.District ?? customer.district ?? '',
-            pincode: customer.Pincode ?? customer.pincode ?? customer.pinCode ?? customer.pin_code ?? '',
+            pincode:
+              customer.Pincode ?? customer.pincode ?? customer.pinCode ?? customer.pin_code ?? '',
             contactNo,
             salesPersonId:
               customer.SalesPersonId ?? customer.salesPersonId ?? customer.sales_person_id ?? null,
@@ -255,6 +972,38 @@ const CustomerReport: React.FC = () => {
           customerSalespersonCombinations: customerSalespersonOrders.size,
           sampleKeys: Array.from(customerSalespersonOrders.keys()).slice(0, 10),
         });
+
+        // Keep a lightweight raw-orders copy for the per-customer drilldown.
+        // Uses the SAME exclusion rules as the aggregation above so drilldown
+        // totals always match the monthly cells. No extra API request needed.
+        const rawOrders: RawOrderSummary[] = orders
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((order: any) => {
+            const status = order.Status ?? order.status ?? '';
+            const cId = order.CustomerID ?? order.customerId ?? order.customer_id;
+            const spId = order.SalespersonId ?? order.salespersonId ?? order.salesperson_id;
+            return (
+              status !== 'Cancelled' &&
+              status !== 'Rejected' &&
+              status !== 'Returned' &&
+              cId &&
+              spId
+            );
+          })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((order: any) => ({
+            orderId: order.OrderID ?? order.orderId ?? order.order_id,
+            orderNumber: order.OrderNumber ?? order.orderNumber ?? order.order_number ?? '-',
+            orderDate: order.OrderDate ?? order.orderDate ?? order.order_date ?? order.createdAt,
+            status: order.Status ?? order.status ?? '',
+            totalAmount: parseFloat(
+              order.TotalAmount ?? order.totalAmount ?? order.total_amount ?? 0
+            ),
+            customerId: order.CustomerID ?? order.customerId ?? order.customer_id,
+            salespersonId:
+              order.SalespersonId ?? order.salespersonId ?? order.salesperson_id ?? null,
+          }));
+        setAllOrders(rawOrders);
 
         // Store the order data for filtering
         (
@@ -420,8 +1169,10 @@ const CustomerReport: React.FC = () => {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         customer =>
-          (customer.companyName && decodeHtml(customer.companyName).toLowerCase().includes(query)) ||
-          (customer.contactPerson && decodeHtml(customer.contactPerson).toLowerCase().includes(query)) ||
+          (customer.companyName &&
+            decodeHtml(customer.companyName).toLowerCase().includes(query)) ||
+          (customer.contactPerson &&
+            decodeHtml(customer.contactPerson).toLowerCase().includes(query)) ||
           (customer.location && decodeHtml(customer.location).toLowerCase().includes(query)) ||
           customer.customerId.toString().includes(query)
       );
@@ -474,6 +1225,8 @@ const CustomerReport: React.FC = () => {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedCustomers = processedCustomers.slice(startIndex, startIndex + rowsPerPage);
 
+  // Expanded customer state and trends calculations have been moved into the ExpandedCustomerRow component for lazy rendering and encapsulation.
+
   // Calculate statistics
   const stats = useMemo(() => {
     const totalCustomers = filteredCustomers.length;
@@ -496,7 +1249,8 @@ const CustomerReport: React.FC = () => {
     // Revenue by District
     const revenueByDistrict = filteredCustomers.reduce(
       (acc, customer) => {
-        const district = decodeHtml(districtByPincode[customer.pincode] || customer.district) || 'N/A';
+        const district =
+          decodeHtml(districtByPincode[customer.pincode] || customer.district) || 'N/A';
         const existing = acc.find(item => item.name === district);
         if (existing) {
           existing.value += customer.totalAmount;
@@ -518,90 +1272,197 @@ const CustomerReport: React.FC = () => {
     };
   }, [districtByPincode, filteredCustomers]);
 
-  // Chart data for monthly revenue trend
-  const monthlyRevenueChartData = {
-    labels: MONTHS,
-    datasets: [
+  // Main chart trend calculations
+  const mainTrendChartData = useMemo(() => {
+    const active = computeTrendData(
+      allOrders,
+      mainTrendMode,
+      mainTrendYear,
+      mainTrendMonth,
+      mainCustomFrom,
+      mainCustomTo,
+      selectedSalesperson
+    );
+
+    const datasets: any[] = [
       {
-        label: `Revenue ${selectedYear}`,
-        data: stats.monthlyRevenue,
-        backgroundColor: 'rgba(59, 130, 246, 0.2)', // More transparent for area fill
+        label:
+          mainTrendMode === 'yearly'
+            ? `Revenue ${mainTrendYear}`
+            : mainTrendMode === 'monthly'
+              ? `Revenue ${MONTHS[parseInt(mainTrendMonth)]} ${mainTrendYear}`
+              : `Revenue Selected Period`,
+        data: active.activeData,
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
         borderColor: 'rgb(59, 130, 246)',
         borderWidth: 2,
         fill: true,
-        tension: 0.4, // Smooth curve
+        tension: 0.4,
         pointBackgroundColor: '#fff',
         pointBorderColor: 'rgb(59, 130, 246)',
         pointHoverBackgroundColor: 'rgb(59, 130, 246)',
         pointHoverBorderColor: '#fff',
       },
-    ],
-  };
+    ];
 
-  const monthlyRevenueChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: true,
-        position: 'top' as const,
-        labels: {
-          font: {
+    if (active.compData.length > 0) {
+      let compMonthVal = parseInt(mainTrendMonth) - 1;
+      let compYearVal = parseInt(mainTrendYear);
+      if (compMonthVal < 0) {
+        compMonthVal = 11;
+        compYearVal = compYearVal - 1;
+      }
+
+      datasets.push({
+        label:
+          mainTrendMode === 'yearly'
+            ? `${parseInt(mainTrendYear) - 1} (comparison)`
+            : mainTrendMode === 'monthly'
+              ? `${MONTHS[compMonthVal]} ${compYearVal} (comparison)`
+              : `Prev. Period (comparison)`,
+        data: active.compData,
+        backgroundColor: 'rgba(239, 68, 68, 0.03)',
+        borderColor: 'rgb(239, 68, 68)',
+        borderWidth: 2,
+        borderDash: [5, 5],
+        fill: false,
+        tension: 0.4,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: 'rgb(239, 68, 68)',
+        pointHoverBackgroundColor: 'rgb(239, 68, 68)',
+        pointHoverBorderColor: '#fff',
+      });
+    }
+
+    return {
+      labels: active.labels,
+      datasets,
+    };
+  }, [
+    allOrders,
+    mainTrendMode,
+    mainTrendYear,
+    mainTrendMonth,
+    mainCustomFrom,
+    mainCustomTo,
+    selectedSalesperson,
+  ]);
+
+  const mainTrendSummary = useMemo(() => {
+    const currentTotal = mainTrendChartData.datasets[0].data.reduce(
+      (a: number, b: number) => a + b,
+      0
+    );
+    const compTotal = mainTrendChartData.datasets[1]
+      ? mainTrendChartData.datasets[1].data.reduce((a: number, b: number) => a + b, 0)
+      : 0;
+
+    let compLabel = '';
+
+    if (mainTrendMode === 'yearly') {
+      const compYear = (parseInt(mainTrendYear) - 1).toString();
+      compLabel = `${compYear}: ₹${compTotal.toLocaleString('en-IN')}`;
+    } else if (mainTrendMode === 'monthly') {
+      let compMonthVal = parseInt(mainTrendMonth) - 1;
+      let compYearVal = parseInt(mainTrendYear);
+      if (compMonthVal < 0) {
+        compMonthVal = 11;
+        compYearVal = compYearVal - 1;
+      }
+      compLabel = `${MONTHS[compMonthVal]} ${compYearVal}: ₹${compTotal.toLocaleString('en-IN')}`;
+    } else if (mainTrendMode === 'custom') {
+      compLabel = `Prev. Period: ₹${compTotal.toLocaleString('en-IN')}`;
+    }
+
+    return {
+      currentTotal,
+      currentLabel:
+        mainTrendMode === 'yearly'
+          ? `${mainTrendYear}: ₹${currentTotal.toLocaleString('en-IN')}`
+          : mainTrendMode === 'monthly'
+            ? `${MONTHS[parseInt(mainTrendMonth)]} ${mainTrendYear}: ₹${currentTotal.toLocaleString('en-IN')}`
+            : `Selected: ₹${currentTotal.toLocaleString('en-IN')}`,
+      compTotal,
+      compLabel,
+    };
+  }, [mainTrendChartData, mainTrendMode, mainTrendYear, mainTrendMonth]);
+
+  const dynamicRevenueChartOptions = useMemo(() => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top' as const,
+          labels: {
+            font: {
+              size: 11,
+              weight: 'bold' as const,
+            },
+            color: '#374151',
+          },
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: {
+            size: 13,
+            weight: 'bold' as const,
+          },
+          bodyFont: {
             size: 12,
-            weight: 'bold' as const,
           },
-          color: '#374151',
-        },
-      },
-      tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        padding: 12,
-        titleFont: {
-          size: 14,
-          weight: 'bold' as const,
-        },
-        bodyFont: {
-          size: 13,
-        },
-        callbacks: {
-          label: function (context: TooltipItem<'line'>) {
-            return `Revenue: ₹${(context.parsed.y as number).toLocaleString('en-IN', {
-              maximumFractionDigits: 0,
-            })}`;
+          callbacks: {
+            label: function (context: TooltipItem<'line'>) {
+              return `Revenue: ₹${(context.parsed.y as number).toLocaleString('en-IN', {
+                maximumFractionDigits: 0,
+              })}`;
+            },
           },
         },
       },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)',
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.05)',
+          },
+          ticks: {
+            callback: function (value: string | number) {
+              const numVal = Number(value);
+              if (numVal >= 10000000) {
+                return '₹' + (numVal / 10000000).toFixed(1).replace(/\.0$/, '') + 'Cr';
+              }
+              if (numVal >= 100000) {
+                return '₹' + (numVal / 100000).toFixed(1).replace(/\.0$/, '') + 'L';
+              }
+              if (numVal >= 1000) {
+                return '₹' + (numVal / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+              }
+              return '₹' + numVal;
+            },
+            font: {
+              size: 10,
+            },
+            color: '#6B7280',
+          },
         },
-        ticks: {
-          callback: function (value: string | number) {
-            return '₹' + (Number(value) / 1000).toFixed(0) + 'K';
+        x: {
+          grid: {
+            display: false,
           },
-          font: {
-            size: 11,
+          ticks: {
+            font: {
+              size: 10,
+              weight: 'bold' as const,
+            },
+            color: '#374151',
           },
-          color: '#6B7280',
         },
       },
-      x: {
-        grid: {
-          display: false,
-        },
-        ticks: {
-          font: {
-            size: 11,
-            weight: 'bold' as const,
-          },
-          color: '#374151',
-        },
-      },
-    },
-  };
+    };
+  }, []);
 
   // Chart data for top customers
   const topCustomersChartData = {
@@ -1147,21 +2008,124 @@ const CustomerReport: React.FC = () => {
 
           {/* Monthly Revenue Trend - Full Width */}
           <div className="card p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-[var(--text-primary)]">
-                Monthly Revenue Trend
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                  <DollarSign className="h-3 w-3" />
-                  Total: ₹{stats.totalRevenue.toLocaleString('en-IN')}
-                </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                  Revenue Trend {mainTrendMode === 'yearly' ? mainTrendYear : ''}
+                </h3>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 border border-blue-200">
+                    $ {mainTrendSummary.currentLabel}
+                  </span>
+                  {mainTrendSummary.compLabel && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 border border-red-200">
+                      vs {mainTrendSummary.compLabel}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="inline-flex rounded-lg border border-[var(--border-color)] bg-[var(--background)] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setMainTrendMode('monthly')}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${
+                      mainTrendMode === 'monthly'
+                        ? 'bg-[var(--primary)] text-white shadow-sm'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMainTrendMode('yearly')}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${
+                      mainTrendMode === 'yearly'
+                        ? 'bg-[var(--primary)] text-white shadow-sm'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    Yearly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMainTrendMode('custom')}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${
+                      mainTrendMode === 'custom'
+                        ? 'bg-[var(--primary)] text-white shadow-sm'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    Custom
+                  </button>
+                </div>
+
+                {mainTrendMode === 'yearly' && (
+                  <select
+                    value={mainTrendYear}
+                    onChange={e => setMainTrendYear(e.target.value)}
+                    className="rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] focus:border-[var(--primary)] focus:outline-none"
+                  >
+                    {years.map(year => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {mainTrendMode === 'monthly' && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={mainTrendMonth}
+                      onChange={e => setMainTrendMonth(e.target.value)}
+                      className="rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] focus:border-[var(--primary)] focus:outline-none"
+                    >
+                      {MONTHS.map((month, idx) => (
+                        <option key={month} value={String(idx)}>
+                          {month}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={mainTrendYear}
+                      onChange={e => setMainTrendYear(e.target.value)}
+                      className="rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] focus:border-[var(--primary)] focus:outline-none"
+                    >
+                      {years.map(year => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {mainTrendMode === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={mainCustomFrom}
+                      onChange={e => setMainCustomFrom(e.target.value)}
+                      className="rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-primary)] focus:border-[var(--primary)] focus:outline-none"
+                    />
+                    <span className="text-xs text-[var(--text-secondary)]">to</span>
+                    <input
+                      type="date"
+                      value={mainCustomTo}
+                      onChange={e => setMainCustomTo(e.target.value)}
+                      className="rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-primary)] focus:border-[var(--primary)] focus:outline-none"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div style={{ height: '350px' }}>
               <Line
-                data={monthlyRevenueChartData}
-                options={monthlyRevenueChartOptions as ChartOptions<'line'>}
+                data={mainTrendChartData}
+                options={dynamicRevenueChartOptions as ChartOptions<'line'>}
               />
             </div>
           </div>
@@ -1240,7 +2204,7 @@ const CustomerReport: React.FC = () => {
         <div className="text-sm text-[var(--text-secondary)] px-1">
           Showing {startIndex + 1} to{' '}
           {Math.min(startIndex + rowsPerPage, processedCustomers.length)} of{' '}
-          {processedCustomers.length} customers
+          {processedCustomers.length} Customers
         </div>
       )}
 
@@ -1256,9 +2220,10 @@ const CustomerReport: React.FC = () => {
       {!loading && processedCustomers.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--card-background)] shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" style={{ minWidth: `${500 + MONTHS.length * 75}px` }}>
               <thead className="bg-[var(--background)] border-b border-[var(--border-color)]">
                 <tr>
+                  <th className="w-10 px-2 py-3"></th>
                   <th
                     className="px-6 py-3 text-left font-semibold text-[var(--foreground)] cursor-pointer"
                     onClick={() => handleSort('companyName')}
@@ -1298,7 +2263,7 @@ const CustomerReport: React.FC = () => {
                   {MONTHS.map(month => (
                     <th
                       key={month}
-                      className="px-3 py-3 text-center font-semibold text-[var(--foreground)] min-w-[80px]"
+                      className="px-3 py-3 text-center font-semibold text-[var(--foreground)] min-w-[75px] w-[75px] whitespace-nowrap"
                     >
                       {month}
                     </th>
@@ -1318,45 +2283,84 @@ const CustomerReport: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]">
-                {paginatedCustomers.map(customer => (
-                  <tr
-                    key={customer.customerId}
-                    className="hover:bg-[var(--background)] transition-colors"
-                  >
-                    <td className="px-6 py-4 font-semibold text-[var(--primary)]">
-                      {decodeHtml(customer.companyName)}
-                    </td>
-                    <td className="px-6 py-4 text-[var(--foreground)]">
-                      <div className="space-y-1">
-                        <div>
-                          {customer.customerId} - {decodeHtml(customer.contactPerson)}
-                        </div>
-                        <div className="text-sm text-[var(--text-secondary)]">
-                          {customer.contactNo}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex rounded-full bg-[var(--primary)]/10 px-3 py-1 text-xs font-medium text-[var(--primary)]">
-                        {decodeHtml(customer.location)}
-                      </span>
-                    </td>
-                    {customer.monthlyAmounts.map((amount, monthIdx) => (
-                      <td
-                        key={monthIdx}
-                        className={`px-3 py-4 text-center font-medium ${amount > 0
-                          ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20'
-                          : 'text-[var(--text-secondary)]'
-                          }`}
+                {paginatedCustomers.map(customer => {
+                  const isExpanded = expandedCustomers.has(customer.customerId);
+
+                  return (
+                    <React.Fragment key={customer.customerId}>
+                      <tr
+                        className={`transition-colors ${
+                          isExpanded ? 'bg-[var(--primary)]/5' : 'hover:bg-[var(--background)]'
+                        }`}
                       >
-                        {amount > 0 ? `₹${(amount / 1000).toFixed(1)}K` : '0'}
-                      </td>
-                    ))}
-                    <td className="px-6 py-4 text-right font-bold text-[var(--primary)]">
-                      ₹{(customer.totalAmount / 1000).toFixed(1)}K
-                    </td>
-                  </tr>
-                ))}
+                        <td className="px-2 py-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleCustomerExpanded(customer.customerId)}
+                            title={isExpanded ? 'Hide orders' : 'Show orders'}
+                            className={`p-1 rounded-full transition-all duration-200 ${
+                              isExpanded
+                                ? 'bg-[var(--primary)] text-white'
+                                : 'bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/20'
+                            }`}
+                          >
+                            <ChevronRight
+                              className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                                isExpanded ? 'rotate-90' : ''
+                              }`}
+                            />
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-[var(--primary)]">
+                          {decodeHtml(customer.companyName)}
+                        </td>
+                        <td className="px-6 py-4 text-[var(--foreground)]">
+                          <div className="space-y-1">
+                            <div>
+                              {customer.customerId} - {decodeHtml(customer.contactPerson)}
+                            </div>
+                            <div className="text-sm text-[var(--text-secondary)]">
+                              {customer.contactNo}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex rounded-full bg-[var(--primary)]/10 px-3 py-1 text-xs font-medium text-[var(--primary)]">
+                            {decodeHtml(customer.location)}
+                          </span>
+                        </td>
+                        {customer.monthlyAmounts.map((amount, monthIdx) => (
+                          <td
+                            key={monthIdx}
+                            className={`px-3 py-4 text-center font-medium min-w-[75px] w-[75px] whitespace-nowrap ${
+                              amount > 0
+                                ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20'
+                                : 'text-[var(--text-secondary)]'
+                            }`}
+                          >
+                            {amount > 0 ? `₹${(amount / 1000).toFixed(1)}K` : '0'}
+                          </td>
+                        ))}
+                        <td className="px-6 py-4 text-right font-bold text-[var(--primary)]">
+                          ₹{(customer.totalAmount / 1000).toFixed(1)}K
+                        </td>
+                      </tr>
+
+                      {/* Drilldown: orders + revenue trend for this customer */}
+                      {isExpanded && (
+                        <ExpandedCustomerRow
+                          customer={customer}
+                          allOrders={allOrders}
+                          selectedSalesperson={selectedSalesperson}
+                          globalYear={selectedYear}
+                          globalMonth={selectedMonth}
+                          MONTHS={MONTHS}
+                          chartOptions={dynamicRevenueChartOptions}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

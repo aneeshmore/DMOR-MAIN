@@ -54,5 +54,10 @@ router.get(
   reportsController.getSalespersonIncentiveReport
 );
 
-export default router;
+router.get(
+  '/dispatch',
+  requirePermission('GET:/reports/dispatch'),
+  reportsController.getDispatchReport
+);
 
+export default router;

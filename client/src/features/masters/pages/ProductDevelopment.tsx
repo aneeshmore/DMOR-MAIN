@@ -38,6 +38,20 @@ interface RawMaterialItem {
   waitingTime: number | string;
 }
 
+// Helper to truncate display percentage to 3 decimal places without rounding/changing formulation
+const formatDisplayPercentage = (val: string | number) => {
+  if (val === undefined || val === null || val === '') return '';
+  const strVal = String(val);
+  const dotIndex = strVal.indexOf('.');
+  if (dotIndex !== -1) {
+    const decimals = strVal.substring(dotIndex + 1);
+    if (decimals.length > 3) {
+      return strVal.substring(0, dotIndex + 4);
+    }
+  }
+  return strVal;
+};
+
 // Sortable Row Component for DnD
 function SortableRow({
   id,
@@ -85,6 +99,7 @@ const ProductDevelopment = () => {
   const [subProducts, setSubProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [focusedPercentId, setFocusedPercentId] = useState<number | null>(null);
 
   // Form State
   const [selectedMasterProductId, setSelectedMasterProductId] = useState<number | ''>('');
@@ -317,11 +332,11 @@ const ProductDevelopment = () => {
               'Unknown Material',
             percentage:
               typeof (item.PercentageRequired ?? item.percentageRequired ?? item.percentage) ===
-                'number'
+              'number'
                 ? (item.PercentageRequired ?? item.percentageRequired ?? item.percentage).toString()
                 : String(
-                  item.PercentageRequired ?? item.percentageRequired ?? item.percentage ?? ''
-                ),
+                    item.PercentageRequired ?? item.percentageRequired ?? item.percentage ?? ''
+                  ),
 
             sequence: item.Sequence || item.sequence || index + 1,
             waitingTime: item.WaitingTime || item.waitingTime || 0,
@@ -602,6 +617,15 @@ const ProductDevelopment = () => {
       return;
     }
 
+    // Prevent save if any product percent is exact 0.000
+    const hasZeroPercent = addedItems.some(
+      item => parseFloat(String(item.percentage || '0')) === 0
+    );
+    if (hasZeroPercent) {
+      showToast.error('Recipe cannot be saved if any product percentage is 0.000');
+      return;
+    }
+
     // Validate Water Percentage
     const waterPercentValue = parseFloat(perPercent) || 0;
     if (waterPercentValue > 100) {
@@ -843,20 +867,22 @@ const ProductDevelopment = () => {
                   <button
                     type="button"
                     onClick={() => setCalculationBasis('Ltr')}
-                    className={`px-4 py-2 text-sm font-medium border border-[var(--border-color)] rounded-l-lg focus:z-10 focus:ring-2 focus:ring-[var(--primary)] ${calculationBasis === 'Ltr'
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
-                      }`}
+                    className={`px-4 py-2 text-sm font-medium border border-[var(--border-color)] rounded-l-lg focus:z-10 focus:ring-2 focus:ring-[var(--primary)] ${
+                      calculationBasis === 'Ltr'
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                    }`}
                   >
                     Per Ltr
                   </button>
                   <button
                     type="button"
                     onClick={() => setCalculationBasis('Kg')}
-                    className={`px-4 py-2 text-sm font-medium border border-l-0 border-[var(--border-color)] rounded-r-lg focus:z-10 focus:ring-2 focus:ring-[var(--primary)] ${calculationBasis === 'Kg'
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
-                      }`}
+                    className={`px-4 py-2 text-sm font-medium border border-l-0 border-[var(--border-color)] rounded-r-lg focus:z-10 focus:ring-2 focus:ring-[var(--primary)] ${
+                      calculationBasis === 'Kg'
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                    }`}
                   >
                     Per Kg
                   </button>
@@ -963,24 +989,26 @@ const ProductDevelopment = () => {
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={item.percentage}
+                              value={
+                                focusedPercentId === item.id
+                                  ? item.percentage
+                                  : formatDisplayPercentage(item.percentage)
+                              }
+                              onFocus={() => setFocusedPercentId(item.id)}
                               onChange={e => {
                                 const value = e.target.value;
-                                // Allow empty, numbers, and decimal points with max 3 decimal places
                                 if (value === '') {
                                   handleUpdateItem(item.id, 'percentage', value);
                                 } else if (/^\d*\.?\d*$/.test(value)) {
-                                  // Check decimal places
                                   const parts = value.split('.');
                                   if (parts[1] && parts[1].length > 4) {
-                                    // Don't update if more than 3 decimal places
                                     return;
                                   }
                                   handleUpdateItem(item.id, 'percentage', value);
                                 }
                               }}
                               onBlur={e => {
-                                // Format on blur to exactly 3 decimal places
+                                setFocusedPercentId(null);
                                 const value = e.target.value;
                                 if (value && !isNaN(parseFloat(value))) {
                                   const formatted = parseFloat(value).toFixed(4);
@@ -1060,7 +1088,7 @@ const ProductDevelopment = () => {
                         totalPercentage.toFixed(3) === '100.000' ? 'text-green-600' : 'text-red-500'
                       }
                     >
-                      {totalPercentage.toFixed(4)}%
+                      {formatDisplayPercentage(totalPercentage.toFixed(4))}%
                     </span>
                   </td>
                   <td className="px-4 py-3">{calculateTotalSolid().toFixed(3)}</td>
