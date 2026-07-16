@@ -76,7 +76,7 @@ const StockReport = () => {
           setCompanyInfo((res.data as any).data || res.data);
         }
       } catch (err) {
-        console.error("Failed to fetch company info", err);
+        console.error('Failed to fetch company info', err);
       }
     };
     fetchCompanyInfo();
@@ -145,22 +145,29 @@ const StockReport = () => {
       'Type',
       'Available Qty',
       'Available Weight (kg)',
-      'Reserved Qty',
+      ...(productTypeFilter !== 'FG' ? ['Reserved Qty'] : []),
       'Min Stock Level',
       'Selling Price',
       'Status',
     ];
 
-    const tableRows = filteredData.map(item => [
-      item.productName,
-      item.productType,
-      item.availableQuantity,
-      item.availableWeightKg,
-      item.reservedQuantity,
-      item.minStockLevel,
-      `Rs. ${Number(item.sellingPrice).toFixed(2)}`,
-      item.isActive ? 'Active' : 'Inactive',
-    ]);
+    const tableRows = filteredData.map(item => {
+      const row = [
+        item.productName,
+        item.productType,
+        item.availableQuantity,
+        item.availableWeightKg,
+      ];
+      if (productTypeFilter !== 'FG') {
+        row.push(item.reservedQuantity);
+      }
+      row.push(
+        item.minStockLevel,
+        `Rs. ${Number(item.sellingPrice).toFixed(2)}`,
+        item.isActive ? 'Active' : 'Inactive'
+      );
+      return row;
+    });
 
     autoTable(doc, {
       head: [tableColumn],
@@ -187,22 +194,29 @@ const StockReport = () => {
       'Type',
       'Available Qty',
       'Available Weight (kg)',
-      'Reserved Qty',
+      ...(productTypeFilter !== 'FG' ? ['Reserved Qty'] : []),
       'Min Stock Level',
       'Selling Price',
       'Status',
     ];
 
-    const csvRows = filteredData.map(item => [
-      item.productName,
-      item.productType,
-      item.availableQuantity,
-      item.availableWeightKg,
-      item.reservedQuantity,
-      item.minStockLevel,
-      Number(item.sellingPrice).toFixed(2),
-      item.isActive ? 'Active' : 'Inactive',
-    ]);
+    const csvRows = filteredData.map(item => {
+      const row = [
+        item.productName,
+        item.productType,
+        item.availableQuantity,
+        item.availableWeightKg,
+      ];
+      if (productTypeFilter !== 'FG') {
+        row.push(item.reservedQuantity);
+      }
+      row.push(
+        item.minStockLevel,
+        Number(item.sellingPrice).toFixed(2),
+        item.isActive ? 'Active' : 'Inactive'
+      );
+      return row;
+    });
 
     const csvContent = [
       csvHeaders.join(','),
@@ -224,7 +238,9 @@ const StockReport = () => {
   // Get unique products for filter, filtered by selected type
   const productOptions = useMemo(() => {
     let sourceData = data;
-    if (productTypeFilter !== 'All') {
+    if (productTypeFilter === 'All') {
+      sourceData = data.filter(item => item.productType === 'RM' || item.productType === 'PM');
+    } else {
       sourceData = data.filter(item => item.productType === productTypeFilter);
     }
 
@@ -249,7 +265,9 @@ const StockReport = () => {
   const filteredData = useMemo(() => {
     let result = data;
 
-    if (productTypeFilter !== 'All') {
+    if (productTypeFilter === 'All') {
+      result = result.filter(item => item.productType === 'RM' || item.productType === 'PM');
+    } else {
       result = result.filter(item => item.productType === productTypeFilter);
     }
 
@@ -278,7 +296,9 @@ const StockReport = () => {
 
     // We need a separate "baseFilteredData" for stats calculation if we want them stable against the low-stock toggle.
     let baseData = data;
-    if (productTypeFilter !== 'All') {
+    if (productTypeFilter === 'All') {
+      baseData = baseData.filter(item => item.productType === 'RM' || item.productType === 'PM');
+    } else {
       baseData = baseData.filter(item => item.productType === productTypeFilter);
     }
     if (productFilter) {
@@ -286,9 +306,7 @@ const StockReport = () => {
     }
 
     const totalProducts = baseData.length;
-    const lowStock = baseData.filter(
-      item => item.availableQuantity < item.minStockLevel
-    ).length;
+    const lowStock = baseData.filter(item => item.availableQuantity < item.minStockLevel).length;
     const totalAvailable = baseData.reduce(
       (sum, item) => sum + parseFloat(item.availableQuantity?.toString() || '0'),
       0
@@ -521,8 +539,8 @@ const StockReport = () => {
   };
 
   // Define columns for DataTable
-  const columns = useMemo<ColumnDef<StockReportItem>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<StockReportItem>[]>(() => {
+    const baseColumns: ColumnDef<StockReportItem>[] = [
       {
         accessorKey: 'productName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Product Name" />,
@@ -535,12 +553,13 @@ const StockReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
         cell: ({ row }) => (
           <Badge
-            className={`${row.original.productType === 'FG'
-              ? 'bg-green-500 hover:bg-green-600 text-white'
-              : row.original.productType === 'RM'
-                ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-              }`}
+            className={`${
+              row.original.productType === 'FG'
+                ? 'bg-green-500 hover:bg-green-600 text-white'
+                : row.original.productType === 'RM'
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+            }`}
           >
             {row.original.productType}
           </Badge>
@@ -551,10 +570,11 @@ const StockReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Available Qty" />,
         cell: ({ row }) => (
           <div
-            className={`text-right ${row.original.availableQuantity < row.original.minStockLevel
-              ? 'text-[var(--color-error)] font-semibold'
-              : 'text-[var(--text-primary)]'
-              }`}
+            className={`text-right ${
+              row.original.availableQuantity < row.original.minStockLevel
+                ? 'text-[var(--color-error)] font-semibold'
+                : 'text-[var(--text-primary)]'
+            }`}
           >
             {Number(row.original.availableQuantity).toFixed(2)}
             {row.original.availableQuantity < row.original.minStockLevel && (
@@ -574,7 +594,10 @@ const StockReport = () => {
           </div>
         ),
       },
-      {
+    ];
+
+    if (productTypeFilter !== 'FG') {
+      baseColumns.push({
         accessorKey: 'reservedQuantity',
         header: ({ column }) => <DataTableColumnHeader column={column} title="WIP" />,
         cell: ({ row }) => (
@@ -582,8 +605,10 @@ const StockReport = () => {
             {Number(row.original.reservedQuantity).toFixed(2)}
           </div>
         ),
-      },
-      // Reserved Weight Column Removed as per request
+      });
+    }
+
+    baseColumns.push(
       {
         accessorKey: 'minStockLevel',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Min Stock" />,
@@ -601,10 +626,11 @@ const StockReport = () => {
             ₹{Number(row.original.sellingPrice).toFixed(2)}
           </div>
         ),
-      },
-    ],
-    []
-  );
+      }
+    );
+
+    return baseColumns;
+  }, [productTypeFilter]);
 
   // Permissions
   const { user } = useAuth();
@@ -657,24 +683,41 @@ const StockReport = () => {
       {/* Filters Container */}
       <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
         <div className="flex items-end gap-4 flex-wrap">
-          {/* Product Type Tabs */}
+          {/* Product Type Filters */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500 ml-1">Type</label>
             <div className="flex items-center gap-2">
-              {(['All', 'FG', 'RM', 'PM'] as const).map(type => (
-                <Button
-                  key={type}
-                  size="sm"
-                  variant={productTypeFilter === type ? 'primary' : 'secondary'}
-                  onClick={() => setProductTypeFilter(type)}
-                  className={`min-w-[4rem] px-4 transition-all duration-200 ${productTypeFilter === type
+              <div className="flex items-center gap-2">
+                {(['All', 'RM', 'PM'] as const).map(type => (
+                  <Button
+                    key={type}
+                    size="sm"
+                    variant={productTypeFilter === type ? 'primary' : 'secondary'}
+                    onClick={() => setProductTypeFilter(type)}
+                    className={`min-w-[4rem] px-4 transition-all duration-200 ${
+                      productTypeFilter === type
+                        ? 'bg-slate-800 text-white hover:bg-slate-900 border-none shadow-md'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {type}
+                  </Button>
+                ))}
+              </div>
+              <div className="h-6 w-px bg-gray-300 mx-1" />
+              <Button
+                key="FG"
+                size="sm"
+                variant={productTypeFilter === 'FG' ? 'primary' : 'secondary'}
+                onClick={() => setProductTypeFilter('FG')}
+                className={`min-w-[4rem] px-4 transition-all duration-200 ${
+                  productTypeFilter === 'FG'
                     ? 'bg-slate-800 text-white hover:bg-slate-900 border-none shadow-md'
                     : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                  {type}
-                </Button>
-              ))}
+                }`}
+              >
+                FG
+              </Button>
             </div>
           </div>
 
@@ -725,16 +768,19 @@ const StockReport = () => {
             </p>
           </div>
           <div
-            className={`card p-4 cursor-pointer transition-all border-l-4 ${showLowStockOnly
-              ? 'bg-red-50 border-red-500 shadow-md ring-2 ring-red-200'
-              : 'border-transparent hover:bg-gray-50'
-              }`}
+            className={`card p-4 cursor-pointer transition-all border-l-4 ${
+              showLowStockOnly
+                ? 'bg-red-50 border-red-500 shadow-md ring-2 ring-red-200'
+                : 'border-transparent hover:bg-gray-50'
+            }`}
             onClick={() => setShowLowStockOnly(!showLowStockOnly)}
             title="Click to filter Low Stock items"
           >
             <p className="text-sm text-[var(--text-secondary)] font-medium flex items-center justify-between">
               Low Stock Items
-              {showLowStockOnly && <Badge className="bg-red-500 text-white text-xs h-5">Filtering</Badge>}
+              {showLowStockOnly && (
+                <Badge className="bg-red-500 text-white text-xs h-5">Filtering</Badge>
+              )}
             </p>
             <p className="text-2xl font-bold text-[var(--color-error)] mt-1">{stats.lowStock}</p>
           </div>

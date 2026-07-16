@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
-import { Button, Input, Modal, Select } from '@/components/ui';
-import { FileDown, Pencil } from 'lucide-react';
+import { Button, Input } from '@/components/ui';
+import { FileDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { paymentApi } from '@/features/operations/api/paymentApi';
@@ -23,10 +23,120 @@ interface LedgerItem {
   debit: string;
   credit: string;
   balance: string;
-  referenceId: number; // Needed for update
+  referenceId: number;
   referenceNo?: string;
   paymentMode?: string;
 }
+
+type InvoiceStatus = 'Paid' | 'Part Payment' | 'Pending' | '-';
+
+interface EnrichedLedgerItem extends LedgerItem {
+  status: InvoiceStatus;
+  days: number | null; // null renders as "-"
+  pendingAmount: number | null; // null renders as "-"
+}
+
+/**
+ * FIFO Settlement Engine (computed dynamically - nothing is stored).
+ *
+ * - Sort all transactions oldest first.
+ * - Every Debit (Invoice) enters a queue with its full amount remaining.
+ * - Every Credit (Payment) is applied to the OLDEST unpaid invoice first.
+ *   A payment never skips an older invoice. Leftover credit (advance)
+ *   is applied to future invoices as they arrive.
+ * - Status / Days / Pending Amount are derived per Debit row:
+ *     Paid          -> remaining = 0            (Days = "-")
+ *     Part Payment  -> 0 < remaining < debit    (Days counted from invoice date)
+ *     Pending       -> remaining = debit        (Days counted from invoice date)
+ * - Credit rows always show "-" for Status, Days and Pending Amount.
+ *
+ * The Balance column and all accounting entries are untouched.
+ */
+const computeFifoSettlement = (
+  data: LedgerItem[]
+): Map<number, { status: InvoiceStatus; days: number | null; pendingAmount: number | null }> => {
+  const result = new Map<
+    number,
+    { status: InvoiceStatus; days: number | null; pendingAmount: number | null }
+  >();
+
+  // Oldest first; tie-break with transactionId to keep a stable order
+  const sorted = [...data].sort((a, b) => {
+    const diff = new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime();
+    return diff !== 0 ? diff : (a.transactionId || 0) - (b.transactionId || 0);
+  });
+
+  // FIFO queue of unpaid/partially paid invoices
+  const invoiceQueue: { transactionId: number; remaining: number }[] = [];
+  const invoiceTotals = new Map<number, number>(); // transactionId -> original debit
+  let creditPool = 0; // unapplied credit (advance payments)
+
+  const settle = () => {
+    while (creditPool > 0 && invoiceQueue.length > 0) {
+      const oldest = invoiceQueue[0];
+      const applied = Math.min(oldest.remaining, creditPool);
+      oldest.remaining -= applied;
+      creditPool -= applied;
+      if (oldest.remaining <= 0) {
+        invoiceQueue.shift(); // fully settled, move to next oldest
+      }
+    }
+  };
+
+  const remainingById = new Map<number, { remaining: number }>();
+
+  sorted.forEach(item => {
+    const debit = Number(item.debit) || 0;
+    const credit = Number(item.credit) || 0;
+
+    if (debit > 0) {
+      const entry = { transactionId: item.transactionId, remaining: debit };
+      invoiceQueue.push(entry);
+      invoiceTotals.set(item.transactionId, debit);
+      remainingById.set(item.transactionId, entry);
+      settle(); // an advance credit may settle this invoice immediately
+    } else if (credit > 0) {
+      creditPool += credit;
+      settle();
+    }
+  });
+
+  const now = new Date();
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+  sorted.forEach(item => {
+    const debit = Number(item.debit) || 0;
+
+    if (debit > 0) {
+      const total = invoiceTotals.get(item.transactionId) ?? debit;
+      const remaining = remainingById.get(item.transactionId)?.remaining ?? 0;
+
+      let status: InvoiceStatus;
+      if (remaining <= 0) status = 'Paid';
+      else if (remaining < total) status = 'Part Payment';
+      else status = 'Pending';
+
+      const days =
+        status === 'Paid'
+          ? null // fully settled - no day count
+          : Math.max(
+              0,
+              Math.floor((now.getTime() - new Date(item.transactionDate).getTime()) / MS_PER_DAY)
+            );
+
+      result.set(item.transactionId, {
+        status,
+        days,
+        pendingAmount: Math.max(0, remaining),
+      });
+    } else {
+      // Credit / Payment rows (and zero rows): no status of their own
+      result.set(item.transactionId, { status: '-', days: null, pendingAmount: null });
+    }
+  });
+
+  return result;
+};
 
 const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
   customerId,
@@ -36,13 +146,6 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-
-  // Edit State
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<LedgerItem | null>(null);
-  const [editAmount, setEditAmount] = useState('');
-  const [editPaymentMode, setEditPaymentMode] = useState('');
-  const [isUpdating, setIsUpdating] = useState(false);
 
   const fetchHistory = async () => {
     try {
@@ -73,52 +176,26 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
     }
   }, [customerId, fromDate, toDate]);
 
-  const handleEditClick = (item: LedgerItem) => {
-    setEditingItem(item);
-    setEditAmount(item.credit || '');
-    // Extract payment mode from description if possible, or assume 'CASH' if not found/available
-    const modeMatch = item.description.match(/\((.*?)\)/);
-    setEditPaymentMode(modeMatch ? modeMatch[1] : 'CASH');
-    setIsEditModalOpen(true);
-  };
-
-  const handleUpdatePayment = async () => {
-    if (!editingItem) return;
-
-    try {
-      setIsUpdating(true);
-      // Construct payload - keeping date same for simplicity or add date picker if needed
-      const payload = {
-        customerId,
-        amount: parseFloat(editAmount),
-        paymentMode: editPaymentMode,
-        // paymentDate: editingItem.transactionDate // Optional: Allow date edit? Plan said amount/mode.
+  // Enrich ledger rows with FIFO-derived Status / Days / Pending Amount
+  const enrichedData = useMemo<EnrichedLedgerItem[]>(() => {
+    const fifo = computeFifoSettlement(data);
+    return data.map(item => {
+      const derived = fifo.get(item.transactionId) ?? {
+        status: '-' as InvoiceStatus,
+        days: null,
+        pendingAmount: null,
       };
-
-      const res = await paymentApi.update(editingItem.referenceId, payload);
-      if (res.data && res.data.success) {
-        showToast.success('Payment updated successfully');
-        setIsEditModalOpen(false);
-        fetchHistory(); // Refresh list
-        window.location.reload(); // Hard reload to refresh parent balance - easier than lifting state up right now
-      } else {
-        showToast.error('Failed to update payment');
-      }
-    } catch (error) {
-      console.error('Update failed', error);
-      showToast.error('Failed to update payment');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+      return { ...item, ...derived };
+    });
+  }, [data]);
 
   const handleExportPdf = () => {
-    if (data.length === 0) {
+    if (enrichedData.length === 0) {
       showToast.error('No data to export');
       return;
     }
 
-    const doc = new jsPDF();
+    const doc = new jsPDF('landscape');
     doc.setFontSize(16);
     doc.text(`Transaction History: ${customerName}`, 14, 20);
 
@@ -127,14 +204,29 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
     if (fromDate) doc.text(`From: ${fromDate}`, 14, 36);
     if (toDate) doc.text(`To: ${toDate}`, 14, 42);
 
-    const tableColumn = ['Date', 'Type', 'Description', 'Debit (Bill)', 'Credit (Pay)', 'Balance'];
-    const tableRows = data.map(item => [
+    const tableColumn = [
+      'Date',
+      'Type',
+      'Description',
+      'Reference No.',
+      'Debit (Bill)',
+      'Pending Amount',
+      'Credit (Pay)',
+      'Balance',
+      'Status',
+      'Days',
+    ];
+    const tableRows = enrichedData.map(item => [
       format(new Date(item.transactionDate), 'dd/MM/yyyy'),
       item.type,
       item.description,
-      item.debit ? Number(item.debit).toFixed(2) : '-',
-      item.credit ? Number(item.credit).toFixed(2) : '-',
+      item.referenceNo || '-',
+      Number(item.debit) > 0 ? Number(item.debit).toFixed(2) : '-',
+      item.pendingAmount !== null ? item.pendingAmount.toFixed(2) : '-',
+      Number(item.credit) > 0 ? Number(item.credit).toFixed(2) : '-',
       Number(item.balance).toFixed(2),
+      item.status,
+      item.days !== null ? `${item.days} ${item.days === 1 ? 'day' : 'days'}` : '-',
     ]);
 
     autoTable(doc, {
@@ -153,19 +245,25 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
     showToast.success('Ledger exported successfully');
   };
 
-  const columns = useMemo<ColumnDef<LedgerItem>[]>(
+  const columns = useMemo<ColumnDef<EnrichedLedgerItem>[]>(
     () => [
       {
         accessorKey: 'transactionDate',
+        meta: { fitContent: true },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-        cell: ({ row }) => format(new Date(row.original.transactionDate), 'dd/MM/yyyy'),
+        cell: ({ row }) => (
+          <div className="whitespace-nowrap">
+            {format(new Date(row.original.transactionDate), 'dd/MM/yyyy')}
+          </div>
+        ),
       },
       {
         accessorKey: 'type',
+        meta: { fitContent: true },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
         cell: ({ row }) => (
           <span
-            className={`px-2 py-0.5 rounded text-xs font-semibold ${
+            className={`px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${
               row.original.type === 'INVOICE' || row.original.type === 'OPENING'
                 ? 'bg-orange-100 text-orange-700'
                 : 'bg-green-100 text-green-700'
@@ -179,64 +277,123 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
         accessorKey: 'description',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
         cell: ({ row }) => (
-          <div>
-            <div className="text-sm text-[var(--text-primary)]">{row.original.description}</div>
-            {row.original.referenceNo && (
-              <div className="text-xs text-[var(--text-secondary)]">
-                Ref: {row.original.referenceNo}
-              </div>
-            )}
+          <div className="text-sm text-[var(--text-primary)]">{row.original.description}</div>
+        ),
+      },
+      {
+        accessorKey: 'referenceNo',
+        meta: { fitContent: true },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Reference No." />,
+        cell: ({ row }) => (
+          <div className="text-sm text-[var(--text-secondary)] whitespace-nowrap">
+            {row.original.referenceNo ? row.original.referenceNo : '-'}
           </div>
         ),
       },
       {
         accessorKey: 'debit',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Debit" />,
+        meta: { fitContent: true },
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Debit" className="justify-center" />
+        ),
         cell: ({ row }) => (
-          <div className="font-medium text-orange-600">
+          <div className="font-medium text-orange-600 text-center whitespace-nowrap">
             {Number(row.original.debit) > 0 ? Number(row.original.debit).toFixed(2) : '-'}
           </div>
         ),
       },
       {
+        accessorKey: 'pendingAmount',
+        meta: { fitContent: true },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title="Pending Amount"
+            className="justify-center"
+          />
+        ),
+        cell: ({ row }) => {
+          const pending = row.original.pendingAmount;
+          if (pending === null) {
+            return <div className="text-[var(--text-secondary)] text-center">-</div>;
+          }
+          return (
+            <div
+              className={`font-medium text-center whitespace-nowrap ${pending > 0 ? 'text-red-600' : 'text-green-600'}`}
+            >
+              {pending.toFixed(2)}
+            </div>
+          );
+        },
+      },
+      {
         accessorKey: 'credit',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Credit" />,
+        meta: { fitContent: true },
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Credit" className="justify-center" />
+        ),
         cell: ({ row }) => (
-          <div className="font-medium text-green-600">
+          <div className="font-medium text-green-600 text-center whitespace-nowrap">
             {Number(row.original.credit) > 0 ? Number(row.original.credit).toFixed(2) : '-'}
           </div>
         ),
       },
       {
         accessorKey: 'balance',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
+        meta: { fitContent: true },
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Balance" className="justify-center" />
+        ),
         cell: ({ row }) => (
-          <div className="font-bold text-blue-700">{Number(row.original.balance).toFixed(2)}</div>
+          <div className="font-bold text-blue-700 text-center whitespace-nowrap">
+            {Number(row.original.balance).toFixed(2)}
+          </div>
         ),
       },
       {
-        id: 'actions',
-        header: 'Action',
+        accessorKey: 'status',
+        meta: { fitContent: true },
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Status" className="justify-center" />
+        ),
         cell: ({ row }) => {
-          const item = row.original;
-          // Only allow editing payments for now
-          if (item.type?.toUpperCase() === 'PAYMENT' && item.referenceId) {
-            return (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleEditClick(item)}
-                title="Edit Payment"
-              >
-                <Pencil size={14} className="text-gray-500 hover:text-blue-600" />
-              </Button>
-            );
+          const status = row.original.status;
+          if (status === '-') {
+            return <div className="text-[var(--text-secondary)] text-center">-</div>;
           }
-          return null;
+          const styles =
+            status === 'Paid'
+              ? 'bg-green-100 text-green-700'
+              : status === 'Part Payment'
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-red-100 text-red-700';
+          return (
+            <div className="text-center">
+              <span
+                className={`inline-block px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${styles}`}
+              >
+                {status}
+              </span>
+            </div>
+          );
         },
       },
+      {
+        accessorKey: 'days',
+        meta: { fitContent: true },
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Days" className="justify-center" />
+        ),
+        cell: ({ row }) => (
+          <div className="text-sm text-[var(--text-primary)] text-center whitespace-nowrap">
+            {row.original.days !== null
+              ? `${row.original.days} ${row.original.days === 1 ? 'day' : 'days'}`
+              : '-'}
+          </div>
+        ),
+      },
     ],
-    [handleEditClick]
+    []
   );
 
   if (isLoading) {
@@ -248,91 +405,56 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
   }
 
   return (
-    <>
-      <div className="rounded-md border border-gray-200 bg-gray-50 p-4 m-2 shadow-inner animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center mb-4">
-          <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-            Transaction History - {customerName}
-          </h4>
-        </div>
-
-        <div className="rounded-md border border-gray-200 bg-white">
-          <DataTable
-            columns={columns}
-            data={data}
-            showToolbar={true}
-            showPagination={true}
-            defaultPageSize={10}
-            searchPlaceholder="Search ledger..."
-            initialSorting={[{ id: 'transactionDate', desc: true }]}
-            toolbarActions={
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={fromDate}
-                  onChange={e => setFromDate(e.target.value)}
-                  inputSize="sm"
-                  className="w-[130px]"
-                  placeholder="From Date"
-                />
-                <Input
-                  type="date"
-                  value={toDate}
-                  onChange={e => setToDate(e.target.value)}
-                  inputSize="sm"
-                  className="w-[130px]"
-                  placeholder="To Date"
-                />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleExportPdf}
-                  leftIcon={<FileDown size={14} />}
-                  title="Download Ledger PDF"
-                >
-                  Export
-                </Button>
-              </div>
-            }
-          />
-        </div>
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-4 m-2 shadow-inner animate-in fade-in zoom-in-95 duration-200">
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          Transaction History - {customerName}
+        </h4>
       </div>
 
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Payment"
-      >
-        <div className="space-y-4">
-          <Input
-            label="Amount"
-            type="number"
-            value={editAmount}
-            onChange={e => setEditAmount(e.target.value)}
-          />
-          <Select
-            label="Payment Mode"
-            value={editPaymentMode}
-            onChange={e => setEditPaymentMode(e.target.value)}
-            options={[
-              { label: 'Cash', value: 'CASH' },
-              { label: 'UPI', value: 'UPI' },
-              { label: 'Bank Transfer', value: 'BANK' },
-              { label: 'Cheque', value: 'CHEQUE' },
-            ]}
-          />
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleUpdatePayment} isLoading={isUpdating}>
-              Update
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    </>
+      <div className="rounded-md border border-gray-200 bg-white">
+        <DataTable
+          columns={columns}
+          data={enrichedData}
+          showToolbar={true}
+          showPagination={true}
+          defaultPageSize={10}
+          searchPlaceholder="Search ledger..."
+          theme={{ cell: 'px-3! py-2!', headerCell: 'px-3!' }}
+          initialSorting={[{ id: 'transactionDate', desc: true }]}
+          toolbarActions={
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={e => setFromDate(e.target.value)}
+                inputSize="sm"
+                className="w-[130px]"
+                placeholder="From Date"
+              />
+              <Input
+                type="date"
+                value={toDate}
+                onChange={e => setToDate(e.target.value)}
+                inputSize="sm"
+                className="w-[130px]"
+                placeholder="To Date"
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleExportPdf}
+                leftIcon={<FileDown size={14} />}
+                title="Download Ledger PDF"
+              >
+                Export
+              </Button>
+            </div>
+          }
+        />
+      </div>
+    </div>
   );
 };
 
