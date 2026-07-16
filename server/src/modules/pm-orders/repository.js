@@ -1,4 +1,4 @@
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, inArray } from 'drizzle-orm';
 import db from '../../db/index.js';
 import { orders, customers, employees, accounts } from '../../db/schema/index.js';
 
@@ -15,7 +15,7 @@ export class PMOrdersRepository {
       .innerJoin(customers, eq(orders.customerId, customers.customerId))
       .leftJoin(employees, eq(orders.salespersonId, employees.employeeId))
       .leftJoin(accounts, eq(orders.orderId, accounts.orderId))
-      .where(eq(orders.status, 'Accepted')) // Accepted by Accountant (Payment Cleared)
+      .where(inArray(orders.status, ['Factory Approved', 'Accepted'])) // Approved by Accounts (new + legacy status names)
       .orderBy(desc(orders.createdAt));
   }
 

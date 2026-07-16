@@ -10,7 +10,7 @@ notification.config({
 export const showToast = {
   success: (message: string, key?: string) => {
     notification.success({
-      message: 'Success',
+      title: 'Success',
       description: message,
       className: 'centered-toast',
       placement: 'top',
@@ -19,7 +19,7 @@ export const showToast = {
   },
   error: (message: string, key: string = 'singleton-error-toast') => {
     notification.error({
-      message: 'Error',
+      title: 'Error',
       description: message,
       className: 'centered-toast',
       placement: 'top',
@@ -28,7 +28,7 @@ export const showToast = {
   },
   warning: (message: string, key?: string) => {
     notification.warning({
-      message: 'Warning',
+      title: 'Warning',
       description: message,
       className: 'centered-toast',
       placement: 'top',
@@ -37,7 +37,7 @@ export const showToast = {
   },
   loading: (message: string, key: string = 'loading-toast') => {
     notification.info({
-      message: 'Processing',
+      title: 'Processing',
       description: message,
       className: 'centered-toast',
       duration: 0, // Manual close needed or wait for next update
@@ -55,7 +55,7 @@ export const showToast = {
   ) => {
     const key = 'updatable-notif';
     notification.info({
-      message: 'Loading',
+      title: 'Loading',
       description: messages.loading,
       key,
       className: 'centered-toast',
@@ -67,7 +67,7 @@ export const showToast = {
         const successMsg =
           typeof messages.success === 'function' ? messages.success(data) : messages.success;
         notification.success({
-          message: 'Success',
+          title: 'Success',
           description: successMsg,
           key,
           duration: 3,
@@ -78,7 +78,7 @@ export const showToast = {
         const errorMsg =
           typeof messages.error === 'function' ? messages.error(err) : messages.error;
         notification.error({
-          message: 'Error',
+          title: 'Error',
           description: errorMsg,
           key,
           duration: 3,

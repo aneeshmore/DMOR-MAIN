@@ -23,6 +23,7 @@ export interface Product {
   TotalDensity?: number; // Added for volume calculation
   packageCapacityKg?: number; // Added for package capacity
   PackageCapacityKg?: number; // Backend case variation
+  hsnCode?: string; // HSN Code from master product subtype (FG / RM / PM)
 }
 
 export interface StockLedger {

@@ -191,9 +191,12 @@ export default function AccountsDashboard() {
     return order.adminRemarks && order.adminRemarks.includes('Split from Order');
   };
 
-  const pendingOrders = orders.filter(o => o.status === 'Pending' && !o.onHold && !isSplitOrder(o));
+  const isAwaitingAccounts = (o: AdminOrder) =>
+    o.status === 'Pending Accounts Approval' || o.status === 'Pending';
+
+  const pendingOrders = orders.filter(o => isAwaitingAccounts(o) && !o.onHold && !isSplitOrder(o));
   const splitOrders = orders.filter(
-    o => o.status === 'Pending' && !o.onHold && !o.billNo && isSplitOrder(o)
+    o => isAwaitingAccounts(o) && !o.onHold && !o.billNo && isSplitOrder(o)
   );
   const onHoldOrders = orders.filter(o => o.status === 'On Hold' || o.onHold);
 

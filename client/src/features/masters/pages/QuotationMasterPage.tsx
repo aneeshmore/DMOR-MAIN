@@ -36,6 +36,7 @@ interface Product {
   packageCapacityKg?: string | number;
   PackageCapacityKg?: string | number;
   TotalDensity?: string | number;
+  hsnCode?: string;
 }
 
 const QuotationMasterPage: React.FC = () => {
@@ -738,6 +739,7 @@ const QuotationMasterPage: React.FC = () => {
                     <tr>
                       <th className="text-left p-3 font-medium">#</th>
                       <th className="text-left p-3 font-medium">Product</th>
+                      <th className="text-left p-3 font-medium">HSN</th>
                       <th className="text-right p-3 font-medium">Qty</th>
                       <th className="text-right p-3 font-medium">Pkg (L)</th>
                       <th className="text-right p-3 font-medium">Rate</th>
@@ -757,6 +759,13 @@ const QuotationMasterPage: React.FC = () => {
                         <tr key={idx} className="border-t border-[var(--border)]">
                           <td className="p-3">{idx + 1}</td>
                           <td className="p-3 font-medium">{decodeHtml(item.description)}</td>
+                          <td className="p-3 text-[var(--text-secondary)]">
+                            {item.hsn ||
+                              (products.find(
+                                p => (p.productId || (p as any).ProductID) === item.productId
+                              ) as any)?.hsnCode ||
+                              '-'}
+                          </td>
                           <td className="p-3 text-right">{item.quantity}</td>
                           <td className="p-3 text-right text-[var(--text-secondary)]">
                             {packageCapacity > 0
@@ -775,7 +784,7 @@ const QuotationMasterPage: React.FC = () => {
                   </tbody>
                   <tfoot className="bg-[var(--surface-secondary)]">
                     <tr className="border-t-2 border-[var(--border)]">
-                      <td colSpan={6} className="p-3 text-right font-semibold">
+                      <td colSpan={7} className="p-3 text-right font-semibold">
                         Total:
                       </td>
                       <td className="p-3 text-right font-bold text-[var(--primary)]">
@@ -792,7 +801,7 @@ const QuotationMasterPage: React.FC = () => {
                     </tr>
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={9}
                         className="p-2 text-right text-xs text-[var(--text-secondary)] italic"
                       >
                         (Incl. 18% GST)

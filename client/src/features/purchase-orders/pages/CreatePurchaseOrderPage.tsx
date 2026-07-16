@@ -473,6 +473,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                 <th className="text-right p-3 font-medium">Qty *</th>
                 <th className="text-left p-3 font-medium">Unit</th>
                 <th className="text-right p-3 font-medium">GST (%)</th>
+                <th className="text-left p-3 font-medium">HSN</th>
                 <th className="text-right p-3 font-medium">Unit Price (₹)</th>
                 <th className="text-right p-3 font-medium">Total (₹)</th>
                 <th className="p-3"></th>
@@ -600,6 +601,10 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                       readOnly
                     />
                   </td>
+                  <td className="p-2 w-24 text-sm text-[var(--text-secondary)]">
+                    {masterProducts.find(p => p.masterProductName === item.itemDescription)
+                      ?.hsnCode || '-'}
+                  </td>
                   <td className="p-2 w-32">
                     <input
                       className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm text-right focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
@@ -641,7 +646,7 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
             </tbody>
             <tfoot className="bg-[var(--surface-secondary,var(--surface))]">
               <tr className="border-t-2 border-[var(--border)]">
-                <td colSpan={6} className="p-3 text-right font-semibold">
+                <td colSpan={7} className="p-3 text-right font-semibold">
                   Total Amount:
                 </td>
                 <td className="p-3 text-right font-bold text-[var(--primary)]">
@@ -959,6 +964,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         .map((item, idx) => {
           const mp = masterProducts.find((p: any) => p.masterProductName === item.itemDescription);
           const gstRate = mp && mp.gst !== undefined && mp.gst !== null ? Number(mp.gst) : 18;
+          const hsnCode = mp?.hsnCode || mp?.HSNCode || '';
           const qty = Number(item.quantity);
           const rate = Number(item.unitPrice);
           const amount = qty * rate;
@@ -971,7 +977,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           return `
             <tr>
               <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${idx + 1}</td>
-              <td style="width: 55%; border-right: 1px solid #000; padding: 5px 6px; vertical-align: top; font-weight: bold;">${item.itemDescription}</td>
+              <td style="width: 55%; border-right: 1px solid #000; padding: 5px 6px; vertical-align: top; font-weight: bold;">${item.itemDescription}${hsnCode ? `<div style="font-size: 8px; font-weight: normal; color: #444; margin-top: 2px;">HSN/SAC: ${hsnCode}</div>` : ''}</td>
               <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top; font-weight: bold; white-space: nowrap;">${Number(qty) % 1 === 0 ? qty.toString() : qty.toFixed(4).replace(/\.?0+$/, '')} ${item.unit || ''}</td>
               <td style="width: 10%; border-right: 1px solid #000; text-align: right; padding: 5px 6px; vertical-align: top;">${rate.toFixed(2)}</td>
               <td style="width: 5%; border-right: 1px solid #000; text-align: center; padding: 5px 6px; vertical-align: top;">${item.unit || ''}</td>

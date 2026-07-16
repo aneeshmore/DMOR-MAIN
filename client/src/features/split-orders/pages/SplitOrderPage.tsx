@@ -266,9 +266,15 @@ const SplitOrderPage: React.FC = () => {
           let colorClass = 'bg-gray-100 text-gray-800'; // Default
 
           switch (status) {
+            case 'Pending Accounts Approval':
             case 'Pending':
-              colorClass = 'bg-yellow-100 text-yellow-800';
+              colorClass = 'bg-orange-100 text-orange-800';
               break;
+            case 'Pending Factory Approval':
+            case 'Verified':
+              colorClass = 'bg-amber-100 text-amber-800';
+              break;
+            case 'Factory Approved':
             case 'Accepted':
               colorClass = 'bg-green-100 text-green-800';
               break;
@@ -288,7 +294,7 @@ const SplitOrderPage: React.FC = () => {
               colorClass = 'bg-orange-100 text-orange-800';
               break;
             case 'On Hold':
-              colorClass = 'bg-red-100 text-red-800';
+              colorClass = 'bg-yellow-100 text-yellow-800';
               break;
           }
 

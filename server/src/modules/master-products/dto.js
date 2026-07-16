@@ -37,6 +37,7 @@ export class MasterProductDTO {
       );
       this.Subcategory = fgDetails.subcategory || 'General';
       this.HardenerID = fgDetails.hardenerId || fgDetails.hardener_id || null;
+      this.HSNCode = fgDetails.hsnCode || fgDetails.hsn_code || '';
     }
 
     if (rmDetails) {
@@ -50,6 +51,7 @@ export class MasterProductDTO {
       this.Subcategory = rmDetails.subcategory || 'General';
       this.SolidDensity = parseFloat(rmDetails.solidDensity || rmDetails.solid_density || 0);
       this.OilAbsorption = parseFloat(rmDetails.oilAbsorption || rmDetails.oil_absorption || 0);
+      this.HSNCode = rmDetails.hsnCode || rmDetails.hsn_code || '';
     }
 
     if (pmDetails) {
@@ -57,9 +59,11 @@ export class MasterProductDTO {
       this.StockQuantity = parseInt(pmDetails.stockQuantity || pmDetails.stock_quantity || 0);
       this.PurchaseCost = parseFloat(pmDetails.purchaseCost || pmDetails.purchase_cost || 0);
       this.AvailableQuantity = parseFloat(pmDetails.availableQty || pmDetails.available_qty || 0);
+      this.HSNCode = pmDetails.hsnCode || pmDetails.hsn_code || '';
     }
 
     this.purchaseCost = this.PurchaseCost || 0;
+    this.hsnCode = this.HSNCode || '';
   }
 }
 
@@ -142,6 +146,14 @@ export class ProductDTO {
     }
     this.ReservedQuantity = parseFloat(product.reservedQuantity || product.reserved_quantity || 0);
     this.reservedQuantity = this.ReservedQuantity;
+
+    // HSN Code from the master product subtype (FG / RM / PM)
+    this.hsnCode =
+      (fgDetails && (fgDetails.hsnCode || fgDetails.hsn_code)) ||
+      (rmDetails && (rmDetails.hsnCode || rmDetails.hsn_code)) ||
+      (pmDetails && (pmDetails.hsnCode || pmDetails.hsn_code)) ||
+      '';
+    this.HSNCode = this.hsnCode;
 
     this.Density = parseFloat(product.density || 0);
     this.density = this.Density;

@@ -39,6 +39,18 @@ const FinalGoodTable = () => {
   };
 
   const handleSaveAll = () => {
+    // Validate HSN codes before saving (blank allowed for legacy products)
+    const invalidHsn = Object.values(edits).some(
+      (changes: any) =>
+        changes.hsnCode !== undefined &&
+        changes.hsnCode !== '' &&
+        !/^(\d{4}|\d{6}|\d{8})$/.test(changes.hsnCode)
+    );
+    if (invalidHsn) {
+      showToast.error('HSN Code must be a 4, 6, or 8 digit number');
+      return;
+    }
+
     const summary: any[] = [];
     Object.entries(edits).forEach(([idStr, changes]) => {
       const id = Number(idStr);
@@ -96,6 +108,27 @@ const FinalGoodTable = () => {
           field: 'fillingDensity',
           oldValue: product.fillingDensity,
           newValue: changes.fillingDensity,
+        });
+      }
+      if (changes.hsnCode !== undefined && changes.hsnCode !== product.hsnCode) {
+        changeRecord.changes.push({
+          field: 'hsnCode',
+          oldValue: product.hsnCode || 'N/A',
+          newValue: changes.hsnCode || 'N/A',
+        });
+      }
+      
+      const inwardCost = Number(product.costPrice) || 0;
+      const packCapacity = Number(product.pmCapacity) || 1;
+      const packingCost = Number(product.packingCost) || 0;
+      const devUnitCost = (Number(product.devCostPrice) || 0) * packCapacity + packingCost;
+      const oldCp = inwardCost > 0 ? inwardCost : devUnitCost;
+      
+      if (changes.costPrice !== undefined && Number(changes.costPrice) !== Number(oldCp.toFixed(2))) {
+        changeRecord.changes.push({
+          field: 'costPrice',
+          oldValue: oldCp.toFixed(2),
+          newValue: changes.costPrice,
         });
       }
 
@@ -203,9 +236,12 @@ const FinalGoodTable = () => {
           <thead className="bg-[var(--surface-hover)] text-[var(--text-secondary)] border-b border-[var(--border)]">
             <tr>
               <th className="px-4 py-3 font-medium">Product Name (SKU)</th>
+              <th className="px-4 py-3 font-medium text-[var(--text-secondary)]">Cost Price</th>
+              <th className="px-4 py-3 font-medium text-[var(--text-secondary)]">Profit / Loss (%)</th>
+              <th className="px-4 py-3 font-medium">HSN Code</th>
+              <th className="px-4 py-3 font-medium">GST (%)</th>
               <th className="px-4 py-3 font-medium">Selling Price</th>
               <th className="px-4 py-3 font-medium">Min Stock</th>
-              <th className="px-4 py-3 font-medium">GST (%)</th>
               <th className="px-4 py-3 font-medium">Filling Density</th>
               <th className="px-4 py-3 font-medium">Incentives</th>
             </tr>
@@ -218,10 +254,23 @@ const FinalGoodTable = () => {
               const currentMinStock =
                 edits[product.productId]?.minStockLevel ?? product.minStockLevel ?? 0;
               const currentGst = edits[product.productId]?.gst ?? product.gst ?? '';
+              const currentHsnCode = edits[product.productId]?.hsnCode ?? product.hsnCode ?? '';
               const currentIncentive =
                 edits[product.productId]?.incentiveAmount ?? product.incentiveAmount;
               const editedName = edits[product.productId]?.productName;
               const isNameEdited = editedName !== undefined && editedName !== product.productName;
+
+              const inwardCost = Number(product.costPrice) || 0;
+              const packCapacity = Number(product.pmCapacity) || 1;
+              const packingCost = Number(product.packingCost) || 0;
+              const devUnitCost = (Number(product.devCostPrice) || 0) * packCapacity + packingCost;
+
+              const cp = Number(edits[product.productId]?.costPrice) || (inwardCost > 0 ? inwardCost : devUnitCost) || 0;
+              const sp = Number(currentSellingPrice) || 0;
+              let profitLossPercent: number | null = null;
+              if (cp > 0) {
+                profitLossPercent = ((sp - cp) / cp) * 100;
+              }
 
               return (
                 <tr
@@ -245,11 +294,66 @@ const FinalGoodTable = () => {
                       }
                     />
                   </td>
+                  {/* Cost Price — Editable input field */}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col relative">
+                      <input
+                        type="number"
+                        data-column="1"
+                        className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                        value={edits[product.productId]?.costPrice ?? (inwardCost > 0 ? inwardCost : devUnitCost).toFixed(2)}
+                        onChange={e =>
+                          handleInputChange(product.productId, 'costPrice', e.target.value)
+                        }
+                        onKeyDown={handleEnterKeyNavigation}
+                      />
+                      {(!product.costPrice || Number(product.costPrice) === 0) && (
+                        <span className="text-[10px] text-blue-500 font-normal mt-0.5 leading-none absolute -bottom-3">
+                          (Production Cost)
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  {/* Profit / Loss % */}
+                  <td className="px-4 py-3">
+                    {profitLossPercent !== null ? (
+                      <span className={`text-sm font-medium ${profitLossPercent > 0 ? 'text-green-600' : profitLossPercent < 0 ? 'text-red-600' : 'text-[var(--text-secondary)]'}`}>
+                        {profitLossPercent > 0 ? '+' : ''}{profitLossPercent.toFixed(2)}%
+                      </span>
+                    ) : (
+                      <span className="text-xs italic text-[var(--text-secondary)]">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="text"
+                      data-column="2"
+                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentHsnCode}
+                      onChange={e => {
+                        if (/^\d{0,8}$/.test(e.target.value)) {
+                          handleInputChange(product.productId, 'hsnCode', e.target.value);
+                        }
+                      }}
+                      onKeyDown={handleEnterKeyNavigation}
+                      placeholder="HSN Code"
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      data-column="2"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      data-column="3"
+                      className="w-16 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentGst}
+                      onChange={e => handleInputChange(product.productId, 'gst', e.target.value)}
+                      onKeyDown={handleEnterKeyNavigation}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      data-column="4"
+                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentSellingPrice}
                       onChange={e =>
                         handleInputChange(product.productId, 'sellingPrice', e.target.value)
@@ -260,8 +364,8 @@ const FinalGoodTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      data-column="3"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      data-column="5"
+                      className="w-20 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentMinStock}
                       onChange={e =>
                         handleInputChange(product.productId, 'minStockLevel', e.target.value)
@@ -272,19 +376,9 @@ const FinalGoodTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      data-column="4"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
-                      value={currentGst}
-                      onChange={e => handleInputChange(product.productId, 'gst', e.target.value)}
-                      onKeyDown={handleEnterKeyNavigation}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
                       step="0.001"
-                      data-column="5"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      data-column="6"
+                      className="w-20 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={
                         edits[product.productId]?.fillingDensity ??
                         Number(product.fillingDensity ?? 0).toFixed(3)
@@ -298,8 +392,8 @@ const FinalGoodTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      data-column="6"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      data-column="7"
+                      className="w-20 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentIncentive}
                       onChange={e =>
                         handleInputChange(product.productId, 'incentiveAmount', e.target.value)
@@ -312,7 +406,7 @@ const FinalGoodTable = () => {
             })}
             {paginatedProducts.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                <td colSpan={9} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                   No products found matching your search.
                 </td>
               </tr>

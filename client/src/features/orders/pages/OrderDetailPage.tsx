@@ -215,8 +215,17 @@ const OrderDetailPage: React.FC = () => {
             <div>
               <p className="text-sm text-[var(--text-secondary)]">Status</p>
               <Badge
-                variant={orderData?.status === 'Accepted' ? 'default' : 'secondary'}
-                className={cn(orderData?.status === 'Accepted' && 'bg-green-100 text-green-800')}
+                variant={
+                  orderData?.status === 'Factory Approved' || orderData?.status === 'Accepted'
+                    ? 'default'
+                    : 'secondary'
+                }
+                className={cn(
+                  (orderData?.status === 'Factory Approved' ||
+                    orderData?.status === 'Accepted') &&
+                    'bg-green-100 text-green-800',
+                  orderData?.status === 'On Hold' && 'bg-yellow-100 text-yellow-800'
+                )}
               >
                 {orderData?.status}
               </Badge>

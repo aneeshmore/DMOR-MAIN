@@ -381,7 +381,10 @@ export function PendingOrdersDataTable({
                     className="inline-flex items-center gap-1 px-3 py-1 text-[var(--success)] bg-[var(--background)] hover:bg-[#ecfdf5] border border-[var(--success)]/20 rounded-lg transition-colors font-medium text-xs disabled:opacity-50"
                   >
                     <Check className="w-3 h-3" />
-                    {row.original.status === 'Verified' ? 'Send to Prod' : 'Accept'}
+                    {row.original.status === 'Verified' ||
+                    row.original.status === 'Pending Factory Approval'
+                      ? 'Send to Prod'
+                      : 'Accept'}
                   </button>
 
                   <button

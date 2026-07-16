@@ -43,6 +43,7 @@ export class OrderDetailDTO {
     this.createdAt = detail.createdAt || detail.created_at;
     this.updatedAt = detail.updatedAt || detail.updated_at;
     this.productName = detail.productName;
+    this.hsnCode = detail.hsnCode;
   }
 }
 

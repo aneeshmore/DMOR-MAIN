@@ -32,6 +32,7 @@ const MasterProduct = () => {
   const [capacity, setCapacity] = useState<number | ''>('');
   const [canBeAddedMultipleTimes, setCanBeAddedMultipleTimes] = useState(false);
   const [gst, setGst] = useState<number | ''>('');
+  const [hsnCode, setHsnCode] = useState('');
 
   // FG Specific Fields
   const [subcategory, setSubcategory] = useState<
@@ -115,6 +116,7 @@ const MasterProduct = () => {
     setCapacity('');
     setCanBeAddedMultipleTimes(false);
     setGst('');
+    setHsnCode('');
     setSubcategory('General');
     setSelectedHardenerId(null);
     setHighlightedIndex(-1);
@@ -132,6 +134,7 @@ const MasterProduct = () => {
     setCanBeAddedMultipleTimes(product.CanBeAddedMultipleTimes || false);
     setCapacity(product.Capacity || '');
     setGst(product.gst !== undefined && product.gst !== null ? product.gst : '');
+    setHsnCode(product.HSNCode || '');
     setSubcategory(product.Subcategory || 'General');
     setSelectedHardenerId(product.HardenerID || null);
   };
@@ -139,6 +142,22 @@ const MasterProduct = () => {
   const handleSave = async () => {
     if (!productName.trim()) {
       showToast.error('Master Product Name is required');
+      return;
+    }
+
+    if (gst === '' || gst === null || gst === undefined) {
+      showToast.error('GST (%) is required');
+      return;
+    }
+
+    // HSN Code validation: mandatory for all products
+    const trimmedHsn = hsnCode.trim();
+    if (trimmedHsn === '') {
+      showToast.error('HSN Code is required');
+      return;
+    }
+    if (!/^(\d{4}|\d{6}|\d{8})$/.test(trimmedHsn)) {
+      showToast.error('HSN Code must be a 4, 6, or 8 digit number');
       return;
     }
 
@@ -194,7 +213,8 @@ const MasterProduct = () => {
         MasterProductName: productName,
         IsActive: true,
         ProductType: activeTab,
-        GST: gst !== '' ? Number(gst) : null,
+        GST: Number(gst),
+        HSNCode: trimmedHsn,
       };
 
       if (activeTab === 'RM') {
@@ -348,6 +368,7 @@ const MasterProduct = () => {
                     setCapacity('');
                     setCanBeAddedMultipleTimes(false);
                     setGst('');
+                    setHsnCode('');
                     setSelectedHardenerId(null);
                     setHighlightedIndex(-1);
                   }}
@@ -433,6 +454,21 @@ const MasterProduct = () => {
             </div>
 
             <Input
+              label="HSN Code"
+              type="number"
+              value={hsnCode}
+              onChange={e => {
+                const val = e.target.value;
+                // Allow only digits, max 8 characters
+                if (/^\d{0,8}$/.test(val)) {
+                  setHsnCode(val);
+                }
+              }}
+              placeholder="Enter HSN Code (4, 6, or 8 digits)"
+              required
+            />
+
+            <Input
               label="GST (%)"
               type="number"
               value={gst}
@@ -448,6 +484,7 @@ const MasterProduct = () => {
                 }
               }}
               placeholder="0.00"
+              required
             />
 
             {activeTab === 'FG' && (
@@ -683,7 +720,8 @@ const MasterProduct = () => {
                   <th className="px-6 py-3 w-24">ID</th>
                   <th className="px-6 py-3">Type</th>
                   <th className="px-6 py-3">Name</th>
-                  <th className="px-6 py-3">Sub Category</th>
+                  {activeTab !== 'PM' && <th className="px-6 py-3">Sub Category</th>}
+                  <th className="px-6 py-3">HSN Code</th>
                   <th className="px-6 py-3">GST (%)</th>
                   <th className="px-6 py-3">Details</th>
                   <th className="px-6 py-3 w-24 text-right">Actions</th>
@@ -734,8 +772,13 @@ const MasterProduct = () => {
                       <td className="px-6 py-3 font-medium text-[var(--text-primary)]">
                         {product.masterProductName}
                       </td>
+                      {activeTab !== 'PM' && (
+                        <td className="px-6 py-3 text-[var(--text-secondary)]">
+                          {product.Subcategory || '-'}
+                        </td>
+                      )}
                       <td className="px-6 py-3 text-[var(--text-secondary)]">
-                        {product.Subcategory || '-'}
+                        {product.HSNCode || '-'}
                       </td>
                       <td className="px-6 py-3 text-[var(--text-secondary)]">
                         {product.gst !== undefined && product.gst !== null

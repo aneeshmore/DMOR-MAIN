@@ -18,7 +18,7 @@ export class DashboardRepository {
                     FROM app.order_details od
                     JOIN app.orders o ON od.order_id = o.order_id
                     WHERE od.product_id = p.product_id 
-                        AND o.status IN ('Pending', 'On Hold')
+                        AND o.status IN ('Pending Accounts Approval', 'Pending', 'On Hold')
                 ) AS "OrderQty",
                 p.available_quantity AS "AvailableQty",
                 (
@@ -39,7 +39,18 @@ export class DashboardRepository {
   /**
    * Get Order Payment Status (Pending and On Hold)
    */
-  async getOrderPaymentStatus(status = 'Pending') {
+  async getOrderPaymentStatus(status = 'Pending Accounts Approval') {
+    // Map new/legacy equivalent status names so existing orders keep appearing
+    const statusEquivalents = {
+      'Pending Accounts Approval': ['Pending Accounts Approval', 'Pending'],
+      Pending: ['Pending Accounts Approval', 'Pending'],
+      'Pending Factory Approval': ['Pending Factory Approval', 'Verified'],
+      Verified: ['Pending Factory Approval', 'Verified'],
+      'Factory Approved': ['Factory Approved', 'Accepted'],
+      Accepted: ['Factory Approved', 'Accepted'],
+    };
+    const statuses = statusEquivalents[status] || [status];
+
     const result = await db.execute(sql`
             SELECT
                 o.order_id as "OrderID",
@@ -54,7 +65,7 @@ export class DashboardRepository {
             FROM app.orders o
             JOIN app.customers c ON o.customer_id = c.customer_id
             JOIN app.employees e ON o.salesperson_id = e.employee_id
-            WHERE o.status = ${status}
+            WHERE o.status IN ${sql.raw(`('${statuses.join("','")}')`)}
             ORDER BY o.order_date DESC
         `);
 

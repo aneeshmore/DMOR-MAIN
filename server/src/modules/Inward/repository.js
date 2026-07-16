@@ -239,14 +239,17 @@ export class InwardRepository {
         );
       }
 
-      // Update Master Product FG purchase cost if provided - REMOVED per user request
-      // if (purchaseCost > 0) {
-      //   console.log(`[Repo] Updating FG Master Purchase Cost...`);
-      //   await db
-      //     .update(masterProductFG)
-      //     .set({ purchaseCost: purchaseCost })
-      //     .where(eq(masterProductFG.masterProductId, masterProductId));
-      // }
+      // Update FG purchase cost if a rate (unitPrice) was provided
+      if (purchaseCost > 0) {
+        console.log(`[Repo] Updating FG Master Purchase Cost to ${purchaseCost}...`);
+        await db
+          .insert(masterProductFG)
+          .values({ masterProductId, purchaseCost })
+          .onConflictDoUpdate({
+            target: masterProductFG.masterProductId,
+            set: { purchaseCost },
+          });
+      }
     } else if (productType === 'RM') {
       console.log(`[Repo] Upserting RM stock...`);
 

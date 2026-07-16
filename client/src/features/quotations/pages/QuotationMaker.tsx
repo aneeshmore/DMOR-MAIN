@@ -389,22 +389,25 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
     fetchQuotations();
   }, []);
 
-  // Auto-sync rates from product master when products are loaded (especially useful for edit mode)
+  // Auto-sync rates and HSN codes from product master when products are loaded (especially useful for edit mode)
   useEffect(() => {
     if (products.length > 0 && isEditMode && data.items.length > 0) {
-      // Check if any items have descriptions but need rate updates
-      const itemsNeedUpdate = data.items.some(item => item.description && item.rate === 0);
+      // Check if any items have descriptions but need rate or HSN updates (legacy quotations)
+      const itemsNeedUpdate = data.items.some(
+        item => item.description && (item.rate === 0 || !item.hsn)
+      );
 
       if (itemsNeedUpdate) {
         setData(prev => ({
           ...prev,
           items: prev.items.map(item => {
-            if (item.description && item.rate === 0) {
+            if (item.description && (item.rate === 0 || !item.hsn)) {
               const product = products.find(p => p.productName === item.description);
               if (product) {
                 return {
                   ...item,
-                  rate: product.sellingPrice || item.rate,
+                  rate: item.rate === 0 ? product.sellingPrice || item.rate : item.rate,
+                  hsn: item.hsn || product.hsnCode || '',
                 };
               }
             }
@@ -767,6 +770,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
               ...item,
               description: productName,
               productId: product?.productId || (product as any)?.ProductID || undefined,
+              hsn: product?.hsnCode || '',
               rate: product?.sellingPrice || item.rate,
               cgstRate: 9,
               sgstRate: 9,
@@ -856,7 +860,14 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
         ),
         size: 300,
       },
-
+      {
+        accessorKey: 'hsn',
+        header: 'HSN',
+        cell: ({ row }) => (
+          <span className="text-center block text-sm">{row.original.hsn || '-'}</span>
+        ),
+        size: 80,
+      },
       {
         accessorKey: 'quantity',
         header: 'Qty',
@@ -1368,7 +1379,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                 <tr className="bg-white border-b border-black divide-x divide-black">
                   <th className="p-1 w-8 text-center font-bold text-[8pt]">Sl No.</th>
                   <th className="p-1 text-left font-bold text-[8pt]">Description of Goods</th>
-
+                  <th className="p-1 w-16 text-left font-bold text-[8pt]">HSN</th>
                   <th className="p-1 w-16 text-right font-bold text-[8pt]">Quantity</th>
                   <th className="p-1 w-20 text-right font-bold text-[8pt]">Rate</th>
                   <th className="p-1 w-12 text-center font-bold text-[8pt]">Disc %</th>
@@ -1398,7 +1409,15 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                           className="w-full text-left min-h-[1.5rem] overflow-hidden"
                         />
                       </td>
-
+                      <td className="p-1 align-top text-left">
+                        <EditableInput
+                          isPdfMode={isPdfMode}
+                          readOnly={isPdfMode}
+                          value={item.hsn || ''}
+                          onChange={v => updateItem(item.id, 'hsn', v)}
+                          className="text-left"
+                        />
+                      </td>
                       <td className="p-1 align-top text-right">
                         <EditableInput
                           isPdfMode={isPdfMode}
