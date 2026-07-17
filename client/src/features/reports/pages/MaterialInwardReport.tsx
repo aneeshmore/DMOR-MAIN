@@ -44,7 +44,10 @@ const MaterialInwardReport = () => {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
   useEffect(() => {
-    companyApi.get().then(res => setCompanyInfo(res.data.data)).catch(console.error);
+    companyApi
+      .get()
+      .then(res => setCompanyInfo(res.data.data))
+      .catch(console.error);
   }, []);
 
   const [startDate, setStartDate] = useState(() => {
@@ -103,7 +106,21 @@ const MaterialInwardReport = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleExport = () => {
+  const formatTime = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Total Inward Value = Inward Quantity × Unit Price.
+  // The stored totalCost is authoritative (backend keeps unitPrice = totalCost / quantity);
+  // fall back to quantity × unitPrice when totalCost is absent.
+  const getInwardValue = (item: MaterialInwardReportItem): number => {
+    const stored = Number(item.totalCost || 0);
+    if (stored > 0) return stored;
+    return Number(item.quantity || 0) * Number(item.unitPrice || 0);
+  };
+
+  const handleExport = async () => {
     if (filteredData.length === 0) {
       showToast.error('No data to export');
       return;
@@ -129,7 +146,7 @@ const MaterialInwardReport = () => {
       'Inward Qty',
       'Unit Price',
       // 'Available Qty',
-      'Total Cost',
+      'Total Inward Value',
     ];
 
     const tableRows = filteredData.map(item => [
@@ -141,9 +158,7 @@ const MaterialInwardReport = () => {
       item.quantity !== undefined ? item.quantity : '-',
       item.unitPrice ? `Rs. ${Number(item.unitPrice).toFixed(2)}` : '-',
       // item.balanceQty !== undefined ? item.balanceQty : '-',
-      item.balanceQty !== undefined && item.unitPrice
-        ? `Rs. ${(item.balanceQty * Number(item.unitPrice)).toFixed(2)}`
-        : '-',
+      getInwardValue(item) > 0 ? `Rs. ${getInwardValue(item).toFixed(2)}` : '-',
     ]);
 
     autoTable(doc, {
@@ -175,7 +190,7 @@ const MaterialInwardReport = () => {
       'Inward Qty',
       'Unit Price',
       // 'Available Qty',
-      'Total Cost',
+      'Total Inward Value',
       'Notes',
     ];
 
@@ -188,9 +203,7 @@ const MaterialInwardReport = () => {
       item.quantity ? Number(item.quantity).toFixed(2) : '-',
       item.unitPrice ? Number(item.unitPrice).toFixed(2) : '-',
       // item.balanceQty || '-',
-      item.balanceQty !== undefined && item.unitPrice
-        ? (item.balanceQty * Number(item.unitPrice)).toFixed(2)
-        : '-',
+      getInwardValue(item) > 0 ? getInwardValue(item).toFixed(2) : '-',
       item.notes || '-',
     ]);
 
@@ -236,17 +249,22 @@ const MaterialInwardReport = () => {
     if (productFilter) {
       result = data.filter(item => item.productName === productFilter);
     }
-    // Sort newest to oldest for display
-    return result.sort(
-      (a, b) => new Date(b.inwardDate).getTime() - new Date(a.inwardDate).getTime()
-    );
+    // Sort newest to oldest for display: inward date DESC, then creation time DESC, then primary key DESC
+    return [...result].sort((a, b) => {
+      const dateDiff = new Date(b.inwardDate).getTime() - new Date(a.inwardDate).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      const timeDiff =
+        new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return (b.inwardId || 0) - (a.inwardId || 0);
+    });
   }, [data, productFilter]);
 
   // Calculate statistics
   const stats = useMemo(() => {
     const totalInwards = filteredData.length;
     const totalQuantity = filteredData.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    const totalCost = filteredData.reduce((sum, item) => sum + Number(item.totalCost || 0), 0);
+    const totalCost = filteredData.reduce((sum, item) => sum + getInwardValue(item), 0);
     const uniqueSuppliers = new Set(filteredData.map(item => item.supplierName).filter(Boolean))
       .size;
 
@@ -297,7 +315,7 @@ const MaterialInwardReport = () => {
     // Cost Distribution by Product
     const costMap = new Map<string, number>();
     filteredData.forEach(item => {
-      const cost = Number(item.totalCost || 0);
+      const cost = getInwardValue(item);
       costMap.set(item.productName, (costMap.get(item.productName) || 0) + cost);
     });
 
@@ -315,7 +333,7 @@ const MaterialInwardReport = () => {
       const existing = dateMap.get(date) || { quantity: 0, cost: 0, items: [] };
       dateMap.set(date, {
         quantity: existing.quantity + Number(item.quantity || 0),
-        cost: existing.cost + Number(item.totalCost || 0),
+        cost: existing.cost + getInwardValue(item),
         items: [...existing.items, item],
       });
     });
@@ -362,7 +380,7 @@ const MaterialInwardReport = () => {
             fill: false,
           },
           {
-            label: 'Total Cost (₹)',
+            label: 'Total Inward Value (₹)',
             data: sortedDates.map(date => dateMap.get(date)!.cost),
             borderColor: 'rgb(96, 165, 250)',
             backgroundColor: 'rgba(96, 165, 250, 0.5)',
@@ -417,7 +435,7 @@ const MaterialInwardReport = () => {
             details.items.forEach((item, index) => {
               lines.push(
                 `\n${index + 1}. ${item.productName}`,
-                `   Qty: ${item.quantity} | Cost: ₹${Number(item.totalCost || 0).toFixed(2)}`,
+                `   Qty: ${item.quantity} | Value: ₹${getInwardValue(item).toFixed(2)}`,
                 `   Supplier: ${item.supplierName || 'N/A'}`,
                 `   Bill: ${item.billNo || 'N/A'}`
               );
@@ -448,8 +466,8 @@ const MaterialInwardReport = () => {
           callback: function (this: any, value: any) {
             const label = this.getLabelForValue(value);
             return new Date(label).toLocaleDateString();
-          }
-        }
+          },
+        },
       },
       y: {
         type: 'linear' as const,
@@ -466,7 +484,7 @@ const MaterialInwardReport = () => {
         position: 'right' as const,
         title: {
           display: true,
-          text: 'Total Cost (₹)',
+          text: 'Total Inward Value (₹)',
         },
         grid: {
           drawOnChartArea: false,
@@ -488,6 +506,16 @@ const MaterialInwardReport = () => {
         ),
       },
       {
+        id: 'inwardTime',
+        accessorFn: row => row.createdAt,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Inward Time" />,
+        cell: ({ row }) => (
+          <div className="whitespace-nowrap text-[var(--text-secondary)]">
+            {formatTime(row.original.createdAt || null)}
+          </div>
+        ),
+      },
+      {
         accessorKey: 'productName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Product Name" />,
         cell: ({ row }) => (
@@ -499,12 +527,13 @@ const MaterialInwardReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
         cell: ({ row }) => (
           <Badge
-            className={`${row.original.productType === 'FG'
-              ? 'bg-green-500 hover:bg-green-600 text-white'
-              : row.original.productType === 'RM'
-                ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-              }`}
+            className={`${
+              row.original.productType === 'FG'
+                ? 'bg-green-500 hover:bg-green-600 text-white'
+                : row.original.productType === 'RM'
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+            }`}
           >
             {row.original.productType || '-'}
           </Badge>
@@ -531,9 +560,7 @@ const MaterialInwardReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Inward Qty" />,
         cell: ({ row }) => (
           <div className="text-right font-semibold text-[var(--text-primary)]">
-            {row.original.quantity !== undefined
-              ? Number(row.original.quantity).toFixed(2)
-              : '-'}
+            {row.original.quantity !== undefined ? Number(row.original.quantity).toFixed(2) : '-'}
           </div>
         ),
       },
@@ -558,15 +585,12 @@ const MaterialInwardReport = () => {
       },
       {
         accessorKey: 'totalCost',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Total Cost" />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Total Inward Value" />,
         cell: ({ row }) => {
-          const totalCost =
-            row.original.balanceQty !== undefined && row.original.unitPrice
-              ? row.original.balanceQty * Number(row.original.unitPrice)
-              : 0;
+          const inwardValue = getInwardValue(row.original);
           return (
             <div className="text-right font-semibold text-[var(--color-success)]">
-              {totalCost ? `₹${totalCost.toFixed(2)}` : '-'}
+              {inwardValue ? `₹${inwardValue.toFixed(2)}` : '-'}
             </div>
           );
         },
@@ -596,15 +620,13 @@ const MaterialInwardReport = () => {
           <div className="flex gap-2">
             <Button
               variant="primary"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={handleExportCsv}
               leftIcon={<FileDown size={20} />}
             >
               Export CSV
             </Button>
             <Button
-              variant="primary"
-              className="bg-green-600 hover:bg-green-700 text-white"
+              variant="success"
               onClick={handleExport}
               leftIcon={<FileDown size={20} />}
             >
@@ -620,17 +642,18 @@ const MaterialInwardReport = () => {
           {/* Product Type Tabs */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500 ml-1">Type</label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {(['All', 'FG', 'RM', 'PM'] as const).map(type => (
                 <Button
                   key={type}
                   size="sm"
                   variant={productTypeFilter === type ? 'primary' : 'secondary'}
                   onClick={() => setProductTypeFilter(type)}
-                  className={`min-w-[4rem] px-4 transition-all duration-200 ${productTypeFilter === type
-                    ? 'bg-slate-800 text-white hover:bg-slate-900 border-none shadow-md'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                    }`}
+                  className={`min-w-[4rem] px-4 transition-all duration-200 ${
+                    productTypeFilter === type
+                      ? 'bg-slate-800 text-white hover:bg-slate-900 border-none shadow-md'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                  }`}
                 >
                   {type}
                 </Button>
@@ -690,7 +713,7 @@ const MaterialInwardReport = () => {
             </p>
           </div>
           <div className="card p-4">
-            <p className="text-sm text-[var(--text-secondary)] font-medium">Total Cost</p>
+            <p className="text-sm text-[var(--text-secondary)] font-medium">Total Inward Value</p>
             <p className="text-2xl font-bold text-[var(--color-success)] mt-1">
               ₹{stats.totalCost.toFixed(2)}
             </p>

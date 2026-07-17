@@ -119,6 +119,7 @@ export interface DailyConsumptionReportItem {
 export interface MaterialInwardReportItem {
   inwardId: number;
   inwardDate: string;
+  createdAt?: string | null;
   productName: string;
   productType?: 'FG' | 'RM' | 'PM';
   supplierName: string | null;

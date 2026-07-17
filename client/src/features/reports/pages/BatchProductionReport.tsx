@@ -4,7 +4,7 @@ import { reportsApi } from '../api/reportsApi';
 import { BatchProductionReportItem } from '../types';
 import { formatDate, formatDateTime } from '@/utils/dateUtils';
 import {
-  FileDown,
+  Download,
   Warehouse,
   ShoppingCart,
   Layers,
@@ -144,8 +144,8 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
             <thead className="bg-gray-100">
               <tr>
                 <th className="border border-gray-300 px-2 py-1 text-left">Parameter</th>
-                <th className="border border-gray-300 px-2 py-1 text-right">Input </th>
-                <th className="border border-gray-300 px-2 py-1 text-right">Output</th>
+                <th className="border border-gray-300 px-2 py-1 text-right">Theoretical</th>
+                <th className="border border-gray-300 px-2 py-1 text-right">Actual</th>
                 <th className="border border-gray-300 px-2 py-1 text-right">Difference</th>
               </tr>
             </thead>
@@ -654,7 +654,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
 
       {showDownload && onDownload && (
         <div className="mt-8 flex justify-center no-print">
-          <Button variant="primary" onClick={onDownload} leftIcon={<FileDown size={18} />}>
+          <Button variant="primary" onClick={onDownload} leftIcon={<Download size={18} />}>
             Download PDF
           </Button>
         </div>
@@ -1375,7 +1375,7 @@ const BatchProductionReport = () => {
               className="text-[var(--primary)] hover:text-[var(--primary-dark)] p-0 h-auto"
               title="Download PDF"
             >
-              <FileDown size={20} className="fill-[var(--primary)] text-[var(--primary)]" />
+              <Download size={20} />
             </Button>
           </div>
         ),
@@ -1394,7 +1394,7 @@ const BatchProductionReport = () => {
             variant="primary"
             className="bg-[var(--color-success)] hover:opacity-90 text-white"
             onClick={handleExportAll}
-            leftIcon={<FileDown size={20} />}
+            leftIcon={<Download size={20} />}
           >
             Export All
           </Button>
