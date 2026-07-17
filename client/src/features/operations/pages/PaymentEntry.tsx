@@ -7,6 +7,7 @@ import { customerApi } from '@/features/masters/api/customerApi';
 import { paymentApi, PaymentInput } from '@/features/operations/api/paymentApi';
 import { ArrowLeft, Save, CreditCard, History, IndianRupee } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { showToast } from '@/utils/toast';
 
 const schema = z.object({
   customerId: z.number().min(1, 'Customer is required'),
@@ -116,7 +117,7 @@ export default function PaymentEntry() {
         customerId: Number(data.customerId), // Note: backend expects camelCase 'customerId'
         paymentDate: new Date(data.paymentDate || new Date()).toISOString(), // Convert YYYY-MM-DD to ISO
       });
-      alert('Payment recorded successfully!');
+      showToast.success('Payment recorded successfully!');
       reset({
         paymentMode: 'Cash',
         paymentDate: new Date().toISOString().split('T')[0],
@@ -129,7 +130,7 @@ export default function PaymentEntry() {
         setCurrentBalance(null);
       }
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to record payment');
+      showToast.error(error.response?.data?.message || 'Failed to record payment');
     } finally {
       setIsLoading(false);
     }

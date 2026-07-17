@@ -8,6 +8,7 @@ import { SplitOrdersTable } from '../components/SplitOrdersTable';
 import { CancelledOrdersDataTable } from './CancelledOrdersDataTable';
 import { AdminOrder, adminAccountsApi, AdminOrderDetails } from '../api/adminAccountsApi';
 import { DashboardNotifications } from '@/features/notifications/components/DashboardNotifications';
+import { promptDialog } from '@/components/ui';
 
 export default function AccountsDashboard() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -137,7 +138,12 @@ export default function AccountsDashboard() {
   };
 
   const handleRejectOrder = async (orderId: number) => {
-    const rejectReason = window.prompt('Please enter a reason for rejection/cancellation:');
+    const rejectReason = await promptDialog({
+      title: 'Reject Order',
+      message: 'Please enter a reason for rejection/cancellation:',
+      confirmLabel: 'Reject',
+      variant: 'danger',
+    });
     if (!rejectReason) {
       showToast.error('Rejection reason is required.');
       return;

@@ -105,6 +105,7 @@ function AppContent() {
 
 import { Toaster } from '@/components/ui/Toaster';
 import { ToastSwipeProvider } from '@/hooks/useToastSwipeDismiss';
+import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog';
 
 export default function App() {
   return (
@@ -114,9 +115,11 @@ export default function App() {
           <BrowserRouter>
             <SidebarProvider>
               <ToastSwipeProvider>
-                <GlobalLoader />
-                <AppContent />
-                <Toaster />
+                <ConfirmDialogProvider>
+                  <GlobalLoader />
+                  <AppContent />
+                  <Toaster />
+                </ConfirmDialogProvider>
               </ToastSwipeProvider>
             </SidebarProvider>
           </BrowserRouter>

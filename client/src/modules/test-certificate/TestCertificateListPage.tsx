@@ -20,6 +20,7 @@ import { downloadCertificatePdf } from './services/pdfGenerator';
 import { companyApi } from '@/features/company/api/companyApi';
 import { CertificateForm } from './components/CertificateForm';
 import { Modal } from '@/components/ui/Modal';
+import { confirmDialog } from '@/components/ui';
 
 export const TestCertificateListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -81,9 +82,13 @@ export const TestCertificateListPage: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     if (
-      window.confirm(
-        'Are you sure you want to delete this test certificate? This action cannot be undone.'
-      )
+      await confirmDialog({
+        title: 'Delete Test Certificate',
+        message:
+          'Are you sure you want to delete this test certificate? This action cannot be undone.',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      })
     ) {
       try {
         await testCertificateApi.delete(id);

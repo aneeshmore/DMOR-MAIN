@@ -188,7 +188,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
 
     const handleTabChange = (tab: 'RM' | 'PM') => {
       if (initialData || items.length > 0) {
-        alert('Cannot change product type after adding products');
+        showToast.error('Cannot change product type after adding products');
         return;
       }
       setActiveTab(tab);
@@ -246,7 +246,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
       setIsAddingProduct(true);
       try {
         if (!currentItem.productId || currentItem.productId === 0 || isNaN(currentItem.productId)) {
-          alert('Please select a product');
+          showToast.error('Please select a product');
           return;
         }
 
@@ -256,7 +256,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
               item.masterProductId === currentItem.productId && idx !== editingItemIndex
           )
         ) {
-          alert(
+          showToast.error(
             'This product is already added to the list. Please edit the existing item or remove it first.'
           );
           return;
@@ -267,7 +267,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
         /*
         if (billDetails.billNo && !initialData) {
           if (!billDetails.supplierId) {
-            alert('Please select a supplier before adding products');
+            showToast.error('Please select a supplier before adding products');
             return;
           }
 
@@ -281,17 +281,17 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
 
         const qty = Number(currentItem.quantity);
         if (!currentItem.quantity || isNaN(qty)) {
-          alert('Please enter a valid quantity');
+          showToast.error('Please enter a valid quantity');
           return;
         }
 
         if (activeTab === 'PM' && (qty <= 1 || !Number.isInteger(qty))) {
-          alert('Purchased Qty for Packing Material must be a whole number greater than 1');
+          showToast.error('Purchased Qty for Packing Material must be a whole number greater than 1');
           return;
         }
 
         if (activeTab === 'RM' && qty <= 0) {
-          alert('Purchased Qty for Raw Material must be greater than 0');
+          showToast.error('Purchased Qty for Raw Material must be greater than 0');
           return;
         }
 
@@ -301,7 +301,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
           getDefaultUnitId(activeTab);
 
         if (!finalUnitId) {
-          alert('Please select a unit');
+          showToast.error('Please select a unit');
           return;
         }
 
@@ -329,7 +329,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
 
         resetCurrentItem();
       } catch (error) {
-        alert((error as any).message || 'Failed to add item');
+        showToast.error((error as any).message || 'Failed to add item');
       } finally {
         setIsAddingProduct(false);
       }
@@ -377,17 +377,17 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
           // Validate and create the item object similar to handleAddItem logic
           const qty = Number(currentItem.quantity);
           if (isNaN(qty)) {
-            alert('Invalid quantity for the pending item.');
+            showToast.error('Invalid quantity for the pending item.');
             return;
           }
 
           if (activeTab === 'PM' && (qty <= 1 || !Number.isInteger(qty))) {
-            alert('Purchased Qty for Packing Material must be a whole number greater than 1');
+            showToast.error('Purchased Qty for Packing Material must be a whole number greater than 1');
             return;
           }
 
           if (activeTab === 'RM' && qty <= 0) {
-            alert('Purchased Qty for Raw Material must be greater than 0');
+            showToast.error('Purchased Qty for Raw Material must be greater than 0');
             return;
           }
 
@@ -395,7 +395,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
             currentItem.unitId ||
             products.find(p => p.masterProductId === currentItem.productId)?.unitId;
           if (!finalUnitId) {
-            alert('Please select a unit for the pending item.');
+            showToast.error('Please select a unit for the pending item.');
             return;
           }
 
@@ -418,13 +418,13 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
       }
 
       if (items.length === 0 && !newItemToAdd) {
-        alert('Please add at least one item before finishing.');
+        showToast.error('Please add at least one item before finishing.');
         return;
       }
 
       try {
         if (!billDetails.supplierId) {
-          alert('Please select a supplier');
+          showToast.error('Please select a supplier');
           return;
         }
 
@@ -484,7 +484,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
           resetCurrentItem();
         }
       } catch (error) {
-        alert((error as any).response?.data?.message || 'Failed to submit inward entry');
+        showToast.error((error as any).response?.data?.message || 'Failed to submit inward entry');
       }
     };
 
@@ -584,7 +584,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
                     supplierName: newSupplier.supplierName,
                   }));
                 } catch (error) {
-                  alert((error as any).response?.data?.message || 'Failed to create supplier');
+                  showToast.error((error as any).response?.data?.message || 'Failed to create supplier');
                 }
               }}
               placeholder="Type or select supplier"
@@ -669,19 +669,17 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Unit</label>
-              <select
-                name="unitId"
-                value={currentItem.unitId}
-                onChange={handleItemChange}
-                className="w-full px-3 py-2 border border-[var(--border)] rounded focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] outline-none bg-[var(--surface)] text-[var(--text-primary)]"
-              >
-                <option value="">Select Unit</option>
-                {units.map(unit => (
-                  <option key={unit.UnitID} value={unit.UnitID}>
-                    {unit.UnitName}
-                  </option>
-                ))}
-              </select>
+              {/* System-assigned from material type (RM -> KG, PM -> NO) — not user-editable */}
+              <input
+                type="text"
+                value={
+                  units.find(u => u.UnitID === currentItem.unitId)?.UnitName ||
+                  (activeTab === 'RM' ? 'KG' : 'NO')
+                }
+                readOnly
+                disabled
+                className="w-full px-3 py-2 border border-[var(--border)] rounded outline-none bg-[var(--surface)] text-[var(--text-primary)] opacity-60 cursor-not-allowed"
+              />
             </div>
 
             <div className="md:col-span-2 space-y-2">

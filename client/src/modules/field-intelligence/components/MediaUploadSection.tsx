@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { FILE_TYPES } from '../constants/firConstants';
+import { showToast } from '@/utils/toast';
 
 export interface MediaFile {
   id: string;
@@ -46,7 +47,7 @@ export const MediaUploadSection: React.FC<MediaUploadSectionProps> = ({ value = 
         const file = files[i];
         // Validate size: 25MB max
         if (file.size > 25 * 1024 * 1024) {
-          alert(`File "${file.name}" exceeds the 25MB size limit and was skipped.`);
+          showToast.error(`File "${file.name}" exceeds the 25MB size limit and was skipped.`);
           continue;
         }
         const previewUrl =

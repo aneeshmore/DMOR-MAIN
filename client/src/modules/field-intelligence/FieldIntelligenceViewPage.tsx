@@ -18,6 +18,7 @@ import { fieldIntelligenceApi } from './services/fieldIntelligenceApi';
 import { FieldIntelligenceReport } from './types/fieldIntelligence.types';
 import { showToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { confirmDialog } from '@/components/ui';
 
 const deserializeOrderStatus = (notes: string | undefined): { cleanNotes: string; statuses: string[] } => {
   if (!notes) return { cleanNotes: '', statuses: [] };
@@ -54,7 +55,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
       setReport(data);
     } catch (err) {
       console.error('Failed to load report details', err);
-      alert('Could not retrieve report data.');
+      showToast.error('Could not retrieve report data.');
       navigate('/operations/field-intelligence');
     } finally {
       setLoading(false);
@@ -92,14 +93,21 @@ export const FieldIntelligenceViewPage: React.FC = () => {
   }
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this report? This action is permanent.')) {
+    if (
+      await confirmDialog({
+        title: 'Delete Report',
+        message: 'Are you sure you want to delete this report? This action is permanent.',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      })
+    ) {
       try {
         await fieldIntelligenceApi.delete(report.id!);
         showToast.success('SMART CRM Visit Report deleted successfully.');
         navigate('/operations/field-intelligence');
       } catch (err) {
         console.error('Failed to delete report', err);
-        alert('Deletion failed.');
+        showToast.error('Deletion failed.');
       }
     }
   };

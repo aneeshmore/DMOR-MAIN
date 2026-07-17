@@ -29,6 +29,7 @@ import { addPdfFooter, addPdfHeader } from '@/utils/pdfUtils';
 import { companyApi } from '@/features/company/api/companyApi';
 import { decodeHtml } from '@/utils/stringUtils';
 import { CompanyInfo } from '@/features/company/types';
+import { showToast } from '@/utils/toast';
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
@@ -530,10 +531,10 @@ const CustomerContactReport: React.FC = () => {
       console.log('Saving PDF as:', fileName);
       pdf.save(fileName);
 
-      alert('PDF exported successfully!');
+      showToast.success('PDF exported successfully!');
     } catch (error) {
       console.error('Error exporting to PDF:', error);
-      alert(
+      showToast.error(
         'Failed to export PDF. Error: ' + (error instanceof Error ? error.message : 'Unknown error')
       );
     } finally {
@@ -591,7 +592,7 @@ const CustomerContactReport: React.FC = () => {
       document.body.removeChild(link);
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      alert('Failed to export Excel.');
+      showToast.error('Failed to export Excel.');
     } finally {
       setExportLoading(false);
     }

@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/common';
 import { DeliveryCompleteTable } from '../components/DeliveryCompleteTable';
 import { deliveryCompleteApi } from '../deliveryCompleteApi';
 import { DeliveryRecord } from '../types';
+import { showToast } from '@/utils/toast';
+import { confirmDialog } from '@/components/ui';
 
 export const DeliveryComplete: React.FC = () => {
   const [data, setData] = useState<DeliveryRecord[]>([]);
@@ -52,13 +54,20 @@ export const DeliveryComplete: React.FC = () => {
           data={data}
           isLoading={isLoading}
           onReturnOrder={async id => {
-            if (window.confirm('Are you sure you want to return this order?')) {
+            if (
+              await confirmDialog({
+                title: 'Return Order',
+                message: 'Are you sure you want to return this order?',
+                confirmLabel: 'Return',
+                variant: 'warning',
+              })
+            ) {
               try {
                 await deliveryCompleteApi.returnOrder(id);
                 fetchData();
               } catch (error) {
                 console.error(error);
-                alert('Failed to return order');
+                showToast.error('Failed to return order');
               }
             }
           }}

@@ -21,6 +21,7 @@ import AISuggestionPanel from './AISuggestionPanel';
 import { getSectionsForVisitType } from '../constants/firConstants';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { cn } from '@/utils/cn';
+import { confirmDialog } from '@/components/ui';
 
 interface FormProps {
   initialData?: FieldIntelligenceReport;
@@ -265,8 +266,15 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
   // Drafts are now persisted to the database via the "Save Draft" button.
   // The form will never pre-populate from localStorage on a fresh "New Report" open.
 
-  const clearDraft = () => {
-    if (window.confirm('Clear all entered data and start fresh?')) {
+  const clearDraft = async () => {
+    if (
+      await confirmDialog({
+        title: 'Clear Form',
+        message: 'Clear all entered data and start fresh?',
+        confirmLabel: 'Continue',
+        variant: 'warning',
+      })
+    ) {
       reset(DEFAULT_VALUES);
       setSelectedStatuses([]);
     }

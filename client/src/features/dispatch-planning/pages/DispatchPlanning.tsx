@@ -26,6 +26,7 @@ import {
 import { PageHeader, PriorityBadge } from '@/components/common';
 import { Button } from '@/components/ui/Button';
 import { decodeHtml } from '@/utils/stringUtils';
+import { confirmDialog } from '@/components/ui';
 
 interface Vehicle {
   id: number;
@@ -243,7 +244,14 @@ export default function DispatchPlanning() {
 
     // Skip overload check for customer pickup
     if (!isCustomerPickup && isOverloaded) {
-      if (!window.confirm('Warning: Vehicle is overloaded! Do you want to proceed?')) {
+      if (
+        !(await confirmDialog({
+          title: 'Vehicle Overloaded',
+          message: 'Warning: Vehicle is overloaded! Do you want to proceed?',
+          confirmLabel: 'Continue',
+          variant: 'warning',
+        }))
+      ) {
         return;
       }
     }
