@@ -165,7 +165,7 @@ export const TncTable: React.FC<TncTableProps> = ({ data, onEdit, onDelete }) =>
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[var(--surface-secondary)] text-[var(--text-secondary)] text-xs uppercase tracking-wider">
-                <th className="p-4 font-semibold w-16 text-center">#</th>
+                <th className="p-4 font-semibold w-16 text-center">Sr. No.</th>
                 <th className="p-4 font-semibold w-32">Type</th>
                 <th className="p-4 font-semibold">Description</th>
                 <th className="p-4 font-semibold w-40 hidden lg:table-cell">Last Updated</th>

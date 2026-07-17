@@ -32,6 +32,7 @@ export interface Order {
   priority?: 'Low' | 'Normal' | 'High' | 'Urgent';
   totalAmount: number;
   expectedDeliveryDate?: string; // Production manager field
+  dispatchDate?: string; // Actual dispatch date from the Dispatch module
   createdAt: string;
   updatedAt: string;
   customerName?: string;

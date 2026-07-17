@@ -7,6 +7,8 @@ export interface AdminOrder {
   location: string;
   area: string;
   salesPersonName: string;
+  salespersonRemark: string;
+  priorityLevel: string;
   orderCreatedDate: string;
   timeSpan: string;
   billNo: string;

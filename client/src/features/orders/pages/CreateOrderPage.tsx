@@ -213,13 +213,28 @@ const CreateOrderPage: React.FC = () => {
           case 'Pending':
             className = 'bg-orange-100 text-orange-800 border-orange-200';
             break;
+          case 'On Hold':
+            className = 'bg-amber-100 text-amber-800 border-amber-200';
+            break;
           default:
             variant = 'secondary';
         }
         return (
-          <Badge variant={variant} className={className}>
-            {status}
-          </Badge>
+          <div className="flex flex-col items-start gap-1">
+            <Badge variant={variant} className={className}>
+              {status}
+            </Badge>
+            {status === 'Ready for Dispatch' && row.original.expectedDeliveryDate && (
+              <span className="text-[10px] text-[var(--text-secondary)] font-medium">
+                {format(new Date(row.original.expectedDeliveryDate), 'dd MMM yyyy')}
+              </span>
+            )}
+            {status === 'Dispatched' && row.original.dispatchDate && (
+              <span className="text-[10px] text-[var(--text-secondary)] font-medium">
+                {format(new Date(row.original.dispatchDate), 'dd MMM yyyy')}
+              </span>
+            )}
+          </div>
         );
       },
     },

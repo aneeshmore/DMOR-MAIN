@@ -71,13 +71,16 @@ export class OrdersRepository {
         productNames: sql`string_agg(${products.productName}, ', ')`,
         totalQuantity: sql`COALESCE(sum(${orderDetails.quantity}::numeric), 0)`,
         billNo: accounts.billNo,
+        // Actual dispatch date from the Dispatch module (same source as the Dispatch Report)
+        dispatchDate: dispatches.dispatchDate,
       })
       .from(orders)
       .leftJoin(customers, eq(orders.customerId, customers.customerId))
       .leftJoin(employees, eq(orders.salespersonId, employees.employeeId))
       .leftJoin(accounts, eq(orders.orderId, accounts.orderId))
       .leftJoin(orderDetails, eq(orders.orderId, orderDetails.orderId))
-      .leftJoin(products, eq(orderDetails.productId, products.productId));
+      .leftJoin(products, eq(orderDetails.productId, products.productId))
+      .leftJoin(dispatches, eq(orders.dispatchId, dispatches.dispatchId));
 
     // Build where conditions
     const conditions = [];
@@ -134,7 +137,8 @@ export class OrdersRepository {
         customers.customerId,
         customers.companyName,
         customers.contactPerson,
-        accounts.billNo
+        accounts.billNo,
+        dispatches.dispatchDate
       )
       .orderBy(desc(orders.createdAt))
       .limit(limit)

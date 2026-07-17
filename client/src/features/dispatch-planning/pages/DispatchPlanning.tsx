@@ -23,7 +23,7 @@ import {
   Loader2,
   Search,
 } from 'lucide-react';
-import { PageHeader } from '@/components/common';
+import { PageHeader, PriorityBadge } from '@/components/common';
 import { Button } from '@/components/ui/Button';
 import { decodeHtml } from '@/utils/stringUtils';
 
@@ -1027,11 +1027,7 @@ function OrderViewCard({
                 <XCircle className="w-3 h-3" /> Awaiting Stock
               </span>
             )}
-            {order.priorityLevel === 'urgent' && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-red-500/10 text-red-500 rounded-full">
-                URGENT
-              </span>
-            )}
+            <PriorityBadge priority={order.priorityLevel} />
             {order.billNo && (
               <span className="px-2 py-0.5 text-xs font-medium bg-[var(--primary)]/10 text-[var(--primary)] rounded-full flex items-center gap-1">
                 <FileText className="w-3 h-3" /> Order: {order.orderNumber}

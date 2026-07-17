@@ -14,7 +14,15 @@ export default function AccountsDashboard() {
   const [cancelledOrders, setCancelledOrders] = useState<AdminOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editedData, setEditedData] = useState<
-    Record<number, { billNo: string; remarks: string; paymentCleared: boolean }>
+    Record<
+      number,
+      {
+        billNo: string;
+        remarks: string;
+        paymentCleared: boolean;
+        accountsApproved: 'No' | 'Approved';
+      }
+    >
   >({});
 
   // New State for Details Modal
@@ -49,13 +57,19 @@ export default function AccountsDashboard() {
 
       const initialData: Record<
         number,
-        { billNo: string; remarks: string; paymentCleared: boolean }
+        {
+          billNo: string;
+          remarks: string;
+          paymentCleared: boolean;
+          accountsApproved: 'No' | 'Approved';
+        }
       > = {};
       nonCancelledData.forEach(o => {
         initialData[o.orderId] = {
           billNo: o.billNo || '',
-          remarks: o.adminRemarks || '',
+          remarks: '',
           paymentCleared: o.paymentCleared || false,
+          accountsApproved: o.billNo || o.paymentCleared ? 'Approved' : 'No',
         };
       });
       setEditedData(initialData);
@@ -73,19 +87,35 @@ export default function AccountsDashboard() {
   }, []);
 
   const handleInputChange = (orderId: number, field: string, value: string | boolean) => {
-    setEditedData(prev => ({
-      ...prev,
-      [orderId]: {
+    setEditedData(prev => {
+      const updated = {
         ...prev[orderId],
         [field]: value,
-      },
-    }));
+      };
+      // Keep paymentCleared in sync with the Account Approved selector so the
+      // existing accept flow and API contract remain unchanged.
+      if (field === 'accountsApproved') {
+        updated.paymentCleared = value === 'Approved';
+      }
+      // Reverse sync: the Split Orders table still toggles paymentCleared directly.
+      if (field === 'paymentCleared') {
+        updated.accountsApproved = value ? 'Approved' : 'No';
+      }
+      return {
+        ...prev,
+        [orderId]: updated,
+      };
+    });
   };
 
   const handleAcceptOrder = async (orderId: number) => {
     // Only paymentCleared is needed for main logic if billNo is already there
     // But if they edit billNo in Pending table, accept it too.
     const data = editedData[orderId];
+    if (data.accountsApproved !== 'Approved') {
+      showToast.error('Account Approved must be set to Yes');
+      return;
+    }
     if (!data.billNo) {
       showToast.error('Please enter Bill No');
       return;

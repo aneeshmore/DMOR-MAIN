@@ -291,6 +291,7 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
             }}
             placeholder="Enter bill number"
             required
+            disabled={!selectedPoId}
             error={errors.billNo}
           />
         </div>
