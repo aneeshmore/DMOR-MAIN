@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, FileDown, Printer } from 'lucide-react';
+import { X, Download, Printer } from 'lucide-react';
 import { productionManagerApi } from '../api/productionManagerApi';
 import { showToast } from '@/utils/toast';
 import { Button, Modal } from '@/components/ui';
@@ -484,7 +484,7 @@ export default function BatchReportModal({
       autoTable(doc, {
         startY: tablesStartY,
         margin: { left: leftX, right: 14 },
-        head: [['Parameter', 'Input', 'Output', 'Variance']],
+        head: [['Parameter', 'Theoretical', 'Actual', 'Difference']],
         body: [
           [
             'Standard Density',
@@ -890,9 +890,9 @@ export default function BatchReportModal({
                     <thead>
                       <tr>
                         <th className="border border-gray-600 px-1 py-0.5">Parameter</th>
-                        <th className="border border-gray-600 px-1 py-0.5">Input</th>
-                        <th className="border border-gray-600 px-1 py-0.5">Output</th>
-                        <th className="border border-gray-600 px-1 py-0.5">Variance</th>
+                        <th className="border border-gray-600 px-1 py-0.5">Theoretical</th>
+                        <th className="border border-gray-600 px-1 py-0.5">Actual</th>
+                        <th className="border border-gray-600 px-1 py-0.5">Difference</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1294,7 +1294,7 @@ export default function BatchReportModal({
                 variant="primary"
                 onClick={handleExportPDF}
                 disabled={isLoading || !batchData}
-                leftIcon={<FileDown size={18} />}
+                leftIcon={<Download size={18} />}
               >
                 Download PDF
               </Button>
