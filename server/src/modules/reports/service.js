@@ -40,15 +40,34 @@ export class ReportsService {
         dateField = productionBatch.startedAt;
       }
 
+      // startedAt/completedAt are timestamp columns and require Date objects
+      // (a raw string throws at bind time); scheduledDate is a date column and
+      // takes the plain YYYY-MM-DD string. IST day anchoring matches the other
+      // report endpoints so all period filters agree on day boundaries.
+      const isDateOnlyStr = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+      const usesTimestampField = status === 'Completed' || status === 'In Progress';
+
       if (startDate) {
-        conditions.push(gte(dateField, startDate));
+        if (usesTimestampField) {
+          const s = isDateOnlyStr(startDate)
+            ? new Date(`${startDate}T00:00:00.000+05:30`)
+            : new Date(startDate);
+          conditions.push(gte(dateField, s));
+        } else {
+          conditions.push(gte(dateField, startDate));
+        }
       }
 
       if (endDate) {
-        // For timestamp fields (startedAt, completedAt), ensure we include the whole end day
-        if (status === 'Completed' || status === 'In Progress') {
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
+        if (usesTimestampField) {
+          // Include the whole end day
+          let end;
+          if (isDateOnlyStr(endDate)) {
+            end = new Date(`${endDate}T23:59:59.999+05:30`);
+          } else {
+            end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+          }
           conditions.push(lte(dateField, end));
         } else {
           // For date-only field (scheduledDate)
@@ -175,7 +194,7 @@ export class ReportsService {
         }
 
         // Resolve Reference Product ID
-        let referenceProductId = batch.productId || refProductMap.get(batch.masterProductId);
+        const referenceProductId = batch.productId || refProductMap.get(batch.masterProductId);
 
         // Process Materials (Raw Materials)
         const batchMaterialsData = materialsByBatchMap.get(batch.batchId) || [];
@@ -350,7 +369,7 @@ export class ReportsService {
           orderId: order.orderId,
           orderNumber: order.orderNumber,
           customerName: order.customer?.companyName || 'Unknown',
-          amount: amount,
+          amount,
           date: order.orderDate,
           status: order.status,
           billNo: order.account?.billNo || '-',
@@ -452,7 +471,7 @@ export class ReportsService {
           orderNumber: item.orderNumber,
           date: item.date,
           quantity: qty,
-          incentive: incentive,
+          incentive,
         });
       });
 
@@ -696,15 +715,20 @@ export class ReportsService {
         throw new Error(`Invalid product type: ${type}`);
       }
 
-      // Default to current month if dates not provided
+      // Default to current month if dates not provided.
+      // Day boundaries are anchored to IST (+05:30): new Date('YYYY-MM-DD') alone
+      // is UTC midnight (= 05:30 IST), which pushed early-morning transactions on
+      // boundary dates into the wrong period for custom/month/year ranges.
       const start = startDate
-        ? new Date(startDate)
+        ? new Date(`${startDate}T00:00:00.000+05:30`)
         : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       const end = endDate
-        ? new Date(endDate)
+        ? new Date(`${endDate}T23:59:59.999+05:30`)
         : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
 
-      end.setHours(23, 59, 59, 999);
+      if (!endDate) {
+        end.setHours(23, 59, 59, 999);
+      }
 
       const results = [];
 
@@ -732,8 +756,11 @@ export class ReportsService {
             packageCapacityKg: products.packageCapacityKg,
             isActive: products.isActive,
             updatedAt: products.updatedAt,
-            totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
-            totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
+            totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
+            totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
+            openingQty: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.createdAt} < ${start} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
+            lifetimeQty: sql`COALESCE(SUM(${inventoryTransactions.quantity}), 0)`,
+            periodProdConsumption: sql`0`,
           })
           .from(products)
           .innerJoin(masterProducts, eq(products.masterProductId, masterProducts.masterProductId))
@@ -796,6 +823,9 @@ export class ReportsService {
             // Use proper date comparison with Drizzle operators (consistent with FG/PM)
             totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
             totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
+            openingQty: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.createdAt} < ${start} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
+            lifetimeQty: sql`COALESCE(SUM(${inventoryTransactions.quantity}), 0)`,
+            periodProdConsumption: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.transactionType} = 'Production Consumption' AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
           })
           .from(masterProducts)
           // LEFT JOIN: active RM masters without a legacy sub-row still report (qty treated as 0)
@@ -848,8 +878,11 @@ export class ReportsService {
             packageCapacityKg: masterProductPM.capacity,
             isActive: masterProducts.isActive,
             updatedAt: sql`(SELECT MAX(it.created_at) FROM app.inventory_transactions it WHERE it.master_product_id = ${masterProducts.masterProductId})`,
-            totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
-            totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start.toISOString()} AND ${inventoryTransactions.createdAt} <= ${end.toISOString()} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
+            totalInward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} > 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
+            totalOutward: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
+            openingQty: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.createdAt} < ${start} THEN ${inventoryTransactions.quantity} ELSE 0 END), 0)`,
+            lifetimeQty: sql`COALESCE(SUM(${inventoryTransactions.quantity}), 0)`,
+            periodProdConsumption: sql`COALESCE(SUM(CASE WHEN ${inventoryTransactions.quantity} < 0 AND ${inventoryTransactions.transactionType} = 'Production Consumption' AND ${inventoryTransactions.createdAt} >= ${start} AND ${inventoryTransactions.createdAt} <= ${end} THEN ABS(${inventoryTransactions.quantity}) ELSE 0 END), 0)`,
           })
           .from(masterProducts)
           // LEFT JOIN: active PM masters without a legacy sub-row still report (qty treated as 0)
@@ -885,15 +918,94 @@ export class ReportsService {
         return nameA.localeCompare(nameB);
       });
 
-      return results.map(item => ({
-        ...item,
-        availableQuantity: parseFloat(item.availableQuantity || 0),
-        availableWeightKg: parseFloat(item.availableWeightKg || 0),
-        minStockLevel: parseFloat(item.minStockLevel || 0),
-        sellingPrice: parseFloat(item.sellingPrice || 0),
-        totalInward: parseFloat(item.totalInward || 0),
-        totalOutward: parseFloat(item.totalOutward || 0),
-      }));
+      // ── Period batch consumption of Completed batches (RM/PM adjustment) ──
+      // Same data getBatchProductionReport exposes per batch (RM consumption =
+      // batch_materials.required_quantity, PM consumption = batch_products.produced_units
+      // per packaging), aggregated in ONE grouped query each instead of the report
+      // page re-deriving it per product over the API.
+      const rmConsumptionMap = new Map();
+      const pmConsumptionMap = new Map();
+
+      if (!type || type === 'All' || type === 'RM') {
+        const rmCons = await db
+          .select({
+            materialId: batchMaterials.materialId,
+            consumed: sql`COALESCE(SUM(${batchMaterials.requiredQuantity}), 0)`,
+          })
+          .from(batchMaterials)
+          .innerJoin(productionBatch, eq(batchMaterials.batchId, productionBatch.batchId))
+          .where(
+            and(
+              eq(productionBatch.status, 'Completed'),
+              gte(productionBatch.completedAt, start),
+              lte(productionBatch.completedAt, end)
+            )
+          )
+          .groupBy(batchMaterials.materialId);
+        rmCons.forEach(r => rmConsumptionMap.set(r.materialId, parseFloat(r.consumed || 0)));
+      }
+
+      if (!type || type === 'All' || type === 'PM') {
+        const pmCons = await db
+          .select({
+            packagingId: products.packagingId,
+            consumed: sql`COALESCE(SUM(${batchProducts.producedUnits}), 0)`,
+          })
+          .from(batchProducts)
+          .innerJoin(products, eq(batchProducts.productId, products.productId))
+          .innerJoin(productionBatch, eq(batchProducts.batchId, productionBatch.batchId))
+          .where(
+            and(
+              eq(productionBatch.status, 'Completed'),
+              gte(productionBatch.completedAt, start),
+              lte(productionBatch.completedAt, end),
+              isNotNull(products.packagingId)
+            )
+          )
+          .groupBy(products.packagingId);
+        pmCons.forEach(r => pmConsumptionMap.set(r.packagingId, parseFloat(r.consumed || 0)));
+      }
+
+      return results.map(item => {
+        const availableQuantity = parseFloat(item.availableQuantity || 0);
+        const totalInward = parseFloat(item.totalInward || 0);
+        const rawOutward = parseFloat(item.totalOutward || 0);
+        const openingQty = parseFloat(item.openingQty || 0);
+        const lifetimeQty = parseFloat(item.lifetimeQty || 0);
+        const periodProdConsumption = parseFloat(item.periodProdConsumption || 0);
+
+        const isRM = item.productType === 'RM';
+        const isPM = item.productType === 'PM';
+        const batchConsumption = isRM
+          ? rmConsumptionMap.get(item.productId) || 0
+          : isPM
+            ? pmConsumptionMap.get(item.productId) || 0
+            : 0;
+
+        // Same adjustment the report page applied per product over the API:
+        // ledger 'Production Consumption' outward is replaced by completed-batch consumption.
+        const totalOutward =
+          isRM || isPM ? rawOutward - periodProdConsumption + batchConsumption : rawOutward;
+
+        // Same "implied initial stock" drift correction used by getProductWiseReport:
+        // drift = current persisted stock - lifetime ledger sum. Anchoring to the
+        // persisted stock (maintained at transaction time) keeps balances consistent.
+        const drift = availableQuantity - lifetimeQty;
+        const openingBalance = openingQty + (Math.abs(drift) > 0.001 ? drift : 0);
+        const closingBalance = openingBalance + totalInward - totalOutward;
+
+        return {
+          ...item,
+          availableQuantity,
+          availableWeightKg: parseFloat(item.availableWeightKg || 0),
+          minStockLevel: parseFloat(item.minStockLevel || 0),
+          sellingPrice: parseFloat(item.sellingPrice || 0),
+          totalInward,
+          totalOutward,
+          openingBalance,
+          closingBalance,
+        };
+      });
     } catch (error) {
       console.error('Error fetching stock report:', error);
       throw error;
@@ -1143,13 +1255,24 @@ export class ReportsService {
           }
         }
 
+        // Date-only strings (YYYY-MM-DD) are anchored to IST day boundaries so the
+        // inclusive From/To range matches what the user selected (plain new Date()
+        // would use UTC midnight = 05:30 IST and shift boundary transactions).
+        const isDateOnly = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
         if (start) {
-          conds.push(gte(inventoryTransactions.createdAt, new Date(start)));
+          const s = isDateOnly(start) ? new Date(`${start}T00:00:00.000+05:30`) : new Date(start);
+          conds.push(gte(inventoryTransactions.createdAt, s));
         }
 
         if (end) {
-          const e = new Date(end);
-          e.setHours(23, 59, 59, 999);
+          let e;
+          if (isDateOnly(end)) {
+            e = new Date(`${end}T23:59:59.999+05:30`);
+          } else {
+            e = new Date(end);
+            e.setHours(23, 59, 59, 999);
+          }
           conds.push(lte(inventoryTransactions.createdAt, e));
         }
 
@@ -1181,7 +1304,17 @@ export class ReportsService {
               masterProducts,
               sql`COALESCE(${products.masterProductId}, ${inventoryTransactions.masterProductId}) = ${masterProducts.masterProductId}`
             )
-            .where(and(...productConds, lt(inventoryTransactions.createdAt, new Date(startDate))));
+            .where(
+              and(
+                ...productConds,
+                lt(
+                  inventoryTransactions.createdAt,
+                  /^\d{4}-\d{2}-\d{2}$/.test(String(startDate))
+                    ? new Date(`${startDate}T00:00:00.000+05:30`)
+                    : new Date(startDate)
+                )
+              )
+            );
 
           if (preResult.length > 0 && preResult[0].totalQuantity) {
             openingBalance = Number(preResult[0].totalQuantity);

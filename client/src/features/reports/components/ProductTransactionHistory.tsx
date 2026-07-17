@@ -11,6 +11,36 @@ import { showToast } from '@/utils/toast';
 import { addPdfFooter } from '@/utils/pdfUtils';
 import { formatDate } from '@/utils/dateUtils';
 
+// Single formatting source for this module: the table cells and the PDF export
+// must always render the same value identically.
+const formatTxnValue = (value: unknown) => {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return '-';
+  return num.toFixed(2);
+};
+
+const formatBalanceValue = (value: unknown) => {
+  const num = Number(value);
+  return (Number.isFinite(num) ? num : 0).toFixed(2);
+};
+
+// Completed-batch report cache shared by all expanded rows. One request per
+// date range (Expand All reuses the same in-flight promise) with a short TTL
+// so re-expanding after new transactions shows fresh, consistent numbers.
+const BATCH_CACHE_TTL_MS = 60_000;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const completedBatchesCache = new Map<string, { fetchedAt: number; promise: Promise<any[]> }>();
+const getCompletedBatches = (start?: string, end?: string) => {
+  const key = `${start || ''}|${end || ''}`;
+  const hit = completedBatchesCache.get(key);
+  if (hit && Date.now() - hit.fetchedAt < BATCH_CACHE_TTL_MS) return hit.promise;
+  const promise = reportsApi
+    .getBatchProductionReport('Completed', start || undefined, end || undefined)
+    .catch(() => []);
+  completedBatchesCache.set(key, { fetchedAt: Date.now(), promise });
+  return promise;
+};
+
 const useDebouncedValue = <T,>(value: T, delay = 300) => {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -24,8 +54,6 @@ interface ProductTransactionHistoryProps {
   productId: string;
   productType: string;
   endDate?: string;
-  batchConsumptionTotal?: number;
-  batchConsumptionEntries?: { quantity: number; batchNo?: string; completedAt?: string | null }[];
   reportCache?: Map<
     string,
     {
@@ -33,42 +61,56 @@ interface ProductTransactionHistoryProps {
       productType?: string;
       transactions?: ProductWiseReportItem[];
       product?: { productType?: string; productName?: string };
+      cachedAt?: number;
     }
   >;
-  onTotalsUpdate?: (totals: {
-    productId: string;
-    totalInward: number;
-    totalOutward: number;
-    latestBalance?: number;
-  }) => void;
 }
 
 const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
   productId,
   productType,
   endDate,
-  batchConsumptionTotal = 0,
-  batchConsumptionEntries,
   reportCache,
-  onTotalsUpdate,
 }) => {
   const [data, setData] = useState<ProductWiseReportItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedOnceRef = useRef(false);
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState(endDate || '');
+
+  // Period selector: Till Date (full history, default) / Monthly / Yearly / Custom range
+  type HistoryPeriod = 'TILL_DATE' | 'MONTHLY' | 'YEARLY' | 'CUSTOM';
+  const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriod>('TILL_DATE');
 
   const debouncedHistoryStartDate = useDebouncedValue(historyStartDate, 300);
   const debouncedHistoryEndDate = useDebouncedValue(historyEndDate, 300);
 
-  // 👇 FIX #1: Stable batch ref - eliminates JSON dep churn causing loops
-  const batchEntriesRef = useRef<
-    { quantity: number; batchNo?: string; completedAt?: string | null }[]
-  >(batchConsumptionEntries ?? []);
-
-  // Update ref when prop changes
-  useEffect(() => {
-    batchEntriesRef.current = batchConsumptionEntries ?? [];
-  }, [batchConsumptionEntries]);
+  // Effective range derived from the selected period mode
+  const { effectiveStartDate, effectiveEndDate } = useMemo(() => {
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const today = new Date();
+    if (historyPeriod === 'MONTHLY') {
+      return {
+        effectiveStartDate: fmt(new Date(today.getFullYear(), today.getMonth(), 1)),
+        effectiveEndDate: fmt(today),
+      };
+    }
+    if (historyPeriod === 'YEARLY') {
+      return {
+        effectiveStartDate: fmt(new Date(today.getFullYear(), 0, 1)),
+        effectiveEndDate: fmt(today),
+      };
+    }
+    if (historyPeriod === 'CUSTOM') {
+      return {
+        effectiveStartDate: debouncedHistoryStartDate,
+        effectiveEndDate: debouncedHistoryEndDate,
+      };
+    }
+    // TILL_DATE: full history (no range - getProductWiseReport returns everything)
+    return { effectiveStartDate: '', effectiveEndDate: '' };
+  }, [historyPeriod, debouncedHistoryStartDate, debouncedHistoryEndDate]);
 
   const parseNumeric = (value: unknown) => {
     if (value === null || value === undefined || value === '') return 0;
@@ -84,22 +126,28 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     fetchInFlightRef.current = true;
     try {
       setIsLoading(true);
-      const cacheKey = `${productId}|${debouncedHistoryStartDate || ''}|${debouncedHistoryEndDate || ''}|${productType}`;
+      const cacheKey = `${productId}|${effectiveStartDate || ''}|${effectiveEndDate || ''}|${productType}`;
+      const cachedEntry = reportCache?.get(cacheKey) ?? null;
+      // Stale cache entries caused the same transaction to show different
+      // numbers between expansions after new activity - expire them.
       const cached =
-        reportCache?.get(cacheKey) ??
-        null;
+        cachedEntry &&
+        cachedEntry.cachedAt &&
+        Date.now() - cachedEntry.cachedAt < BATCH_CACHE_TTL_MS
+          ? cachedEntry
+          : null;
 
       const result =
         cached ||
         (await reportsApi.getProductWiseReport(
           productId,
-          debouncedHistoryStartDate || undefined,
-          debouncedHistoryEndDate || undefined,
+          effectiveStartDate || undefined,
+          effectiveEndDate || undefined,
           productType
         ));
 
       if (!cached) {
-        reportCache?.set(cacheKey, result);
+        reportCache?.set(cacheKey, { ...result, cachedAt: Date.now() });
       }
 
       const normalized = (result.transactions || []).map(tx => {
@@ -116,33 +164,80 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
 
       let adjusted = normalized;
 
-      // For raw materials and packing materials, replace "Production Consumption" entries with actual batch consumption
+      // For raw materials and packing materials, replace "Production Consumption"
+      // entries with actual batch consumption. The completed-batch data is fetched
+      // for THIS component's own selected window (previously it reused the parent
+      // page's window, so the same entry could show different Outward/Balance
+      // depending on which period the main table happened to be on).
       if (productType === 'RM' || productType === 'PM') {
-        const entries = batchEntriesRef.current.filter(e => e && e.quantity > 0);
-        const hasBatchConsumption = entries.length > 0 || batchConsumptionTotal > 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const batches: any[] =
+          (await getCompletedBatches(effectiveStartDate, effectiveEndDate)) || [];
 
-        if (hasBatchConsumption) {
+        const entries: { quantity: number; batchNo?: string; completedAt?: string | null }[] = [];
+        batches.forEach(batch => {
+          if (!batch || batch.status !== 'Completed') return;
+          if (productType === 'RM') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (batch.rawMaterials || []).forEach((rm: any) => {
+              if (String(rm.rawMaterialId ?? '') !== String(productId)) return;
+              const qty = parseNumeric(rm.actualQty ?? 0);
+              if (qty <= 0) return;
+              entries.push({
+                quantity: qty,
+                batchNo: batch.batchNo,
+                completedAt: batch.completedAt,
+              });
+            });
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (batch.packagingMaterials || []).forEach((pm: any) => {
+              if (String(pm.packagingId ?? '') !== String(productId)) return;
+              const qty = parseNumeric(pm.actualQty ?? 0);
+              if (qty <= 0) return;
+              entries.push({
+                quantity: qty,
+                batchNo: batch.batchNo,
+                completedAt: batch.completedAt,
+              });
+            });
+          }
+        });
+
+        if (entries.length > 0) {
           // Remove ledger entries that may contain planned/incorrect consumption
           adjusted = normalized.filter(tx => tx.transactionType !== 'Production Consumption');
 
-          // Create synthetic entries using actual consumed quantities from completed batches
-          const entryList =
-            entries.length > 0
-              ? entries
-              : [{ quantity: batchConsumptionTotal, batchNo: undefined, completedAt: endDate }];
+          // Safety: keep only entries inside the active window (inclusive days)
+          const rangeFrom = effectiveStartDate ? new Date(`${effectiveStartDate}T00:00:00`) : null;
+          const rangeTo = effectiveEndDate ? new Date(`${effectiveEndDate}T23:59:59.999`) : null;
+          const isWithinRange = (completedAt?: string | null) => {
+            if (!rangeFrom && !rangeTo) return true;
+            if (!completedAt) return false;
+            const t = new Date(completedAt).getTime();
+            if (!Number.isFinite(t)) return false;
+            if (rangeFrom && t < rangeFrom.getTime()) return false;
+            if (rangeTo && t > rangeTo.getTime()) return false;
+            return true;
+          };
 
-          const syntheticTransactions: ProductWiseReportItem[] = entryList.map((entry, idx) => ({
-            transactionId: -(idx + 1), // ensure stable unique id
-            productName: result.product?.productName || '',
-            date: entry.completedAt || endDate || new Date().toISOString(),
-            type: entry.batchNo ? `Batch ${entry.batchNo}` : (productType === 'PM' ? 'Packaging Consumption' : 'Batch Consumption'),
-            inward: 0,
-            outward: entry.quantity,
-            // ✅ Removed hardcoded balance: 0 - now uses running balance calculation
-            balance: 0,
-            transactionType: 'Batch Consumption',
-            productCategory: result.product?.productType || 'RM',
-          }));
+          const syntheticTransactions: ProductWiseReportItem[] = entries
+            .filter(entry => isWithinRange(entry.completedAt))
+            .map((entry, idx) => ({
+              transactionId: -(idx + 1), // ensure stable unique id
+              productName: result.product?.productName || '',
+              date: entry.completedAt || endDate || new Date().toISOString(),
+              type: entry.batchNo
+                ? `Batch ${entry.batchNo}`
+                : productType === 'PM'
+                  ? 'Packaging Consumption'
+                  : 'Batch Consumption',
+              inward: 0,
+              outward: entry.quantity,
+              balance: 0, // replaced below by the running balance calculation
+              transactionType: 'Batch Consumption',
+              productCategory: result.product?.productType || 'RM',
+            }));
 
           adjusted = [...adjusted, ...syntheticTransactions];
         }
@@ -173,56 +268,15 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     } catch (error) {
       console.error('Error fetching product history:', error);
     } finally {
+      hasLoadedOnceRef.current = true;
       setIsLoading(false);
       fetchInFlightRef.current = false; // Reset fetch flag
     }
-  }, [
-    productId,
-    productType,
-    debouncedHistoryStartDate,
-    debouncedHistoryEndDate,
-    batchConsumptionTotal,
-    endDate,
-    reportCache,
-  ]); // 👇 FIX #3: Stable deps only - refs don't trigger
+  }, [productId, productType, effectiveStartDate, effectiveEndDate, endDate, reportCache]); // Stable deps only - refs don't trigger
 
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
-
-  const prevTotalsRef = useRef<{ inward: number; outward: number; latestBalance: number } | null>(
-    null
-  );
-
-  useEffect(() => {
-    if (!productId || isLoading) return;
-
-    const totalInward = data.reduce((sum, item) => sum + (item.inward || 0), 0);
-    const totalOutward = data.reduce((sum, item) => sum + (item.outward || 0), 0);
-    const latestBalance = data.length > 0 ? Number(data[0].balance || 0) : 0;
-
-    const prev = prevTotalsRef.current;
-
-    // 👇 FIX #4: Enhanced guard - deep equality check
-    if (
-      prev &&
-      prev.inward === totalInward &&
-      prev.outward === totalOutward &&
-      prev.latestBalance === latestBalance
-    ) {
-      return;
-    }
-
-    prevTotalsRef.current = { inward: totalInward, outward: totalOutward, latestBalance };
-
-    // 👇 Only call callback if totals actually changed
-    onTotalsUpdate?.({
-      productId,
-      totalInward,
-      totalOutward,
-      latestBalance,
-    });
-  }, [data, productId, onTotalsUpdate]);
 
   const handleExportPdf = () => {
     if (data.length === 0) {
@@ -236,17 +290,28 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
 
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
-    if (historyStartDate) doc.text(`From: ${historyStartDate}`, 14, 36);
-    if (historyEndDate) doc.text(`To: ${historyEndDate}`, 14, 42);
+    const periodLabel =
+      historyPeriod === 'MONTHLY'
+        ? 'Monthly'
+        : historyPeriod === 'YEARLY'
+          ? 'Yearly'
+          : historyPeriod === 'CUSTOM'
+            ? 'Custom'
+            : 'Till Date';
+    doc.text(
+      `Period (${periodLabel}): ${effectiveStartDate || 'Beginning'} to ${effectiveEndDate || 'Today'}`,
+      14,
+      36
+    );
 
     const tableColumn = ['Date', 'Details', 'Type', 'Inward', 'Outward', 'Balance'];
     const tableRows = data.map(item => [
       formatDate(item.date),
       item.type || '-',
       item.transactionType || '-',
-      item.inward || '0',
-      item.outward || '0',
-      item.balance || '0',
+      formatTxnValue(item.inward),
+      formatTxnValue(item.outward),
+      formatBalanceValue(item.balance),
     ]);
 
     autoTable(doc, {
@@ -263,12 +328,6 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
   };
 
   const columns = useMemo<ColumnDef<ProductWiseReportItem>[]>(() => {
-    const formatTxnValue = (value: unknown) => {
-      const num = Number(value);
-      if (!Number.isFinite(num) || num <= 0) return '-';
-      return num.toFixed(2);
-    };
-
     return [
       {
         accessorKey: 'date',
@@ -335,10 +394,11 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
 
           return (
             <div
-              className={`text-center font-bold px-2 py-1 rounded ${isLowStock ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50'
-                }`}
+              className={`text-center font-bold px-2 py-1 rounded ${
+                isLowStock ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50'
+              }`}
             >
-              {balance.toFixed(2)}
+              {formatBalanceValue(balance)}
             </div>
           );
         },
@@ -346,18 +406,30 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     ];
   }, []);
 
-  if (isLoading) {
+  // Only the very first load shows a placeholder. Afterwards the table (and its
+  // toolbar with the date inputs) stays mounted through refetches and empty
+  // results — unmounting it closed the native date picker after a single click
+  // and made the filters disappear when a range had no transactions.
+  if (isLoading && !hasLoadedOnceRef.current) {
     return <div className="p-4 text-center text-sm text-gray-500">Loading history...</div>;
-  }
-
-  if (data.length === 0) {
-    return <div className="p-4 text-center text-sm text-gray-500">No transactions found.</div>;
   }
 
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 p-4 m-2 shadow-inner">
-      <h4 className="mb-3 text-sm font-semibold text-gray-700">Transaction History (Till Date)</h4>
-      <div className="rounded-md border border-gray-200 bg-white">
+      <h4 className="mb-3 text-sm font-semibold text-gray-700">
+        Transaction History (
+        {historyPeriod === 'MONTHLY'
+          ? 'This Month'
+          : historyPeriod === 'YEARLY'
+            ? 'This Year'
+            : historyPeriod === 'CUSTOM'
+              ? 'Custom Range'
+              : 'Till Date'}
+        ){isLoading && <span className="ml-2 text-xs font-normal text-gray-400">Updating…</span>}
+      </h4>
+      <div
+        className={`rounded-md border border-gray-200 bg-white transition-opacity ${isLoading ? 'opacity-70' : ''}`}
+      >
         <DataTable
           columns={columns}
           data={data}
@@ -367,23 +439,51 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
           searchPlaceholder="Search history..."
           sorting={[{ id: 'date', desc: true }]}
           toolbarActions={
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={historyStartDate}
-                onChange={e => setHistoryStartDate(e.target.value)}
-                inputSize="sm"
-                className="w-[130px]"
-                placeholder="From Date"
-              />
-              <Input
-                type="date"
-                value={historyEndDate}
-                onChange={e => setHistoryEndDate(e.target.value)}
-                inputSize="sm"
-                className="w-[130px]"
-                placeholder="To Date"
-              />
+            <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap">
+              <div className="flex rounded-md border border-gray-200 overflow-hidden bg-white shrink-0">
+                {(['TILL_DATE', 'MONTHLY', 'YEARLY', 'CUSTOM'] as const).map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setHistoryPeriod(p)}
+                    className={`px-2 py-1 text-xs font-semibold transition-colors ${
+                      historyPeriod === p
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {p === 'TILL_DATE'
+                      ? 'Till Date'
+                      : p === 'MONTHLY'
+                        ? 'Monthly'
+                        : p === 'YEARLY'
+                          ? 'Yearly'
+                          : 'Custom'}
+                  </button>
+                ))}
+              </div>
+              {historyPeriod === 'CUSTOM' && (
+                <>
+                  <Input
+                    type="date"
+                    value={historyStartDate}
+                    onChange={e => setHistoryStartDate(e.target.value)}
+                    inputSize="sm"
+                    fullWidth={false}
+                    className="w-[125px] shrink-0"
+                    placeholder="From Date"
+                  />
+                  <Input
+                    type="date"
+                    value={historyEndDate}
+                    onChange={e => setHistoryEndDate(e.target.value)}
+                    inputSize="sm"
+                    fullWidth={false}
+                    className="w-[125px] shrink-0"
+                    placeholder="To Date"
+                  />
+                </>
+              )}
               <Button
                 size="sm"
                 variant="secondary"

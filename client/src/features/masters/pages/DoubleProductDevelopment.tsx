@@ -8,6 +8,7 @@ import { bomApi } from '@/features/production-manager/api/bomApi';
 import { productDevelopmentApi } from '@/features/masters/api/productDevelopment';
 import logger from '@/utils/logger';
 import { showToast } from '@/utils/toast';
+import { getGlossInfo, getPerformanceInfo } from '../utils/glossInfo';
 import { handleApiError } from '@/utils/errorHandler';
 import {
   DndContext,
@@ -1625,6 +1626,47 @@ const DoubleProductDevelopment = () => {
           </div>
         )}
 
+        {/* Gloss Information (mixture PVC / CPVC when a hardener is linked, base otherwise) */}
+        {(baseItems.length > 0 || hardenerItems.length > 0) &&
+          (() => {
+            const pvcVal = linkedHardenerId
+              ? calculateMixtureValues().mixturePvc
+              : calculatePVC(baseItems);
+            const cpvcVal = linkedHardenerId
+              ? calculateMixtureValues().mixtureCpvc
+              : calculateCPVC(baseItems);
+            const gloss = getGlossInfo(pvcVal);
+            const perf = getPerformanceInfo(pvcVal, cpvcVal);
+            return (
+              <div className="bg-gradient-to-r from-[var(--primary-bg)] to-[var(--surface-highlight)] border border-[var(--primary)] rounded-lg p-4 mt-6">
+                <h4 className="text-sm font-semibold uppercase text-[var(--primary)] mb-3">
+                  Gloss Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+                    <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                      Gloss Type
+                    </div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">{gloss.type}</div>
+                  </div>
+                  <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+                    <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                      Typical Gloss Feel
+                    </div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">{gloss.feel}</div>
+                  </div>
+                  <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+                    <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                      Expected Performance
+                    </div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">
+                      {perf.performance}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         {/* Action Footer */}
         <div className="fixed bottom-0 right-0 p-6 z-50">
           <div className="flex gap-3">

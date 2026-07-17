@@ -4,6 +4,7 @@ import { productionManagerApi } from '../api/productionManagerApi';
 import { masterProductApi } from '../../master-products/api/masterProductApi';
 import { SearchableSelect } from '@/components/ui';
 import { showToast } from '@/utils/toast';
+import { formatQty, formatPercent } from '@/utils/formatters';
 
 interface Material {
   batchMaterialId: number;
@@ -152,7 +153,9 @@ export default function CompleteBatchModal({
     }
 
     // Check if water - if so, it's NOT additional (treated as RM)
-    const isWater = (selectedProduct.masterProductName || selectedProduct.MasterProductName).toLowerCase().includes('water');
+    const isWater = (selectedProduct.masterProductName || selectedProduct.MasterProductName)
+      .toLowerCase()
+      .includes('water');
 
     const newMaterial: Material = {
       batchMaterialId: -Date.now(), // Temporary ID
@@ -457,15 +460,15 @@ export default function CompleteBatchModal({
                                   </span>
                                 </td>
                                 <td className="py-2 px-3 text-right text-[var(--text-secondary)]">
-                                  {percentage.toFixed(2)}%
+                                  {formatPercent(percentage)}%
                                 </td>
                                 <td className="py-2 px-3 text-right text-[var(--text-secondary)]">
-                                  {mat.plannedQuantity.toFixed(3)}
+                                  {formatQty(mat.plannedQuantity)}
                                 </td>
                                 <td className="py-2 px-3">
                                   <input
                                     type="number"
-                                    step="0.001"
+                                    step="0.000001"
                                     value={mat.actualQuantity}
                                     onChange={e =>
                                       updateMaterialActual(index, parseFloat(e.target.value) || 0)
@@ -474,15 +477,16 @@ export default function CompleteBatchModal({
                                   />
                                 </td>
                                 <td
-                                  className={`py-2 px-3 text-right font-medium ${mat.variance > 0
+                                  className={`py-2 px-3 text-right font-medium ${
+                                    mat.variance > 0
                                       ? 'text-red-500'
                                       : mat.variance < 0
                                         ? 'text-green-500'
                                         : 'text-[var(--text-secondary)]'
-                                    }`}
+                                  }`}
                                 >
                                   {mat.variance > 0 ? '+' : ''}
-                                  {mat.variance.toFixed(3)}
+                                  {formatQty(mat.variance)}
                                 </td>
                               </tr>
                             );
@@ -496,7 +500,7 @@ export default function CompleteBatchModal({
                           100.00%
                         </td>
                         <td className="py-2 px-3 text-right text-[var(--text-primary)]">
-                          {materials.reduce((sum, mat) => sum + mat.plannedQuantity, 0).toFixed(3)}
+                          {formatQty(materials.reduce((sum, mat) => sum + mat.plannedQuantity, 0))}
                         </td>
                         <td className="py-2 px-3"></td>
                         <td className="py-2 px-3"></td>

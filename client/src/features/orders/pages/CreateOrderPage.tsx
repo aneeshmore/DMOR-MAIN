@@ -213,9 +213,6 @@ const CreateOrderPage: React.FC = () => {
           case 'Pending':
             className = 'bg-orange-100 text-orange-800 border-orange-200';
             break;
-          case 'On Hold':
-            className = 'bg-amber-100 text-amber-800 border-amber-200';
-            break;
           default:
             variant = 'secondary';
         }

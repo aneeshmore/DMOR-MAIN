@@ -38,6 +38,15 @@ import {
   ArcElement,
 } from 'chart.js';
 
+// Display-only quantity formatter: max 3 decimals, trailing zeros trimmed.
+// e.g. 9097.828999999998 -> 9097.829, 100.000 -> 100, 0.0200 -> 0.02
+// Underlying values keep full precision; this never feeds calculations.
+const formatQty3 = (value: unknown) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '0';
+  return parseFloat(num.toFixed(3)).toString();
+};
+
 // Shared cache to avoid duplicate product-wise report fetches between parent and child
 const productReportCache = new Map<
   string,
@@ -46,6 +55,7 @@ const productReportCache = new Map<
     productType?: string;
     transactions?: any[];
     product?: { productType?: string; productName?: string };
+    cachedAt?: number;
   }
 >();
 
@@ -96,112 +106,41 @@ const ProductWiseReport = () => {
   const [products, setProducts] = useState<
     { id: string; value: string; label: string; type: string }[]
   >([]);
-  // 👇 FIX #1: Stable batch consumption refs for child - prevents prop churn
-  const batchConsumptionDataRef = useRef<
-    Record<
-      string,
-      {
-        total: number;
-        entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
-      }
-    >
-  >({});
+  // Report period: Monthly (current month, default) / Yearly (current year) /
+  // Till Date (entire history) / Custom range.
+  // startDate/endDate derive from the mode, so the fetch, drill-down and PDF all follow it.
+  type PeriodMode = 'MONTHLY' | 'YEARLY' | 'TILL_DATE' | 'CUSTOM';
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTHLY');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
-  const [batchConsumptionByProductId, setBatchConsumptionByProductId] = useState<
-    Record<
-      string,
-      {
-        total: number;
-        entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
-      }
-    >
-  >({});
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-
-  const makeReportCacheKey = useCallback(
-    (pid?: string, s?: string, e?: string, type?: string) =>
-      `${pid || ''}|${s || ''}|${e || ''}|${type || ''}`,
-    []
-  );
-
-  const productIdsKey = useMemo(
-    () =>
-      data
-        .map(item => item.productId)
-        .filter(Boolean)
-        .join('|'),
-    [data]
-  );
-
-  const parseNumeric = (value: unknown) => {
-    if (value === null || value === undefined || value === '') return 0;
-    const num = Number(String(value).replace(/,/g, ''));
-    return Number.isFinite(num) ? num : 0;
-  };
-
-  // Reuse the same running-balance logic as the expanded transaction view
-  const computeLatestBalance = (
-    transactions: any[],
-    productType?: string,
-    batchInfo?: {
-      total: number;
-      entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
-    },
-    defaultDate?: string
-  ) => {
-    if (!transactions || transactions.length === 0) return 0;
-
-    const normalized = transactions.map(tx => ({
-      ...tx,
-      inward: parseNumeric(tx.inward),
-      outward: parseNumeric(tx.outward),
-      balance: parseNumeric(tx.balance),
-    }));
-
-    let adjusted = normalized;
-
-    if (productType === 'RM') {
-      const entries = batchInfo?.entries?.filter(e => e && e.quantity > 0) || [];
-      const total = batchInfo?.total || 0;
-      const hasBatchConsumption = entries.length > 0 || total > 0;
-
-      if (hasBatchConsumption) {
-        adjusted = normalized.filter(tx => tx.transactionType !== 'Production Consumption');
-
-        const entryList =
-          entries.length > 0 ? entries : [{ quantity: total, batchNo: undefined, completedAt: defaultDate }];
-
-        const synthetic = entryList.map((entry, idx) => ({
-          transactionId: -(idx + 1),
-          productName: '',
-          date: entry.completedAt || defaultDate || new Date().toISOString(),
-          type: entry.batchNo ? `Batch ${entry.batchNo}` : 'Batch Consumption',
-          inward: 0,
-          outward: entry.quantity,
-          balance: 0,
-          transactionType: 'Batch Consumption',
-          productCategory: productType || 'RM',
-        }));
-
-        adjusted = [...adjusted, ...synthetic];
-      }
+  const { startDate, endDate } = useMemo(() => {
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const today = new Date();
+    if (periodMode === 'MONTHLY') {
+      return {
+        startDate: fmt(new Date(today.getFullYear(), today.getMonth(), 1)),
+        endDate: fmt(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+      };
     }
-
-    const safeTime = (value: string | number | Date | undefined) => {
-      const time = new Date(value || '').getTime();
-      return Number.isFinite(time) ? time : 0;
-    };
-
-    const chronological = [...adjusted].sort((a, b) => safeTime(a.date) - safeTime(b.date));
-
-    let runningBalance = 0;
-    chronological.forEach(tx => {
-      runningBalance += parseNumeric(tx.inward) - parseNumeric(tx.outward);
-    });
-
-    return runningBalance;
-  };
+    if (periodMode === 'YEARLY') {
+      return {
+        startDate: fmt(new Date(today.getFullYear(), 0, 1)),
+        endDate: fmt(new Date(today.getFullYear(), 11, 31)),
+      };
+    }
+    if (periodMode === 'TILL_DATE') {
+      // Entire history up to today. An explicit early start is required because
+      // the backend defaults a missing start date to the current month.
+      return { startDate: '2000-01-01', endDate: fmt(today) };
+    }
+    // CUSTOM: applied only once both dates are chosen (backend defaults otherwise)
+    if (customFrom && customTo) {
+      return { startDate: customFrom, endDate: customTo };
+    }
+    return { startDate: '', endDate: '' };
+  }, [periodMode, customFrom, customTo]);
 
   // Everything is a ledger now as per user request
   const isLedgerMode = true;
@@ -330,8 +269,9 @@ const ProductWiseReport = () => {
           showToast.error('Failed to load report data');
         }
       } finally {
-        if (cancelled || !isMountedRef.current) return;
-        setIsLoading(false);
+        if (!cancelled && isMountedRef.current) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -341,279 +281,6 @@ const ProductWiseReport = () => {
       cancelled = true;
     };
   }, [selectedProduct, startDate, endDate, productTypeFilter]);
-
-  useEffect(() => {
-    if (!productIdsKey || data.length === 0) return;
-
-    let cancelled = false;
-
-    const fetchTotalsForAll = async () => {
-      const rows = data.filter(item => item.productId);
-      const chunkSize = 5;
-
-      for (let i = 0; i < rows.length; i += chunkSize) {
-        if (cancelled) return;
-        const chunk = rows.slice(i, i + chunkSize);
-        const results = await Promise.all(
-          chunk.map(async item => {
-            try {
-              const cacheKey = makeReportCacheKey(
-                item.productId?.toString(),
-                startDate || undefined,
-                endDate || undefined,
-                item.productType
-              );
-              const cachedReport = productReportCache.get(cacheKey);
-              const res =
-                cachedReport ||
-                (await reportsApi.getProductWiseReport(
-                  item.productId?.toString(),
-                  startDate || undefined,
-                  endDate || undefined,
-                  item.productType
-                ));
-
-              if (!cachedReport) {
-                // cache the full report for reuse by child component
-                productReportCache.set(cacheKey, res);
-              }
-
-              const transactions = res.transactions || [];
-              const totalOutward = transactions.reduce(
-                (sum, tx) => sum + parseNumeric(tx.outward),
-                0
-              );
-              const totalInward = transactions.reduce(
-                (sum, tx) => sum + parseNumeric(tx.inward),
-                0
-              );
-              const productionConsumptionOutward = transactions.reduce(
-                (sum, tx) =>
-                  tx.transactionType === 'Production Consumption'
-                    ? sum + parseNumeric(tx.outward)
-                    : sum,
-                0
-              );
-              const batchConsumptionTotal =
-                batchConsumptionByProductId[item.productId?.toString() || '']?.total || 0;
-              // RM and PM use special batch-based calculation adjustment
-              // Only FG and Sub-Product use direct transaction totals
-              const isRM = item.productType === 'RM';
-              const isPM = item.productType === 'PM';
-
-              const adjustedTotalOutward = (isRM || isPM)
-                ? totalOutward - productionConsumptionOutward + batchConsumptionTotal
-                : totalOutward;
-              const latestBalance = computeLatestBalance(
-                transactions,
-                item.productType,
-                batchConsumptionByProductId[item.productId?.toString() || ''],
-                endDate
-              );
-              return {
-                productId: item.productId?.toString(),
-                totalOutward: adjustedTotalOutward,
-                totalInward,
-                latestBalance,
-              };
-            } catch (error) {
-              if (!cancelled) {
-                console.error('Error fetching totals for product', item.productId, error);
-              }
-              return null;
-            }
-          })
-        );
-
-        if (cancelled) return;
-
-        setData(prev => {
-          let changed = false;
-
-          const updated = prev.map(p => {
-            const match = results.find(r => r?.productId === p.productId?.toString());
-            if (!match) return p;
-
-            const shouldUpdateAvailable =
-              match.latestBalance !== undefined && p.availableQuantity !== match.latestBalance;
-
-            if (
-              p.totalOutward === match.totalOutward &&
-              p.totalInward === match.totalInward &&
-              !shouldUpdateAvailable
-            ) {
-              return p;
-            }
-
-            changed = true;
-
-            return {
-              ...p,
-              totalOutward: match.totalOutward,
-              totalInward: match.totalInward,
-              ...(match.latestBalance !== undefined
-                ? { availableQuantity: match.latestBalance }
-                : {}),
-            };
-          });
-
-          return changed ? updated : prev;
-        });
-      }
-    };
-
-    fetchTotalsForAll();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [productIdsKey, startDate, endDate, productTypeFilter, batchConsumptionByProductId]);
-
-  useEffect(() => {
-    Object.keys(batchConsumptionDataRef.current).forEach(
-      key => delete batchConsumptionDataRef.current[key]
-    ); // 👇 Reset on filter change - TS safe
-    let cancelled = false;
-
-    const fetchBatchConsumption = async () => {
-      if (productTypeFilter !== 'RM' && productTypeFilter !== 'PM') {
-        setBatchConsumptionByProductId({});
-        Object.keys(batchConsumptionDataRef.current).forEach(
-          key => delete batchConsumptionDataRef.current[key]
-        );
-        return;
-      }
-
-      try {
-        const batches = await reportsApi.getBatchProductionReport(
-          'Completed',
-          startDate || undefined,
-          endDate || undefined
-        );
-
-        if (cancelled) return;
-
-        const consumptionMap: Record<
-          string,
-          {
-            total: number;
-            entries: { quantity: number; batchNo?: string; completedAt?: string | null }[];
-          }
-        > = {};
-
-        (batches || []).forEach(batch => {
-          if (!batch || batch.status !== 'Completed') return;
-
-          const materials = batch.rawMaterials || [];
-          materials.forEach(rm => {
-            const materialId = rm.rawMaterialId ? rm.rawMaterialId.toString() : '';
-            if (!materialId) return;
-            const qty = parseNumeric(rm.actualQty ?? 0);
-            if (qty <= 0) return;
-            if (!consumptionMap[materialId]) {
-              consumptionMap[materialId] = { total: 0, entries: [] };
-            }
-            consumptionMap[materialId].total += qty;
-            
-            const existingEntry = consumptionMap[materialId].entries.find(e => e.batchNo === batch.batchNo);
-            if (existingEntry) {
-              existingEntry.quantity += qty;
-            } else {
-              consumptionMap[materialId].entries.push({
-                quantity: qty,
-                batchNo: batch.batchNo,
-                completedAt: batch.completedAt,
-              });
-            }
-          });
-
-          // Packaging Materials Processing
-          const packaging = batch.packagingMaterials || [];
-          packaging.forEach(pm => {
-            const materialId = pm.packagingId ? pm.packagingId.toString() : '';
-            if (!materialId) return;
-            const qty = parseNumeric(pm.actualQty ?? 0);
-            if (qty <= 0) return;
-            if (!consumptionMap[materialId]) {
-              consumptionMap[materialId] = { total: 0, entries: [] };
-            }
-            consumptionMap[materialId].total += qty;
-            
-            const existingEntry = consumptionMap[materialId].entries.find(e => e.batchNo === batch.batchNo);
-            if (existingEntry) {
-              existingEntry.quantity += qty;
-            } else {
-              consumptionMap[materialId].entries.push({
-                quantity: qty,
-                batchNo: batch.batchNo,
-                completedAt: batch.completedAt,
-              });
-            }
-          });
-        });
-
-        Object.assign(batchConsumptionDataRef.current, consumptionMap); // 👇 Stable ref for child props
-        setBatchConsumptionByProductId(consumptionMap);
-      } catch (error) {
-        console.error('Error fetching batch consumption data:', error);
-        if (!cancelled) {
-          setBatchConsumptionByProductId({});
-          Object.keys(batchConsumptionDataRef.current).forEach(
-            key => delete batchConsumptionDataRef.current[key]
-          );
-        }
-      }
-    };
-
-    fetchBatchConsumption();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [productTypeFilter, startDate, endDate]);
-
-  type TotalsUpdate = {
-    productId: string;
-    totalInward: number;
-    totalOutward: number;
-    latestBalance?: number;
-  };
-
-  const handleTotalsUpdate = useCallback((totals: TotalsUpdate) => {
-    setData(prev => {
-      let changed = false;
-
-      const updated = prev.map(item => {
-        if (item.productId?.toString() !== totals.productId) return item;
-
-        const shouldUpdateAvailable =
-          totals.latestBalance !== undefined && item.availableQuantity !== totals.latestBalance;
-
-        // 🚫 prevent unnecessary updates (important for avoiding loops)
-        if (
-          item.totalInward === totals.totalInward &&
-          item.totalOutward === totals.totalOutward &&
-          !shouldUpdateAvailable
-        ) {
-          return item;
-        }
-
-        changed = true;
-
-        return {
-          ...item,
-          totalInward: totals.totalInward,
-          totalOutward: totals.totalOutward,
-          ...(totals.latestBalance !== undefined
-            ? { availableQuantity: totals.latestBalance }
-            : {}),
-        };
-      });
-
-      // 🚫 avoid triggering re-render if nothing changed
-      return changed ? updated : prev;
-    });
-  }, []);
 
   const handleExportPdf = () => {
     const isDetailView = !!selectedProduct;
@@ -640,19 +307,45 @@ const ProductWiseReport = () => {
     }
 
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, startY + 15);
-    if (startDate) doc.text(`From: ${startDate}`, 14, startY + 20);
-    if (endDate) doc.text(`To: ${endDate}`, 14, startY + 25);
+    // Always state the effective reporting period so the PDF matches the UI.
+    const now = new Date();
+    const defaultFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const defaultTo = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      .toISOString()
+      .split('T')[0];
+    const modeLabel =
+      periodMode === 'MONTHLY'
+        ? 'Monthly'
+        : periodMode === 'YEARLY'
+          ? 'Yearly'
+          : periodMode === 'TILL_DATE'
+            ? 'Till Date'
+            : 'Custom';
+    doc.text(
+      `Period (${modeLabel}): ${startDate || defaultFrom} to ${endDate || defaultTo}`,
+      14,
+      startY + 20
+    );
 
-    // Define columns based on whether a specific product is selected
-    const tableColumn = ['Product Name', 'Category', 'Avail. Qty', 'Total Inward', 'Total Outward'];
+    // Same columns and values as the on-screen table
+    const tableColumn = [
+      'Product Name',
+      'Category',
+      'Avail. Qty',
+      'Opening Balance',
+      'Total Inward',
+      'Total Outward',
+      'Closing Balance',
+    ];
 
-    // Define rows
     const tableRows = (data as StockReportItem[]).map(item => [
       item.productName || item.masterProductName,
       item.productType,
-      item.availableQuantity,
-      item.totalInward || 0,
-      item.totalOutward || 0,
+      formatQty3(item.availableQuantity),
+      formatQty3(item.openingBalance ?? 0),
+      formatQty3(item.totalInward || 0),
+      formatQty3(item.totalOutward || 0),
+      formatQty3(item.closingBalance ?? 0),
     ]);
 
     // Generate Table
@@ -667,8 +360,9 @@ const ProductWiseReport = () => {
     addPdfFooter(doc);
 
     // Save PDF
-    const fileName = `product_stock_report_${productTypeFilter}_${new Date().toISOString().split('T')[0]
-      }.pdf`;
+    const fileName = `product_stock_report_${productTypeFilter}_${
+      new Date().toISOString().split('T')[0]
+    }.pdf`;
 
     doc.save(fileName);
     showToast.success('Report exported successfully');
@@ -712,12 +406,22 @@ const ProductWiseReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Available Qty" />,
         cell: ({ row }) => (
           <div
-            className={`font-bold ${row.original.availableQuantity <= (row.original.minStockLevel || 0)
-              ? 'text-red-600'
-              : 'text-green-600'
-              }`}
+            className={`font-bold ${
+              row.original.availableQuantity <= (row.original.minStockLevel || 0)
+                ? 'text-red-600'
+                : 'text-green-600'
+            }`}
           >
-            {row.original.availableQuantity}
+            {formatQty3(row.original.availableQuantity)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'openingBalance',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Opening Balance" />,
+        cell: ({ row }) => (
+          <div className="text-center font-medium text-[var(--text-primary)]">
+            {formatQty3(row.original.openingBalance ?? 0)}
           </div>
         ),
       },
@@ -726,7 +430,7 @@ const ProductWiseReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Total Inward" />,
         cell: ({ row }) => (
           <div className="text-center font-medium text-green-700">
-            {row.original.totalInward || 0}
+            {formatQty3(row.original.totalInward || 0)}
           </div>
         ),
       },
@@ -735,7 +439,16 @@ const ProductWiseReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Total Outward" />,
         cell: ({ row }) => (
           <div className="text-center font-medium text-red-700">
-            {row.original.totalOutward || 0}
+            {formatQty3(row.original.totalOutward || 0)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'closingBalance',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Closing Balance" />,
+        cell: ({ row }) => (
+          <div className="text-center font-bold text-[var(--text-primary)]">
+            {formatQty3(row.original.closingBalance ?? 0)}
           </div>
         ),
       },
@@ -828,10 +541,11 @@ const ProductWiseReport = () => {
                     setProductTypeFilter(type);
                     setSelectedProduct('');
                   }}
-                  className={`min-w-[3rem] transition-all duration-200 ${productTypeFilter === type
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                    }`}
+                  className={`min-w-[3rem] transition-all duration-200 ${
+                    productTypeFilter === type
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                  }`}
                 >
                   {type === 'FG'
                     ? 'FINISHED GOODS'
@@ -840,6 +554,52 @@ const ProductWiseReport = () => {
                       : 'PACKING MATERIAL'}
                 </Button>
               ))}
+            </div>
+          </div>
+
+          {/* Period Filter */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-gray-500 ml-1">Period</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex rounded-md border border-gray-200 overflow-hidden bg-white">
+                {(['MONTHLY', 'YEARLY', 'TILL_DATE', 'CUSTOM'] as const).map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPeriodMode(p)}
+                    className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      periodMode === p
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {p === 'MONTHLY'
+                      ? 'Monthly'
+                      : p === 'YEARLY'
+                        ? 'Yearly'
+                        : p === 'TILL_DATE'
+                          ? 'Till Date'
+                          : 'Custom'}
+                  </button>
+                ))}
+              </div>
+              {periodMode === 'CUSTOM' && (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={e => setCustomFrom(e.target.value)}
+                    className="border border-gray-200 rounded px-2 py-1 text-xs bg-white"
+                  />
+                  <span className="text-xs text-gray-400">to</span>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={e => setCustomTo(e.target.value)}
+                    className="border border-gray-200 rounded px-2 py-1 text-xs bg-white"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -874,7 +634,7 @@ const ProductWiseReport = () => {
               Total Inward (Selected Period)
             </p>
             <p className="text-xl font-bold text-green-700 mt-1">
-              {data.reduce((sum, item) => sum + (item.totalInward || 0), 0)}
+              {formatQty3(data.reduce((sum, item) => sum + (item.totalInward || 0), 0))}
             </p>
           </div>
           <div className="card p-4 border-l-4 border-red-500 bg-white shadow-sm">
@@ -882,7 +642,7 @@ const ProductWiseReport = () => {
               Total Outward (Selected Period)
             </p>
             <p className="text-xl font-bold text-red-700 mt-1">
-              {data.reduce((sum, item) => sum + (item.totalOutward || 0), 0)}
+              {formatQty3(data.reduce((sum, item) => sum + (item.totalOutward || 0), 0))}
             </p>
           </div>
           <div className="card p-4 border-l-4 border-purple-500 bg-white shadow-sm">
@@ -953,15 +713,6 @@ const ProductWiseReport = () => {
               productType={row.original.productType}
               reportCache={productReportCache}
               endDate={endDate} // Pass end date for "till date" context (ignores startDate for history)
-              batchConsumptionTotal={
-                batchConsumptionDataRef.current[row.original.productId?.toString() || '']?.total ||
-                0
-              }
-              batchConsumptionEntries={
-                batchConsumptionDataRef.current[row.original.productId?.toString() || '']
-                  ?.entries || []
-              } // 👇 FIX #2: Use stable ref - prevents child re-mount/refetch
-              onTotalsUpdate={handleTotalsUpdate}
             />
           )}
         />

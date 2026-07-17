@@ -1,3 +1,40 @@
+/**
+ * Display helpers for material quantities (production batch surfaces).
+ * Calculations always keep full precision (up to 6 decimals); these only
+ * format for display. A NON-ZERO value that would render as 0.000 shows
+ * '0.000+' so trace additives are never mistaken for exactly zero.
+ */
+export const formatQty = (value: unknown): string => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '0.000';
+  const rounded = num.toFixed(3);
+  if (num > 0 && parseFloat(rounded) === 0) return '0.000+';
+  return rounded;
+};
+
+/**
+ * Like formatQty, but a stored ZERO on a recipe row renders '0.000*' - the
+ * asterisk marks a trace material whose true quantity is below the database
+ * storage precision (0.0001 kg), so it is never read as "no material".
+ */
+export const formatQtyMarked = (value: unknown): string => {
+  const num = Number(value);
+  if (Number.isFinite(num) && num === 0) return '0.000*';
+  return formatQty(value);
+};
+
+/**
+ * Formulation percentage display: 2 decimals normally, but tiny non-zero
+ * percentages (e.g. 0.001%) show their real value instead of 0.00.
+ */
+export const formatPercent = (value: unknown): string => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '0.00';
+  const rounded = num.toFixed(2);
+  if (num > 0 && parseFloat(rounded) === 0) return parseFloat(num.toFixed(6)).toString();
+  return rounded;
+};
+
 export const formatDisplayOrderId = (orderId: number, dateString?: string) => {
   if (!dateString) return `ORD-${orderId}`;
   const date = new Date(dateString);
@@ -107,34 +144,51 @@ const onesIndian = [
   'Nineteen',
 ];
 
-const tensIndian = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+const tensIndian = [
+  '',
+  '',
+  'Twenty',
+  'Thirty',
+  'Forty',
+  'Fifty',
+  'Sixty',
+  'Seventy',
+  'Eighty',
+  'Ninety',
+];
 
 function convertToIndianWords(num: number): string {
   if (num === 0) return '';
 
   const helper = (n: number): string => {
     let str = '';
-    if (n >= 100000000000) { // Kharab (10^11)
+    if (n >= 100000000000) {
+      // Kharab (10^11)
       str += helper(Math.floor(n / 100000000000)) + ' Kharab ';
       n %= 100000000000;
     }
-    if (n >= 1000000000) { // Arab (10^9)
+    if (n >= 1000000000) {
+      // Arab (10^9)
       str += helper(Math.floor(n / 1000000000)) + ' Arab ';
       n %= 1000000000;
     }
-    if (n >= 10000000) { // Crore (10^7)
+    if (n >= 10000000) {
+      // Crore (10^7)
       str += helper(Math.floor(n / 10000000)) + ' Crore ';
       n %= 10000000;
     }
-    if (n >= 100000) { // Lakh (10^5)
+    if (n >= 100000) {
+      // Lakh (10^5)
       str += helper(Math.floor(n / 100000)) + ' Lakh ';
       n %= 100000;
     }
-    if (n >= 1000) { // Thousand (10^3)
+    if (n >= 1000) {
+      // Thousand (10^3)
       str += helper(Math.floor(n / 1000)) + ' Thousand ';
       n %= 1000;
     }
-    if (n >= 100) { // Hundred
+    if (n >= 100) {
+      // Hundred
       str += helper(Math.floor(n / 100)) + ' Hundred ';
       n %= 100;
     }
@@ -175,7 +229,6 @@ export const numberToIndianWords = (num: number): string => {
 
   return words + ' Only';
 };
-
 
 // Date and Time formatting functions for IST (Indian Standard Time) and DD/MM/YY format
 export const formatDateIST = (dateString: string | null | undefined): string => {
