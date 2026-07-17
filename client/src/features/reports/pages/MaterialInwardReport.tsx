@@ -626,7 +626,7 @@ const MaterialInwardReport = () => {
               Export CSV
             </Button>
             <Button
-              variant="success"
+              variant="secondary"
               onClick={handleExport}
               leftIcon={<FileDown size={20} />}
             >
