@@ -12,7 +12,14 @@ import { ProductionManagerRepository } from './repository.js';
 import { AppError } from '../../utils/AppError.js';
 import logger from '../../config/logger.js';
 import { db } from '../../db/index.js';
-import { orderDetails, products, batchProducts, batchMaterials, inventoryTransactions, masterProductRM } from '../../db/schema/index.js';
+import {
+  orderDetails,
+  products,
+  batchProducts,
+  batchMaterials,
+  inventoryTransactions,
+  masterProductRM,
+} from '../../db/schema/index.js';
 import { eq, and, inArray } from 'drizzle-orm';
 
 export class ProductionManagerService {
@@ -304,10 +311,13 @@ export class ProductionManagerService {
             logger.info('Created batchProducts entries for MTS SKUs', { count: allSkus.length });
           }
         } catch (mtsError) {
-          logger.warn('Failed to create MTS batch products, batch created but MTS entries not created', {
-            batchId: batch.batchId,
-            error: mtsError.message,
-          });
+          logger.warn(
+            'Failed to create MTS batch products, batch created but MTS entries not created',
+            {
+              batchId: batch.batchId,
+              error: mtsError.message,
+            }
+          );
         }
       }
 
@@ -350,10 +360,13 @@ export class ProductionManagerService {
         await this.createBatchDistributions(batch.batchId, batchData.orders);
         logger.info('Production batch distributions created');
       } catch (distError) {
-        logger.warn('Failed to create batch distributions, batch created but distributions not created', {
-          batchId: batch.batchId,
-          error: distError.message,
-        });
+        logger.warn(
+          'Failed to create batch distributions, batch created but distributions not created',
+          {
+            batchId: batch.batchId,
+            error: distError.message,
+          }
+        );
       }
 
       // Log activity (non-critical)
@@ -370,21 +383,25 @@ export class ProductionManagerService {
         });
       }
 
-      logger.info('Batch scheduling completed (with possible warnings)', { batchId: batch.batchId });
+      logger.info('Batch scheduling completed (with possible warnings)', {
+        batchId: batch.batchId,
+      });
       return await this.repo.getBatchById(batch.batchId);
-
     } catch (error) {
       // If batch was created but some post-creation step failed, still return success
       if (batch) {
         logger.warn('Batch created but some post-creation steps failed', {
           batchId: batch.batchId,
-          error: error.message
+          error: error.message,
         });
         return await this.repo.getBatchById(batch.batchId);
       }
 
       // If batch creation itself failed, throw the error
-      logger.error('Error scheduling batch - batch creation failed', { error: error.message, stack: error.stack });
+      logger.error('Error scheduling batch - batch creation failed', {
+        error: error.message,
+        stack: error.stack,
+      });
       throw error;
     }
   }
@@ -599,11 +616,15 @@ export class ProductionManagerService {
     }
 
     const allowedStatuses = [
+      'Factory Approved',
+      'Pending Accounts Approval',
+      'Pending Factory Approval',
+      'Scheduled for Production',
+      'Ready for Dispatch',
+      // Legacy status names (existing orders)
       'Accepted',
       'Pending',
       'Verified',
-      'Scheduled for Production',
-      'Ready for Dispatch',
     ];
     if (!allowedStatuses.includes(existing.order.status)) {
       throw new AppError(
@@ -795,9 +816,9 @@ export class ProductionManagerService {
     // Cancel batch
     await this.repo.cancelBatch(batchId, performedBy, reason);
 
-    // Revert orders to Accepted status
+    // Revert orders to Factory Approved status
     const orderIds = batch.orders.map(o => o.batchProduct.orderId);
-    await this.repo.updateMultipleOrdersStatus(orderIds, 'Accepted', {
+    await this.repo.updateMultipleOrdersStatus(orderIds, 'Factory Approved', {
       productionBatchId: null,
       pmRemarks: `Previous batch cancelled: ${reason}`,
     });
@@ -926,7 +947,7 @@ export class ProductionManagerService {
               fillingDensity,
               devDensity,
               masterDensity,
-              used: densityToUse
+              used: densityToUse,
             });
           }
         }
@@ -936,7 +957,7 @@ export class ProductionManagerService {
           logger.info(`Auto-fixing package packageCapacityKg for product ${item.productId}`, {
             newCapacity: packageCapacityKg,
             densityUsed: densityToUse,
-            source: fillingDensity > 0 ? 'SKU' : (devDensity > 0 ? 'Dev' : 'Master')
+            source: fillingDensity > 0 ? 'SKU' : devDensity > 0 ? 'Dev' : 'Master',
           });
 
           // Persist to database
@@ -1077,6 +1098,11 @@ export class ProductionManagerService {
       }
 
       // PRE-VALIDATION: Validate formulation balance and positive quantities
+      // Note: Trace materials with very small formulation percentages may have
+      // requiredQuantity rounded to 0.0000 in the database (numeric(18,4) precision).
+      // These materials must be allowed through validation — they are legitimate
+      // formulation components, not user errors.
+      const TRACE_THRESHOLD = 0.0001; // Minimum non-zero value at scale 4
       let totalReduced = 0;
       let totalAdded = 0;
 
@@ -1085,25 +1111,50 @@ export class ProductionManagerService {
           const planned = parseFloat(m.plannedQuantity) || 0;
           const actual = parseFloat(m.actualQuantity) || 0;
 
+          // Diagnostic logging for batch completion validation
+          logger.info('Batch completion material validation', {
+            materialId: m.materialId,
+            rawPlannedQuantity: m.plannedQuantity,
+            rawActualQuantity: m.actualQuantity,
+            parsedPlanned: planned,
+            parsedActual: actual,
+            isAdditional: m.isAdditional,
+            plannedType: typeof m.plannedQuantity,
+            actualType: typeof m.actualQuantity,
+          });
+
           if (actual < 0) {
             throw new AppError(`Cannot complete batch: Material quantity cannot be negative.`, 400);
           }
 
           if (m.isAdditional === false) {
-            if (actual === 0) {
-              throw new AppError(`Cannot complete batch: Final quantity for standard material ${m.materialId} cannot be zero.`, 400);
+            // Only reject zero actual quantity when planned quantity is meaningful.
+            // Trace materials (planned <= TRACE_THRESHOLD) are skipped — their
+            // zero value is due to database decimal precision, not a user error.
+            if (actual === 0 && planned > TRACE_THRESHOLD) {
+              throw new AppError(
+                `Cannot complete batch: Final quantity for standard material ${m.materialId} cannot be zero.`,
+                400
+              );
             }
-            if (actual > planned) {
-              throw new AppError(`Cannot complete batch: Final quantity for standard material ${m.materialId} cannot exceed planned quantity.`, 400);
+            if (actual > planned && planned > TRACE_THRESHOLD) {
+              throw new AppError(
+                `Cannot complete batch: Final quantity for standard material ${m.materialId} cannot exceed planned quantity.`,
+                400
+              );
             }
-            totalReduced += (planned - actual);
+            totalReduced += Math.max(0, planned - actual);
           } else {
             if (actual === 0) {
-              throw new AppError(`Cannot complete batch: Quantity for added material ${m.materialId} cannot be zero.`, 400);
+              throw new AppError(
+                `Cannot complete batch: Quantity for added material ${m.materialId} cannot be zero.`,
+                400
+              );
             }
             totalAdded += actual;
           }
         }
+        logger.info('Batch completion validation summary', { totalReduced, totalAdded });
       }
 
       // Allow complete batch without forcing additions to be less than or equal to reductions
@@ -1128,10 +1179,12 @@ export class ProductionManagerService {
             }
           }
 
-          const materialsToCheck = Array.from(aggregatedMaterialsMap.entries()).map(([materialId, requiredQuantity]) => ({
-            materialId,
-            requiredQuantity,
-          }));
+          const materialsToCheck = Array.from(aggregatedMaterialsMap.entries()).map(
+            ([materialId, requiredQuantity]) => ({
+              materialId,
+              requiredQuantity,
+            })
+          );
 
           const insufficientMaterials =
             await this.repo.checkMultipleMaterialsStock(materialsToCheck);
@@ -1198,8 +1251,8 @@ export class ProductionManagerService {
       const actualWeightKg =
         completionData.actualQuantity && completionData.actualDensity
           ? (
-            parseFloat(completionData.actualQuantity) * parseFloat(completionData.actualDensity)
-          ).toFixed(4)
+              parseFloat(completionData.actualQuantity) * parseFloat(completionData.actualDensity)
+            ).toFixed(4)
           : null;
 
       // Note: Raw materials are already deducted at scheduling time from masterProductRM.availableQty
@@ -1243,7 +1296,8 @@ export class ProductionManagerService {
               .update(batchMaterials)
               .set({ requiredQuantity: String(actualQty) })
               .where(eq(batchMaterials.batchMaterialId, mat.batchMaterialId));
-            // Release the reduced quantity back to inventory (add back to availableQty)
+
+            // Release the reduced quantity back to inventory (add back to availableQty)
             await this.repo.releaseRawMaterial(mat.materialId, diff);
           }
         }
@@ -1256,12 +1310,7 @@ export class ProductionManagerService {
         // Clear out any previously recorded additional materials for this batch to prevent duplicates on completion retries
         await db
           .delete(batchMaterials)
-          .where(
-            and(
-              eq(batchMaterials.batchId, batchId),
-              eq(batchMaterials.isAdditional, true)
-            )
-          );
+          .where(and(eq(batchMaterials.batchId, batchId), eq(batchMaterials.isAdditional, true)));
 
         // Deduct stock and create batch_materials records for extra materials
         // Stock check already passed in validation
@@ -1574,7 +1623,10 @@ export class ProductionManagerService {
           }
         }
       } catch (syncError) {
-        logger.error('Failed to synchronize inventory transactions on batch completion:', syncError);
+        logger.error(
+          'Failed to synchronize inventory transactions on batch completion:',
+          syncError
+        );
       }
 
       return {

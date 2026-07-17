@@ -149,6 +149,8 @@ export interface StockReportItem {
   updatedAt: string;
   totalInward?: number;
   totalOutward?: number;
+  openingBalance?: number;
+  closingBalance?: number;
   latestTransType?: string;
 }
 

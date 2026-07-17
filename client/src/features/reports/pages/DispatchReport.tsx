@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { Button, Input } from '@/components/ui';
 import { reportsApi } from '../api/reportsApi';
-import { DispatchReportItem } from '../types';
+import { DispatchReportItem, DispatchManifestItem } from '../types';
 import { FileDown, Truck, Package, Weight, ShieldCheck, Users } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import jsPDF from 'jspdf';
@@ -36,7 +36,6 @@ const DispatchReport = () => {
 
   useEffect(() => {
     fetchData(startDate, endDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
   const fetchData = async (start?: string, end?: string) => {
@@ -86,7 +85,7 @@ const DispatchReport = () => {
     const tableRows = data.map(item => {
       const manifestStr = (item.dispatchManifest || [])
         .map(
-          m =>
+          (m: DispatchManifestItem) =>
             `• ${m.customerName?.substring(0, 15) || 'Unknown'} | ${m.orderNumber || '-'} | ${
               m.productName || '-'
             } (${m.quantity || 0})`
@@ -101,7 +100,9 @@ const DispatchReport = () => {
         manifestStr || 'No manifest details',
         item.totalQuantity,
         `${item.loadedWeight.toFixed(2)} Kg`,
-        item.vehicleCapacity != null ? `${parseFloat(item.vehicleCapacity.toFixed(2))} Tons` : 'N/A',
+        item.vehicleCapacity != null
+          ? `${parseFloat(item.vehicleCapacity.toFixed(2))} Tons`
+          : 'N/A',
         item.remarks || '-',
       ];
     });
@@ -305,7 +306,11 @@ const DispatchReport = () => {
   );
 
   const renderExpandedDetails = React.useMemo(() => {
-    return ({ row }: { row: import('@tanstack/react-table').Row<DispatchReportItem> }) => {
+    const ExpandedDetails = ({
+      row,
+    }: {
+      row: import('@tanstack/react-table').Row<DispatchReportItem>;
+    }) => {
       const item = row.original;
       const manifest = item.dispatchManifest || [];
 
@@ -314,7 +319,7 @@ const DispatchReport = () => {
         string,
         Record<string, { name: string; quantity: number | null }[]>
       > = {};
-      manifest.forEach(m => {
+      manifest.forEach((m: DispatchManifestItem) => {
         const customer = m.customerName || 'Unknown Customer';
         const order = m.orderNumber || 'Unknown Order';
         const product = m.productName || 'Unknown Product';
@@ -323,7 +328,9 @@ const DispatchReport = () => {
 
         if (!groupedData[customer]) groupedData[customer] = {};
         if (!groupedData[customer][order]) groupedData[customer][order] = [];
-        if (!groupedData[customer][order].some(p => p.name === product && p.quantity === quantity)) {
+        if (
+          !groupedData[customer][order].some(p => p.name === product && p.quantity === quantity)
+        ) {
           groupedData[customer][order].push({ name: product, quantity });
         }
       });
@@ -463,6 +470,8 @@ const DispatchReport = () => {
         </div>
       );
     };
+    ExpandedDetails.displayName = 'ExpandedDetails';
+    return ExpandedDetails;
   }, []);
 
   return (

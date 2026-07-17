@@ -11,22 +11,28 @@ export interface Order {
   deliveryAddress?: string;
   remarks?: string;
   status:
-  | 'Pending'
+  // New workflow statuses
+  | 'Pending Accounts Approval'
+  | 'Pending Factory Approval'
+  | 'Factory Approved'
+  | 'Scheduled for Production'
+  | 'Ready for Dispatch'
+  | 'Dispatched'
   | 'On Hold'
+  // Legacy statuses (existing orders)
+  | 'Pending'
   | 'Accepted'
   | 'Rejected'
   | 'Confirmed'
-  | 'Scheduled for Production'
   | 'In Production'
-  | 'Ready for Dispatch'
   | 'Started'
-  | 'Dispatched'
   | 'Delivered'
   | 'Verified'
   | 'Cancelled';
   priority?: 'Low' | 'Normal' | 'High' | 'Urgent';
   totalAmount: number;
   expectedDeliveryDate?: string; // Production manager field
+  dispatchDate?: string; // Actual dispatch date from the Dispatch module
   createdAt: string;
   updatedAt: string;
   customerName?: string;
@@ -48,6 +54,7 @@ export interface OrderDetail {
   createdAt: string;
   updatedAt: string;
   productName?: string;
+  hsnCode?: string;
 }
 
 export interface OrderWithDetails extends Order {
@@ -58,7 +65,7 @@ export interface CreateOrderInput {
   customerId: number;
   salespersonId: number;
   priority?: 'Low' | 'Normal' | 'High' | 'Urgent';
-  status?: 'Pending' | 'On Hold' | 'Confirmed';
+  status?: 'Pending Accounts Approval' | 'Pending' | 'On Hold' | 'Confirmed';
   orderDate?: string;
   deliveryAddress?: string;
   remarks?: string;

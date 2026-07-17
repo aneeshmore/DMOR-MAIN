@@ -704,7 +704,7 @@ export class ProductionSupervisorService {
     if (batchProductsList.length > 0) {
       await db
         .update(orders)
-        .set({ status: 'Accepted' })
+        .set({ status: 'Factory Approved' })
         .where(
           inArray(
             orders.orderId,

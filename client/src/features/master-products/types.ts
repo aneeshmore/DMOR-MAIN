@@ -66,4 +66,8 @@ export interface MasterProduct {
 
   // PM-specific fields
   Capacity?: number;
+
+  // HSN Code (FG / RM / PM)
+  HSNCode?: string;
+  hsnCode?: string;
 }

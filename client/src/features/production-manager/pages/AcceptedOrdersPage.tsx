@@ -226,7 +226,7 @@ export default function AcceptedOrdersPage() {
       {/* Notifications for Pending Assessment */}
       <DashboardNotifications
         types={['OrderUpdate']}
-        orderStatuses={['Accepted']}
+        orderStatuses={['Factory Approved', 'Accepted']}
         typeLabels={{ OrderUpdate: 'Accepted Orders' }}
         title="Orders Pending Production Assessment"
       />

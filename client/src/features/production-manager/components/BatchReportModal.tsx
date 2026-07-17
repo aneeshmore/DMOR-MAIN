@@ -6,6 +6,7 @@ import { Button, Modal } from '@/components/ui';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addPdfFooter } from '@/utils/pdfUtils';
+import { formatQty, formatQtyMarked } from '@/utils/formatters';
 import { companyApi } from '@/features/company/api/companyApi';
 import { CompanyInfo } from '@/features/company/types';
 
@@ -119,17 +120,27 @@ export default function BatchReportModal({
     });
 
   // Keep raw materials separate from packaging
-  const rawMaterialsOnly = sortedMaterials.map((m: any) => ({
-    isPackaging: false,
-    sequence: m.batchMaterial?.sequence || 0,
-    materialName: m.masterProduct?.masterProductName || m.material?.productName || 'Unknown',
-    requiredQuantity: parseFloat(m.batchMaterial?.requiredQuantity) || 0,
-    waitingTime: parseInt(m.batchMaterial?.waitingTime) || 0,
-    isAdditional: m.isAdditional === true || m.batchMaterial?.isAdditional === true,
-    batchMaterial: m.batchMaterial,
-    masterProduct: m.masterProduct,
-    material: m.material,
-  }));
+  const rawMaterialsOnly = sortedMaterials.map((m: any) => {
+    const storedQty = parseFloat(m.batchMaterial?.requiredQuantity) || 0;
+    const pct = parseFloat(m.batchMaterial?.requiredUsePer) || 0;
+    const batchQty = parseFloat(batchData?.plannedQuantity) || 0;
+    // Trace recovery: scale-4 storage truncates quantities below 0.00005 kg
+    // to 0.0000, but the formulation percentage survives - rebuild the true
+    // quantity so trace additives print as 0.000+ instead of 0.000.
+    const requiredQuantity =
+      storedQty === 0 && pct > 0 && batchQty > 0 ? (batchQty * pct) / 100 : storedQty;
+    return {
+      isPackaging: false,
+      sequence: m.batchMaterial?.sequence || 0,
+      materialName: m.masterProduct?.masterProductName || m.material?.productName || 'Unknown',
+      requiredQuantity,
+      waitingTime: parseInt(m.batchMaterial?.waitingTime) || 0,
+      isAdditional: m.isAdditional === true || m.batchMaterial?.isAdditional === true,
+      batchMaterial: m.batchMaterial,
+      masterProduct: m.masterProduct,
+      material: m.material,
+    };
+  });
 
   // For backward compatibility, keep allMaterials for totals
   const allMaterials = [...rawMaterialsOnly, ...packagingMaterials];
@@ -357,27 +368,24 @@ export default function BatchReportModal({
       0
     );
 
+    // Classify strictly by the isAdditional flag. The old quantity-based
+    // fallback (requiredQuantity <= 0) wrongly moved trace recipe materials
+    // (stored as 0.0000 due to DB decimal precision) into "additional".
     const regularMaterials = rawMaterialsOnly.filter(
-      (m: any) =>
-        !m.isAdditional &&
-        !m.batchMaterial?.isAdditional &&
-        parseFloat(m.requiredQuantity || '0') > 0
+      (m: any) => !m.isAdditional && !m.batchMaterial?.isAdditional
     );
     const additionalMaterials = rawMaterialsOnly.filter(
-      (m: any) =>
-        m.isAdditional ||
-        m.batchMaterial?.isAdditional ||
-        parseFloat(m.requiredQuantity || '0') <= 0
+      (m: any) => m.isAdditional || m.batchMaterial?.isAdditional
     );
 
     const regularBomData = regularMaterials.map((m: any, idx: number) => [
       m.sequence || idx + 1,
       m.materialName,
       m.waitingTime ? `${m.waitingTime}m` : '',
-      m.requiredQuantity.toFixed(3),
+      formatQtyMarked(m.requiredQuantity),
       reportType === 'completion-chart'
         ? m.batchMaterial?.actualQuantity
-          ? parseFloat(m.batchMaterial.actualQuantity).toFixed(3)
+          ? formatQtyMarked(m.batchMaterial.actualQuantity)
           : ''
         : '',
     ]);
@@ -386,15 +394,19 @@ export default function BatchReportModal({
       regularMaterials.length + idx + 1,
       m.materialName,
       '',
-      m.requiredQuantity.toFixed(3),
+      formatQtyMarked(m.requiredQuantity),
       reportType === 'completion-chart'
         ? m.batchMaterial?.actualQuantity
-          ? parseFloat(m.batchMaterial.actualQuantity).toFixed(3)
+          ? formatQtyMarked(m.batchMaterial.actualQuantity)
           : ''
         : '',
     ]);
 
     const bomData = [...regularBomData, ...additionalBomData];
+    // Any '0.000*' cell means a trace material below DB storage precision
+    const hasTraceRows = bomData.some(row =>
+      row.some((cell: string | number) => String(cell).includes('0.000*'))
+    );
     const additionalStartIndex = regularMaterials.length;
 
     let productData: (string | number)[][] = [];
@@ -416,8 +428,8 @@ export default function BatchReportModal({
           productName,
           plannedQty > 0 ? plannedQty.toString() : '0',
           actualQty > 0 ? actualQty.toString() : '',
-          ltr > 0 ? ltr.toFixed(3) : '',
-          kg > 0 ? kg.toFixed(3) : '',
+          ltr > 0 ? formatQty(ltr) : '',
+          kg > 0 ? formatQty(kg) : '',
         ];
       });
     } else {
@@ -451,8 +463,8 @@ export default function BatchReportModal({
           sku.productName || 'Unknown',
           plannedQty > 0 ? plannedQty.toString() : '0',
           actualQty > 0 ? actualQty.toString() : '',
-          ltr > 0 ? ltr.toFixed(3) : '',
-          kg > 0 ? kg.toFixed(3) : '',
+          ltr > 0 ? formatQty(ltr) : '',
+          kg > 0 ? formatQty(kg) : '',
         ];
       });
     }
@@ -563,6 +575,22 @@ export default function BatchReportModal({
           },
           '',
         ],
+        ...(hasTraceRows
+          ? [
+              [
+                {
+                  content: '* Trace material — below 0.0001 kg storage precision',
+                  colSpan: 5,
+                  styles: {
+                    fontSize: 6,
+                    fontStyle: 'normal' as const,
+                    textColor: 100,
+                    halign: 'left' as const,
+                  },
+                },
+              ],
+            ]
+          : []),
       ],
       theme: 'grid',
       styles: {

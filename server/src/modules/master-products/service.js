@@ -27,14 +27,27 @@ export class MasterProductsService {
     return new MasterProductDTO(masterProduct);
   }
 
+  /**
+   * System-controlled default unit per product type:
+   * FG -> NO, RM -> KG, PM -> NO.
+   * The client-provided unit is always ignored.
+   */
+  async resolveDefaultUnitId(productType) {
+    const unitName = productType === 'RM' ? 'KG' : 'NO';
+    return await this.repository.getUnitIdByName(unitName);
+  }
+
   async createMasterProduct(masterProductData) {
     try {
+      // Unit is derived from Product Type — never taken from the client
+      const defaultUnitId = await this.resolveDefaultUnitId(masterProductData.ProductType);
+
       // Create the master product first
       const masterProduct = await this.repository.createMasterProduct({
         masterProductName: masterProductData.MasterProductName,
         productType: masterProductData.ProductType,
         description: masterProductData.Description,
-        defaultUnitId: masterProductData.DefaultUnitID,
+        defaultUnitId,
         gst:
           masterProductData.GST !== undefined && masterProductData.GST !== null
             ? masterProductData.GST.toString()
@@ -52,6 +65,7 @@ export class MasterProductsService {
           availableQty: masterProductData.AvailableQty || null,
           subcategory: masterProductData.Subcategory || 'General',
           hardenerId: masterProductData.HardenerID || null,
+          hsnCode: masterProductData.HSNCode || null,
         });
       } else if (masterProductData.ProductType === 'RM') {
         await this.repository.createMasterProductRM(masterProductId, {
@@ -64,6 +78,7 @@ export class MasterProductsService {
           subcategory: masterProductData.Subcategory || 'General',
           solidDensity: masterProductData.SolidDensity || null,
           oilAbsorption: masterProductData.OilAbsorption || null,
+          hsnCode: masterProductData.HSNCode || null,
         });
       } else if (masterProductData.ProductType === 'PM') {
         await this.repository.createMasterProductPM(masterProductId, {
@@ -71,6 +86,7 @@ export class MasterProductsService {
           stockQuantity: masterProductData.StockQuantity || 0,
           purchaseCost: masterProductData.PurchaseCost || null,
           availableQty: masterProductData.AvailableQty || null,
+          hsnCode: masterProductData.HSNCode || null,
         });
       }
 
@@ -99,8 +115,13 @@ export class MasterProductsService {
     if (updateData.MasterProductName !== undefined)
       updateFields.masterProductName = updateData.MasterProductName;
     if (updateData.Description !== undefined) updateFields.description = updateData.Description;
-    if (updateData.DefaultUnitID !== undefined)
-      updateFields.defaultUnitId = updateData.DefaultUnitID;
+    // Unit is system-controlled (FG/PM -> NO, RM -> KG) and never client-editable.
+    // Product type is immutable here, so an existing valid unit is preserved;
+    // legacy records without a unit are backfilled from their product type.
+    const existingUnitId = masterProduct.defaultUnitId ?? masterProduct.default_unit_id;
+    if (existingUnitId === null || existingUnitId === undefined) {
+      updateFields.defaultUnitId = await this.resolveDefaultUnitId(productType);
+    }
     if (updateData.IsActive !== undefined) updateFields.isActive = updateData.IsActive;
     if (updateData.GST !== undefined)
       updateFields.gst = updateData.GST !== null ? updateData.GST.toString() : null;
@@ -117,7 +138,8 @@ export class MasterProductsService {
         updateData.PurchaseCost !== undefined ||
         updateData.AvailableQty !== undefined ||
         updateData.Subcategory !== undefined ||
-        updateData.HardenerID !== undefined)
+        updateData.HardenerID !== undefined ||
+        updateData.HSNCode !== undefined)
     ) {
       const fgData = {};
       if (updateData.DefaultPackagingType !== undefined)
@@ -126,6 +148,7 @@ export class MasterProductsService {
       if (updateData.AvailableQty !== undefined) fgData.availableQty = updateData.AvailableQty;
       if (updateData.Subcategory !== undefined) fgData.subcategory = updateData.Subcategory;
       if (updateData.HardenerID !== undefined) fgData.hardenerId = updateData.HardenerID;
+      if (updateData.HSNCode !== undefined) fgData.hsnCode = updateData.HSNCode;
 
       if (Object.keys(fgData).length > 0) {
         await this.repository.updateMasterProductFG(masterProductId, fgData);
@@ -140,7 +163,8 @@ export class MasterProductsService {
         updateData.CanBeAddedMultipleTimes !== undefined ||
         updateData.Subcategory !== undefined ||
         updateData.SolidDensity !== undefined ||
-        updateData.OilAbsorption !== undefined)
+        updateData.OilAbsorption !== undefined ||
+        updateData.HSNCode !== undefined)
     ) {
       const rmData = {};
       if (updateData.RMDensity !== undefined) rmData.rmDensity = updateData.RMDensity;
@@ -153,6 +177,7 @@ export class MasterProductsService {
       if (updateData.Subcategory !== undefined) rmData.subcategory = updateData.Subcategory;
       if (updateData.SolidDensity !== undefined) rmData.solidDensity = updateData.SolidDensity;
       if (updateData.OilAbsorption !== undefined) rmData.oilAbsorption = updateData.OilAbsorption;
+      if (updateData.HSNCode !== undefined) rmData.hsnCode = updateData.HSNCode;
 
       if (Object.keys(rmData).length > 0) {
         await this.repository.updateMasterProductRM(masterProductId, rmData);
@@ -162,13 +187,15 @@ export class MasterProductsService {
       (updateData.Capacity !== undefined ||
         updateData.StockQuantity !== undefined ||
         updateData.PurchaseCost !== undefined ||
-        updateData.AvailableQty !== undefined)
+        updateData.AvailableQty !== undefined ||
+        updateData.HSNCode !== undefined)
     ) {
       const pmData = {};
       if (updateData.Capacity !== undefined) pmData.capacity = updateData.Capacity;
       if (updateData.StockQuantity !== undefined) pmData.stockQuantity = updateData.StockQuantity;
       if (updateData.PurchaseCost !== undefined) pmData.purchaseCost = updateData.PurchaseCost;
       if (updateData.AvailableQty !== undefined) pmData.availableQty = updateData.AvailableQty;
+      if (updateData.HSNCode !== undefined) pmData.hsnCode = updateData.HSNCode;
 
       if (Object.keys(pmData).length > 0) {
         await this.repository.updateMasterProductPM(masterProductId, pmData);

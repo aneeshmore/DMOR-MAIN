@@ -462,6 +462,14 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
     [products]
   );
 
+  const getProductHsn = useCallback(
+    (id: number) => {
+      const product = products.find(p => p.productId === id);
+      return product?.hsnCode || '';
+    },
+    [products]
+  );
+
   const getEmployeeName = useCallback(
     (id: number) => {
       const employee = employees.find(e => (e.employeeId || e.EmployeeID) === id);
@@ -984,7 +992,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
       };
 
       if (!editingOrder) {
-        orderPayload.status = 'Pending';
+        orderPayload.status = 'Pending Accounts Approval';
       }
 
       let result;
@@ -1139,12 +1147,12 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
 
       // Extract the name
       if (selectedSalesperson) {
-        salespersonName = selectedSalesperson.FirstName || selectedSalesperson.LastName || '';
+        salespersonName = `${selectedSalesperson.FirstName || ''} ${selectedSalesperson.LastName || ''}`.trim();
       }
 
       // Fallback to logged-in user if salesperson not found
       if (!salespersonName) {
-        salespersonName = user?.FirstName || user?.Username || 'Sales Team';
+        salespersonName = `${user?.FirstName || ''} ${user?.LastName || ''}`.trim() || user?.Username || 'Sales Team';
       }
 
       // Build quotation data with ALL required fields
@@ -1188,7 +1196,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
           id: index + 1,
           description: getProductName(item.productId),
           productId: item.productId,
-          hsn: '',
+          hsn: getProductHsn(item.productId),
           dueOn: '',
           quantity: item.quantity,
           rate: item.unitPrice,
@@ -1373,10 +1381,10 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         ) || employees.find(e => String(e.employeeId || e.EmployeeID) === String(salesPersonId));
 
       if (selectedSalesperson) {
-        salespersonName = selectedSalesperson.FirstName || selectedSalesperson.LastName || '';
+        salespersonName = `${selectedSalesperson.FirstName || ''} ${selectedSalesperson.LastName || ''}`.trim();
       }
       if (!salespersonName) {
-        salespersonName = user?.FirstName || user?.Username || 'Sales Team';
+        salespersonName = `${user?.FirstName || ''} ${user?.LastName || ''}`.trim() || user?.Username || 'Sales Team';
       }
 
       const updatedData = {
@@ -1400,7 +1408,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
           id: index + 1,
           description: getProductName(item.productId),
           productId: item.productId,
-          hsn: '',
+          hsn: getProductHsn(item.productId),
           dueOn: '',
           quantity: item.quantity,
           rate: item.unitPrice,
@@ -1749,6 +1757,10 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                           <span>
                             {getProductName(item.productId)} x {item.quantity}
                             {item.discount > 0 && ` (${item.discount}% off)`}
+                            <span className="text-[var(--text-secondary)]">
+                              {' '}
+                              • HSN: {getProductHsn(item.productId) || '-'}
+                            </span>
                           </span>
                           <span className="font-medium">₹{calculateLineTotal(item)}</span>
                         </div>
@@ -2187,6 +2199,11 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                             {validationErrors.items[index]?.productId && (
                               <ValidationTooltip message="Please select an item in the list." />
                             )}
+                            {item.productId > 0 && (
+                              <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                                HSN: {getProductHsn(item.productId) || '-'}
+                              </div>
+                            )}
                           </div>
 
                           {/* Quantity and Unit Price */}
@@ -2545,6 +2562,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                 <thead className="bg-[var(--surface)] border-b">
                   <tr>
                     <th className="text-left p-2 font-medium">Product</th>
+                    <th className="text-left p-2 font-medium w-24">HSN</th>
                     <th className="text-right p-2 font-medium w-20">Qty</th>
                     <th className="text-right p-2 font-medium w-24">Rate</th>
                     <th className="text-right p-2 font-medium w-16">Disc%</th>
@@ -2557,6 +2575,11 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                     return (
                       <tr key={idx}>
                         <td className="p-2">{item.description || '-'}</td>
+                        <td className="p-2">
+                          {item.hsn ||
+                            products.find(p => p.productId === item.productId)?.hsnCode ||
+                            '-'}
+                        </td>
                         <td className="p-2 text-right">{item.quantity}</td>
                         <td className="p-2 text-right">₹{item.rate?.toFixed(2)}</td>
                         <td className="p-2 text-right">{item.discount || 0}%</td>
@@ -2567,7 +2590,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                 </tbody>
                 <tfoot className="bg-[var(--surface)] border-t">
                   <tr>
-                    <td colSpan={4} className="p-2 text-right font-medium">
+                    <td colSpan={5} className="p-2 text-right font-medium">
                       Total:
                     </td>
                     <td className="p-2 text-right font-bold">
@@ -2581,7 +2604,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                   </tr>
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="p-2 text-right text-xs text-[var(--text-secondary)] italic"
                     >
                       (Incl. 18% GST)

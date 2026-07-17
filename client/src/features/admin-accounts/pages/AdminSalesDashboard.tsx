@@ -172,6 +172,7 @@ const AdminSalesDashboard: React.FC = () => {
         existing.onHoldCount += 1;
       } else if (
         [
+          'Factory Approved',
           'Confirmed',
           'Scheduled for Production',
           'In Production',

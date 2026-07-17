@@ -136,6 +136,8 @@ export default function CustomerTypeMaster() {
   const [customerTypes, setCustomerTypes] = useState<CustomerType[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  // Incremented after a successful create to remount the form in a clean state
+  const [formResetKey, setFormResetKey] = useState(0);
   const formRef = useRef<HTMLDivElement>(null);
 
   // Edit & Confirmation States
@@ -188,6 +190,8 @@ export default function CustomerTypeMaster() {
         showToast.success('Customer type created successfully');
         setPendingItem(null);
         setIsAddConfirmModalOpen(false);
+        // Reset the form to its initial empty state (only on API success)
+        setFormResetKey(k => k + 1);
       } else if (!response.success) {
         logger.error('Create failed:', response.error);
       }
@@ -272,17 +276,21 @@ export default function CustomerTypeMaster() {
     {
       id: 'actions',
       header: 'Actions',
-      cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2">
-          <button
-            onClick={() => handleEdit(row.original)}
-            className="p-2 rounded-lg hover:bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors border border-transparent hover:border-[var(--border)] focus-ring"
-            title="Edit"
-            aria-label="Edit"
-          >
-            <Edit2 size={16} />
-          </button>
-          {!row.original.IsSystemType && (
+      cell: ({ row }) =>
+        row.original.IsSystemType ? (
+          <div className="flex items-center justify-end pr-2">
+            <span className="text-xs italic text-[var(--text-secondary)]">Default</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => handleEdit(row.original)}
+              className="p-2 rounded-lg hover:bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors border border-transparent hover:border-[var(--border)] focus-ring"
+              title="Edit"
+              aria-label="Edit"
+            >
+              <Edit2 size={16} />
+            </button>
             <button
               onClick={() => handleDelete(row.original.CustomerTypeID)}
               className="p-2 rounded-lg hover:bg-red-50 text-[var(--text-secondary)] hover:text-[var(--danger)] transition-colors border border-transparent hover:border-red-200 focus-ring"
@@ -291,9 +299,8 @@ export default function CustomerTypeMaster() {
             >
               <Trash2 size={16} />
             </button>
-          )}
-        </div>
-      ),
+          </div>
+        ),
     },
   ];
 
@@ -322,6 +329,7 @@ export default function CustomerTypeMaster() {
                 {editingCustomerType ? 'Edit Customer Type' : 'Add New Customer Type'}
               </h2>
               <CustomerTypeForm
+                key={formResetKey}
                 item={editingCustomerType}
                 existingCustomerTypes={customerTypes}
                 onSave={

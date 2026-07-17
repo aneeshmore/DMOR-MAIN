@@ -9,6 +9,8 @@ export class AdminAccountOrderDTO {
     this.salesPersonName = salesPerson
       ? `${salesPerson.firstName} ${salesPerson.lastName}`
       : 'Unknown';
+    this.salespersonRemark = order.notes || '';
+    this.priorityLevel = order.priorityLevel || 'Normal';
     this.orderCreatedDate = order.createdAt;
     this.timeSpan = order.createdAt; // Will format in client or here. Sending raw date is better.
 

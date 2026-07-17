@@ -34,6 +34,7 @@ import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addPdfFooter } from '@/utils/pdfUtils';
+import { formatPercent, formatQtyMarked } from '@/utils/formatters';
 import BatchReportModal from '../components/BatchReportModal';
 import {
   DndContext,
@@ -1408,14 +1409,23 @@ export default function ScheduleBatchPage() {
       setEndDate(edDate);
       setEndTime(edTime);
 
-      const mappedMaterials = (data.materials || []).map((m: any) => ({
-        batchMaterialId: m.batchMaterial?.batchMaterialId,
-        materialId: m.batchMaterial?.materialId,
-        materialName: m.masterProduct?.masterProductName || m.material?.productName || 'Unknown',
-        plannedQuantity: parseFloat(m.batchMaterial?.requiredQuantity) || 0,
-        actualQuantity: parseFloat(m.batchMaterial?.requiredQuantity) || 0,
-        variance: 0,
-      }));
+      const mappedMaterials = (data.materials || []).map((m: any) => {
+        const storedQty = parseFloat(m.batchMaterial?.requiredQuantity) || 0;
+        const pct = parseFloat(m.batchMaterial?.requiredUsePer) || 0;
+        // Trace recovery: DB storage (scale 4) truncates quantities below
+        // 0.00005 kg to 0.0000, but the formulation percentage survives.
+        // Rebuild the true planned quantity from the recipe so trace
+        // additives display as 0.000+ and are consumed, not lost.
+        const plannedQty = storedQty === 0 && pct > 0 ? (pQty * pct) / 100 : storedQty;
+        return {
+          batchMaterialId: m.batchMaterial?.batchMaterialId,
+          materialId: m.batchMaterial?.materialId,
+          materialName: m.masterProduct?.masterProductName || m.material?.productName || 'Unknown',
+          plannedQuantity: plannedQty,
+          actualQuantity: plannedQty,
+          variance: 0,
+        };
+      });
       setActualMaterials(mappedMaterials);
     } catch (error) {
       console.error('Failed to init completion:', error);
@@ -1664,7 +1674,7 @@ export default function ScheduleBatchPage() {
 
     // if (totalOutputWeight < minWeight || totalOutputWeight > maxWeight) {
     //   showToast.error(
-    //     `Total output weight (${totalOutputWeight.toFixed(2)} kg) must be within ±5% of actual batch weight (${actualWeight.toFixed(2)} kg). Allowed range: ${minWeight.toFixed(2)} - ${maxWeight.toFixed(2)} kg`
+    //     `Total output weight (${formatQty(totalOutputWeight)} kg) must be within ±5% of actual batch weight (${actualWeight.toFixed(2)} kg). Allowed range: ${minWeight.toFixed(2)} - ${maxWeight.toFixed(2)} kg`
     //   );
     //   return;
     // }
@@ -1716,7 +1726,7 @@ export default function ScheduleBatchPage() {
 
       // if (totalOutputWeight > maxWeight) {
       //   showToast.error(
-      //     `Total output weight (${totalOutputWeight.toFixed(2)} kg) exceeds +5% of actual batch weight (${actualBatchWeight.toFixed(2)} kg). Maximum allowed: ${maxWeight.toFixed(2)} kg`
+      //     `Total output weight (${formatQty(totalOutputWeight)} kg) exceeds +5% of actual batch weight (${actualBatchWeight.toFixed(2)} kg). Maximum allowed: ${maxWeight.toFixed(2)} kg`
       //   );
       //   setIsSubmitting(false);
       //   return;
@@ -2192,7 +2202,7 @@ export default function ScheduleBatchPage() {
                         <tbody className="divide-y divide-[var(--border)]/50">
                           {/* Planned Materials */}
                           {actualMaterials
-                            .filter(mat => mat.plannedQuantity > 0)
+                            .filter(mat => mat.plannedQuantity >= 0)
                             .sort((a, b) => {
                               const aIsWater = a.materialName.toLowerCase().includes('water');
                               const bIsWater = b.materialName.toLowerCase().includes('water');
@@ -2214,7 +2224,7 @@ export default function ScheduleBatchPage() {
                                     const reduction = reducedMaterials
                                       .filter(r => r.materialId === mat.materialId)
                                       .reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
-                                    return formatQty(mat.plannedQuantity - reduction);
+                                    return formatQtyMarked(mat.plannedQuantity - reduction);
                                   })()}
                                 </td>
                                 <td className="py-2 px-3"></td>
@@ -2272,7 +2282,7 @@ export default function ScheduleBatchPage() {
                             <td className="py-2.5 px-3 text-right text-[var(--text-primary)]">
                               {(() => {
                                 const plannedSum = actualMaterials
-                                  .filter(mat => mat.plannedQuantity > 0)
+                                  .filter(mat => mat.plannedQuantity >= 0)
                                   .reduce((sum, mat) => {
                                     const reduction = reducedMaterials
                                       .filter(r => r.materialId === mat.materialId)
@@ -2291,6 +2301,12 @@ export default function ScheduleBatchPage() {
                         </tbody>
                       </table>
                     </div>
+
+                    {actualMaterials.some(mat => Number(mat.plannedQuantity) === 0) && (
+                      <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
+                        * Trace material — quantity below 0.0001 kg storage precision
+                      </p>
+                    )}
 
                     {/* Add Extra Material Section */}
                     <div className="mt-4 pt-4 border-t border-[var(--border)]">
@@ -2585,7 +2601,7 @@ export default function ScheduleBatchPage() {
                                     Total Produced Quantity :{' '}
                                   </span>
                                   <span className="font-bold text-[var(--text-primary)]">
-                                    {totalOutputWeight.toFixed(2)} kg
+                                    {formatQty(totalOutputWeight)} kg
                                   </span>
                                 </>
                               );
@@ -2815,7 +2831,7 @@ export default function ScheduleBatchPage() {
                                   <td className="px-4 py-3 text-sm text-[var(--text-primary)] font-medium">
                                     {material.isWater
                                       ? `${material.waterPercent}%`
-                                      : `${Number(material.percentage).toFixed(2)}%`}
+                                      : `${formatPercent(material.percentage)}%`}
                                   </td>
                                   <td
                                     className={`px-4 py-3 text-sm font-semibold ${insufficientMaterials.has(material.materialId) ? 'text-red-600 dark:text-red-400' : 'text-[var(--text-primary)]'}`}
@@ -2846,9 +2862,12 @@ export default function ScheduleBatchPage() {
                                   %
                                 </td>
                                 <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
-                                  {consolidatedBOM
-                                    .reduce((sum, m) => sum + Number(m.requiredQuantity), 0)
-                                    .toFixed(2)}{' '}
+                                  {formatQty(
+                                    consolidatedBOM.reduce(
+                                      (sum, m) => sum + Number(m.requiredQuantity),
+                                      0
+                                    )
+                                  )}{' '}
                                   kg
                                 </td>
                                 <td colSpan={2}></td>

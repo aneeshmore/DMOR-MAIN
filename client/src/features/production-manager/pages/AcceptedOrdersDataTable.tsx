@@ -3,6 +3,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { decodeHtml } from '@/utils/stringUtils';
 import { DataTable } from '@/components/ui/data-table/DataTable';
 import { DataTableColumnHeader } from '@/components/ui/data-table/DataTableColumnHeader';
+import { PriorityBadge } from '@/components/common';
 import { Search, Package, CheckCircle2, AlertCircle, Check, Scissors } from 'lucide-react';
 import { productionManagerApi, InventoryCheckResult } from '../api/productionManagerApi';
 import { showToast } from '@/utils/toast';
@@ -213,6 +214,24 @@ export function AcceptedOrdersDataTable({
         header: ({ column }) => <DataTableColumnHeader column={column} title="Sales Person" />,
         cell: ({ row }) => (
           <span className="text-xs">{getSalespersonName(row.original.salesperson)}</span>
+        ),
+      },
+      {
+        accessorKey: 'order.notes',
+        id: 'salespersonRemark',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Salesperson Remark" />
+        ),
+        cell: ({ row }) => (
+          <div className="flex flex-col items-start gap-1.5">
+            <span
+              className="text-xs text-[var(--text-secondary)] truncate block max-w-[140px]"
+              title={decodeHtml(row.original.order?.notes || '')}
+            >
+              {decodeHtml(row.original.order?.notes || '-')}
+            </span>
+            <PriorityBadge priority={row.original.order?.priorityLevel} />
+          </div>
         ),
       },
       {

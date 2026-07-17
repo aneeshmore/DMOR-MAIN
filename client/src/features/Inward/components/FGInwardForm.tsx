@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { inwardApi } from '../api/inwardApi';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SearchableSelect } from '@/components/ui';
 import { inventoryApi } from '@/features/inventory/api/inventoryApi';
 import { unitApi } from '@/features/masters/api/unitApi';
-import { customerApi } from '@/features/masters/api/customerApi';
+import { suppliersApi, Supplier } from '@/api/suppliersApi';
 import { CreateInwardInput, InwardEntry, InwardItemInput } from '../types';
 import { Product } from '@/features/inventory/types';
-import { Unit, Customer } from '@/features/masters/types';
+import { Unit } from '@/features/masters/types';
 import { Calendar, Plus, Trash2, Save, Edit2 } from 'lucide-react';
 
 interface FGInwardFormProps {
@@ -28,7 +27,6 @@ interface CurrentItemState {
   unitPrice: number;
 }
 
-// Helper function to get local date in YYYY-MM-DD format
 const getLocalDateString = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -41,19 +39,18 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
   ({ onSubmit, isLoading, initialData, onCancel, onDirtyStateChange }, ref) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
-    const [customers, setCustomers] = useState<Customer[]>([]);
-
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const productEntrySectionRef = React.useRef<HTMLDivElement>(null);
-
     const [billDetails, setBillDetails] = useState({
       inwardDate: getLocalDateString(),
       notes: '',
+      billNo: '',
+      supplierId: undefined as number | undefined,
+      rate: '',
     });
-
     const [items, setItems] = useState<InwardItemInput[]>([]);
     const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
     const [isAddingProduct, setIsAddingProduct] = useState(false);
-
     const [currentItem, setCurrentItem] = useState<CurrentItemState>({
       productId: 0,
       quantity: '',
@@ -63,9 +60,7 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
     });
 
     useEffect(() => {
-      if (onDirtyStateChange) {
-        onDirtyStateChange(items.length > 0);
-      }
+      if (onDirtyStateChange) onDirtyStateChange(items.length > 0);
     }, [items, onDirtyStateChange]);
 
     useEffect(() => {
@@ -76,30 +71,35 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
     useEffect(() => {
       if (initialData && initialData.length > 0) {
         const firstItem = initialData[0];
-
         setBillDetails({
           inwardDate: firstItem.inwardDate
             ? new Date(firstItem.inwardDate).toISOString().split('T')[0]
             : getLocalDateString(),
           notes: firstItem.notes || '',
+          billNo: firstItem.billNo || '',
+          supplierId: firstItem.supplierId || undefined,
+          rate: firstItem.unitPrice ? String(firstItem.unitPrice) : '',
         });
-
-        const mappedItems: InwardItemInput[] = initialData.map(entry => ({
-          inwardId: entry.inwardId,
-          masterProductId: entry.productId,
-          productId: entry.skuId || entry.productId, // Use skuId for FG specific selection
-          inwardDate: entry.inwardDate,
-          quantity: Number(entry.quantity),
-          unitId: entry.unitId,
-          unitPrice: 0,
-          totalCost: entry.totalCost || 0,
-        }));
-        setItems(mappedItems);
+        setItems(
+          initialData.map(entry => ({
+            inwardId: entry.inwardId,
+            masterProductId: entry.productId,
+            productId: entry.skuId || entry.productId,
+            inwardDate: entry.inwardDate,
+            quantity: Number(entry.quantity),
+            unitId: entry.unitId,
+            unitPrice: Number(entry.unitPrice) || 0,
+            totalCost: entry.totalCost || 0,
+          }))
+        );
         resetCurrentItem();
       } else {
         setBillDetails({
           inwardDate: getLocalDateString(),
           notes: '',
+          billNo: '',
+          supplierId: undefined,
+          rate: '',
         });
         setItems([]);
         resetCurrentItem();
@@ -108,36 +108,29 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
 
     const loadData = async () => {
       try {
-        const [unitsData, customersData] = await Promise.all([
+        const [unitsData, suppliersData] = await Promise.all([
           unitApi.getAll().then(res => res.data),
-          customerApi.getAll().then(res => res.data || []),
+          suppliersApi.getAll({ isActive: true }),
         ]);
-        // Normalize unit objects to expected shape { UnitID, UnitName }
-        const normalizedUnits = (unitsData || []).map((u: any) => ({
-          UnitID: u.UnitID ?? u.unitId ?? u.id ?? 0,
-          UnitName: u.UnitName ?? u.unitName ?? u.name ?? '',
-          UnitSymbol: u.UnitSymbol ?? u.unitSymbol ?? u.symbol ?? undefined,
-        }));
-
-        setUnits(normalizedUnits);
-        setCustomers(customersData || []);
+        setUnits(
+          (unitsData || []).map((u: any) => ({
+            UnitID: u.UnitID ?? u.unitId ?? u.id ?? 0,
+            UnitName: u.UnitName ?? u.unitName ?? u.name ?? '',
+            UnitSymbol: u.UnitSymbol ?? u.unitSymbol ?? u.symbol ?? undefined,
+          }))
+        );
+        setSuppliers(suppliersData || []);
       } catch (error) {
         console.error('Failed to load data', error);
       }
     };
 
-    const getDefaultUnitId = () => {
-      // Logic same as PM: Find 'NO' unit
-      return units.find(u => u.UnitName === 'NO')?.UnitID || 0;
-    };
+    const getDefaultUnitId = () => units.find(u => u.UnitName === 'NO')?.UnitID || 0;
 
-    // Update currentItem unit when units are loaded
     useEffect(() => {
       if (units.length > 0 && (currentItem.unitId === 0 || currentItem.unitId === 7)) {
         const defaultId = getDefaultUnitId();
-        if (defaultId) {
-          setCurrentItem(prev => ({ ...prev, unitId: defaultId }));
-        }
+        if (defaultId) setCurrentItem(prev => ({ ...prev, unitId: defaultId }));
       }
     }, [units]);
 
@@ -151,24 +144,13 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
       }
     };
 
-    const resetCurrentItem = () => {
-      setCurrentItem({
-        productId: 0,
-        quantity: '',
-        unitId: getDefaultUnitId(),
-        totalPrice: '',
-        unitPrice: 0,
-      });
-    };
+    const resetCurrentItem = () =>
+      setCurrentItem({ productId: 0, quantity: '', unitId: getDefaultUnitId(), totalPrice: '', unitPrice: 0 });
 
     const handleItemChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
-
-      if (name === 'unitId') {
-        setCurrentItem(prev => ({ ...prev, unitId: Number(value) }));
-      } else {
-        setCurrentItem(prev => ({ ...prev, [name]: value }));
-      }
+      if (name === 'unitId') setCurrentItem(prev => ({ ...prev, unitId: Number(value) }));
+      else setCurrentItem(prev => ({ ...prev, [name]: value }));
     };
 
     const handleBillChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -183,48 +165,21 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
           alert('Please select a product');
           return;
         }
-
         if (
           items.some(
             (item, idx) => item.productId === currentItem.productId && idx !== editingItemIndex
           )
         ) {
-          alert(
-            'This product is already added to the list. Please edit the existing item or remove it first.'
-          );
+          alert('This product is already added to the list. Please edit the existing item or remove it first.');
           return;
         }
-
-        // Bill number validation for FG (Server Side Check)
-        // Bill number validation for FG (Server Side Check)
-        // Validation removed to allow creating separate entries even with same details
-        /*
-        if (billDetails.billNo && !initialData) {
-          if (!billDetails.customerId || billDetails.customerId === 0) {
-            alert('Please select a customer before adding products');
-            return;
-          }
-
-          try {
-             // ... duplicate check removed ...
-          } catch (error) {
-            console.error('Error checking bill number:', error);
-          }
-        }
-        */
-
         const qty = Number(currentItem.quantity);
         if (!currentItem.quantity || isNaN(qty) || qty <= 0) {
           alert('Please enter a valid quantity');
           return;
         }
-
         const finalUnitId = currentItem.unitId || getDefaultUnitId();
-
-        const total = currentItem.totalPrice ? Number(currentItem.totalPrice) : 0;
-
         const selectedProduct = products.find(p => p.productId === currentItem.productId);
-
         const newItem: InwardItemInput = {
           inwardId: currentItem.inwardId,
           masterProductId: selectedProduct?.masterProductId || currentItem.productId,
@@ -232,19 +187,17 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
           inwardDate: '',
           quantity: qty,
           unitId: finalUnitId,
-          unitPrice: 0, // No unit price for FG returns
-          totalCost: total,
+          unitPrice: 0,
+          totalCost: currentItem.totalPrice ? Number(currentItem.totalPrice) : 0,
         };
-
         if (editingItemIndex !== null) {
-          const updatedItems = [...items];
-          updatedItems[editingItemIndex] = newItem;
-          setItems(updatedItems);
+          const u = [...items];
+          u[editingItemIndex] = newItem;
+          setItems(u);
           setEditingItemIndex(null);
         } else {
           setItems(prev => [...prev, newItem]);
         }
-
         resetCurrentItem();
       } catch (error) {
         console.error('Error adding item:', error);
@@ -279,82 +232,58 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       let newItemToAdd: InwardItemInput | null = null;
-
-      // Check if there is a pending item (product selected and quantity entered)
       if (currentItem.productId && currentItem.quantity) {
-        try {
-          const qty = Number(currentItem.quantity);
-          if (isNaN(qty) || qty <= 0) {
-            alert('Invalid quantity for the pending item.');
-            return;
-          }
-
-          if (
-            items.some(
-              (item, idx) => item.productId === currentItem.productId && idx !== editingItemIndex
-            )
-          ) {
-            alert(
-              'The pending product is already in the list. Please clear it or add it manually.'
-            );
-            return;
-          }
-
-          const finalUnitId = currentItem.unitId || getDefaultUnitId();
+        const qty = Number(currentItem.quantity);
+        if (
+          !isNaN(qty) &&
+          qty > 0 &&
+          !items.some(
+            (item, idx) => item.productId === currentItem.productId && idx !== editingItemIndex
+          )
+        ) {
           const selectedProduct = products.find(p => p.productId === currentItem.productId);
-
           newItemToAdd = {
             inwardId: currentItem.inwardId,
             masterProductId: selectedProduct?.masterProductId || currentItem.productId,
             productId: currentItem.productId,
             inwardDate: '',
             quantity: qty,
-            unitId: finalUnitId,
+            unitId: currentItem.unitId || getDefaultUnitId(),
             unitPrice: 0,
             totalCost: 0,
           };
-        } catch (e) {
-          console.warn('Could not auto-add pending item', e);
         }
       }
-
       if (items.length === 0 && !newItemToAdd) {
         alert('Please add at least one product');
         return;
       }
-      const finalItems = [...items];
-      if (newItemToAdd) {
-        finalItems.push(newItemToAdd);
-      }
-
-      const formattedItems = finalItems.map(item => {
-        const processedItem = {
+      const finalItems = newItemToAdd ? [...items, newItemToAdd] : [...items];
+      const rate = billDetails.rate ? Number(billDetails.rate) : 0;
+      const payload: CreateInwardInput = {
+        billNo: billDetails.billNo || '',
+        supplierId: billDetails.supplierId,
+        notes: billDetails.notes,
+        items: finalItems.map(item => ({
           ...item,
           inwardDate: new Date(billDetails.inwardDate).toISOString(),
-        };
-        return processedItem;
-      });
-
-      const payload = {
-        billNo: '',
-        customerId: undefined,
-        notes: billDetails.notes,
-        items: formattedItems,
+          unitPrice: rate,
+        })),
       };
-
       try {
         await onSubmit(payload);
-        // Only reset form after successful submission
         setItems([]);
         resetCurrentItem();
         setBillDetails({
           inwardDate: getLocalDateString(),
           notes: '',
+          billNo: '',
+          supplierId: undefined,
+          rate: '',
         });
         setEditingItemIndex(null);
       } catch (error) {
-        // Don't reset form on error - let user keep their data
-        console.error('Submit failed, form not reset:', error);
+        console.error('Submit failed:', error);
       }
     };
 
@@ -374,12 +303,47 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
       >
         <h2 className="text-xl font-bold text-[var(--primary)] mb-6">Finished Goods Inward</h2>
 
-        {/* Bill Details Section */}
+        {/* Date Display */}
         <div className="flex justify-end items-center mb-4">
           <Calendar size={18} className="text-gray-500 mr-2" />
           <span className="text-md font-semibold text-gray-700">
             {billDetails.inwardDate.split('-').reverse().join('/')}
           </span>
+        </div>
+
+        {/* Bill-Level Fields: Supplier, Bill No */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-[var(--surface-secondary)] rounded-lg border border-[var(--border)]">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Supplier{' '}
+              <span className="text-[var(--text-secondary)] font-normal">(Optional)</span>
+            </label>
+            <SearchableSelect
+              options={suppliers.map(s => ({
+                id: s.supplierId,
+                label: s.supplierName,
+                value: s.supplierId,
+              }))}
+              value={billDetails.supplierId || undefined}
+              onChange={val =>
+                setBillDetails(prev => ({ ...prev, supplierId: val ? Number(val) : undefined }))
+              }
+              placeholder="Select Supplier"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Bill Number{' '}
+              <span className="text-[var(--text-secondary)] font-normal">(Optional)</span>
+            </label>
+            <Input
+              type="text"
+              name="billNo"
+              value={billDetails.billNo}
+              onChange={handleBillChange}
+              placeholder="e.g. INV-001"
+            />
+          </div>
         </div>
 
         {/* Item Entry Section */}
@@ -399,27 +363,19 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
               <label className="text-sm font-medium text-gray-700">Finished Good</label>
               <SearchableSelect
                 options={products
-                  .filter(p => {
-                    const isAlreadyAdded = items.some(
-                      (item, index) => item.productId === p.productId && index !== editingItemIndex
-                    );
-                    return !isAlreadyAdded;
-                  })
-                  .map(p => ({
-                    id: p.productId,
-                    label: p.productName,
-                    value: p.productId,
-                  }))}
+                  .filter(
+                    p =>
+                      !items.some(
+                        (item, index) => item.productId === p.productId && index !== editingItemIndex
+                      )
+                  )
+                  .map(p => ({ id: p.productId, label: p.productName, value: p.productId }))}
                 value={currentItem.productId || undefined}
-                onChange={val => {
-                  const productId = val ? Number(val) : 0;
-                  setCurrentItem(prev => ({ ...prev, productId }));
-                }}
+                onChange={val => setCurrentItem(prev => ({ ...prev, productId: val ? Number(val) : 0 }))}
                 placeholder="Select Finished Good"
                 required={items.length === 0}
               />
             </div>
-
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Quantity</label>
               <Input
@@ -432,7 +388,6 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                 placeholder="1"
               />
             </div>
-
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Unit</label>
               <select
@@ -449,7 +404,21 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                 ))}
               </select>
             </div>
-
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Price Per Unit{' '}
+                <span className="text-[var(--text-secondary)] font-normal">(Optional)</span>
+              </label>
+              <Input
+                type="number"
+                name="rate"
+                value={billDetails.rate}
+                onChange={handleBillChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+              />
+            </div>
             <div className="md:col-span-2 flex items-end">
               <Button
                 type="button"
@@ -458,7 +427,6 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                 disabled={isAddingProduct}
                 className="w-full"
               >
-                {/* Icon is handled by Button component when not loading, but we pass children manually */}
                 {!isAddingProduct && <Plus size={16} className="mr-2" />}
                 {editingItemIndex !== null ? 'Update Product' : 'Add Product'}
               </Button>
@@ -483,7 +451,6 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-[var(--text-primary)] uppercase">
                       Unit
                     </th>
-
                     <th className="px-4 py-2 text-center text-xs font-semibold text-[var(--text-primary)] uppercase">
                       Actions
                     </th>
@@ -508,13 +475,12 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                       <td className="px-4 py-3 text-[var(--text-primary)] whitespace-nowrap">
                         {getUnitName(item.unitId)}
                       </td>
-
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleEditItem(idx)}
-                            className="p-1.5 text-[var(--primary)] hover:text-[var(--primary)] hover:bg-[var(--primary-light)] rounded-md transition-colors duration-150"
+                            className="p-1.5 text-[var(--primary)] hover:bg-[var(--primary-light)] rounded-md transition-colors"
                             title="Edit"
                           >
                             <Edit2 size={16} />
@@ -522,7 +488,7 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                           <button
                             type="button"
                             onClick={() => handleRemoveItem(idx)}
-                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-md transition-colors duration-150"
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-md transition-colors"
                             title="Remove"
                           >
                             <Trash2 size={16} />

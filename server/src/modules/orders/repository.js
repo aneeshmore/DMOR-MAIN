@@ -7,6 +7,10 @@ import {
   products,
   accounts,
   employees,
+  masterProducts,
+  masterProductFG,
+  masterProductRM,
+  masterProductPM,
 } from '../../db/schema/index.js';
 import logger from '../../config/logger.js';
 // Data access layer for orders
@@ -67,13 +71,16 @@ export class OrdersRepository {
         productNames: sql`string_agg(${products.productName}, ', ')`,
         totalQuantity: sql`COALESCE(sum(${orderDetails.quantity}::numeric), 0)`,
         billNo: accounts.billNo,
+        // Actual dispatch date from the Dispatch module (same source as the Dispatch Report)
+        dispatchDate: dispatches.dispatchDate,
       })
       .from(orders)
       .leftJoin(customers, eq(orders.customerId, customers.customerId))
       .leftJoin(employees, eq(orders.salespersonId, employees.employeeId))
       .leftJoin(accounts, eq(orders.orderId, accounts.orderId))
       .leftJoin(orderDetails, eq(orders.orderId, orderDetails.orderId))
-      .leftJoin(products, eq(orderDetails.productId, products.productId));
+      .leftJoin(products, eq(orderDetails.productId, products.productId))
+      .leftJoin(dispatches, eq(orders.dispatchId, dispatches.dispatchId));
 
     // Build where conditions
     const conditions = [];
@@ -130,7 +137,8 @@ export class OrdersRepository {
         customers.customerId,
         customers.companyName,
         customers.contactPerson,
-        accounts.billNo
+        accounts.billNo,
+        dispatches.dispatchDate
       )
       .orderBy(desc(orders.createdAt))
       .limit(limit)
@@ -170,11 +178,33 @@ export class OrdersRepository {
   }
 
   async getOrderDetails(orderId) {
-    return await db
-      .select()
+    const results = await db
+      .select({
+        order_details: orderDetails,
+        products,
+        hsnCode: sql`COALESCE(${masterProductFG.hsnCode}, ${masterProductRM.hsnCode}, ${masterProductPM.hsnCode})`,
+      })
       .from(orderDetails)
       .leftJoin(products, eq(orderDetails.productId, products.productId))
+      .leftJoin(masterProducts, eq(products.masterProductId, masterProducts.masterProductId))
+      .leftJoin(
+        masterProductFG,
+        eq(masterProducts.masterProductId, masterProductFG.masterProductId)
+      )
+      .leftJoin(
+        masterProductRM,
+        eq(masterProducts.masterProductId, masterProductRM.masterProductId)
+      )
+      .leftJoin(
+        masterProductPM,
+        eq(masterProducts.masterProductId, masterProductPM.masterProductId)
+      )
       .where(eq(orderDetails.orderId, orderId));
+
+    return results.map(row => ({
+      ...row,
+      hsnCode: row.hsnCode,
+    }));
   }
 
   async create(orderData) {
