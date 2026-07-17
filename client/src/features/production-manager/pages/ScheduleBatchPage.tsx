@@ -18,7 +18,6 @@ import {
   Check,
   Download,
   X,
-  FileText,
   GripVertical,
   ChevronDown,
   ChevronUp,
@@ -3052,7 +3051,7 @@ export default function ScheduleBatchPage() {
                                 className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                 title="View Batch Chart"
                               >
-                                <FileText size={18} />
+                                <Download size={18} />
                               </button>
                               {batch.status === 'Completed' && (
                                 <button
@@ -3067,7 +3066,7 @@ export default function ScheduleBatchPage() {
                                   className="p-2 text-purple-500 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
                                   title="View Completion Report"
                                 >
-                                  <FileText size={18} />
+                                  <Download size={18} />
                                 </button>
                               )}
                             </div>

@@ -650,6 +650,7 @@ export class ReportsService {
         .select({
           inwardId: materialInward.inwardId,
           inwardDate: materialInward.inwardDate,
+          createdAt: materialInward.createdAt,
           productName: sql`COALESCE(${products.productName}, ${masterProducts.masterProductName})`,
           supplierName: suppliers.supplierName,
           billNo: materialInward.billNo,
@@ -680,6 +681,7 @@ export class ReportsService {
         .groupBy(
           materialInward.inwardId,
           materialInward.inwardDate,
+          materialInward.createdAt,
           products.productName,
           masterProducts.masterProductName,
           suppliers.supplierName,

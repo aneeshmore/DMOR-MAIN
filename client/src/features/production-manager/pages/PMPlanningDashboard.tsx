@@ -317,7 +317,7 @@ export default function PMPlanningDashboard() {
         />
         <StatCard
           icon={<BarChart3 className="w-5 h-5" />}
-          label="Production Weight"
+          label="Total production weight"
           value={`${stats.totalWeight.toFixed(2)} kg`}
           color="secondary"
           onClick={() => setActiveTab('production')}
