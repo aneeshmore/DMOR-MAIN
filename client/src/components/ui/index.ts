@@ -25,3 +25,10 @@ export { Card, CardHeader, CardTitle, CardContent } from './card';
 export { Badge } from './badge';
 
 export { FullScreenLoader } from './FullScreenLoader';
+
+export {
+  ConfirmDialogProvider,
+  useConfirm,
+  confirmDialog,
+  promptDialog,
+} from './ConfirmDialog';

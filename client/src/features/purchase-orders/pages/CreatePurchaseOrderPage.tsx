@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
-import { Button, Modal, Input, SearchableSelect } from '@/components/ui';
+import { Button, Modal, Input, SearchableSelect, confirmDialog } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye, Trash2, Plus, X, Download } from 'lucide-react';
@@ -745,7 +745,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
   }, []);
 
   const handleDelete = useCallback(async (po: PurchaseOrder) => {
-    if (!window.confirm(`Delete PO ${po.poNumber}? This cannot be undone.`)) return;
+    if (
+      !(await confirmDialog({
+        title: 'Delete Purchase Order',
+        message: `Delete PO ${po.poNumber}? This cannot be undone.`,
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      }))
+    )
+      return;
     try {
       await purchaseOrdersApi.delete(po.purchaseOrderId);
       setPurchaseOrders(prev => prev.filter(p => p.purchaseOrderId !== po.purchaseOrderId));

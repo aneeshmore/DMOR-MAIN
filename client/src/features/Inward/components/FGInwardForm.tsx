@@ -9,6 +9,8 @@ import { CreateInwardInput, InwardEntry, InwardItemInput } from '../types';
 import { Product } from '@/features/inventory/types';
 import { Unit } from '@/features/masters/types';
 import { Calendar, Plus, Trash2, Save, Edit2 } from 'lucide-react';
+import { showToast } from '@/utils/toast';
+import { confirmDialog } from '@/components/ui';
 
 interface FGInwardFormProps {
   onSubmit: (data: CreateInwardInput) => Promise<void>;
@@ -162,7 +164,7 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
       setIsAddingProduct(true);
       try {
         if (!currentItem.productId || currentItem.productId === 0 || isNaN(currentItem.productId)) {
-          alert('Please select a product');
+          showToast.error('Please select a product');
           return;
         }
         if (
@@ -170,12 +172,12 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
             (item, idx) => item.productId === currentItem.productId && idx !== editingItemIndex
           )
         ) {
-          alert('This product is already added to the list. Please edit the existing item or remove it first.');
+          showToast.error('This product is already added to the list. Please edit the existing item or remove it first.');
           return;
         }
         const qty = Number(currentItem.quantity);
         if (!currentItem.quantity || isNaN(qty) || qty <= 0) {
-          alert('Please enter a valid quantity');
+          showToast.error('Please enter a valid quantity');
           return;
         }
         const finalUnitId = currentItem.unitId || getDefaultUnitId();
@@ -219,8 +221,15 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
       setEditingItemIndex(index);
     };
 
-    const handleRemoveItem = (index: number) => {
-      if (confirm('Are you sure you want to remove this item?')) {
+    const handleRemoveItem = async (index: number) => {
+      if (
+        await confirmDialog({
+          title: 'Remove Item',
+          message: 'Are you sure you want to remove this item?',
+          confirmLabel: 'Remove',
+          variant: 'danger',
+        })
+      ) {
         setItems(prev => prev.filter((_, i) => i !== index));
         if (editingItemIndex === index) {
           setEditingItemIndex(null);
@@ -255,7 +264,7 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
         }
       }
       if (items.length === 0 && !newItemToAdd) {
-        alert('Please add at least one product');
+        showToast.error('Please add at least one product');
         return;
       }
       const finalItems = newItemToAdd ? [...items, newItemToAdd] : [...items];
@@ -390,19 +399,14 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Unit</label>
-              <select
-                name="unitId"
-                value={currentItem.unitId}
-                onChange={handleItemChange}
-                className="w-full px-3 py-2 border border-[var(--border)] rounded focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] outline-none bg-[var(--surface)] text-[var(--text-primary)]"
-              >
-                <option value="">Select Unit</option>
-                {units.map(unit => (
-                  <option key={unit.UnitID} value={unit.UnitID}>
-                    {unit.UnitName}
-                  </option>
-                ))}
-              </select>
+              {/* System-assigned for Finished Goods (NO) — not user-editable */}
+              <input
+                type="text"
+                value={units.find(u => u.UnitID === currentItem.unitId)?.UnitName || 'NO'}
+                readOnly
+                disabled
+                className="w-full px-3 py-2 border border-[var(--border)] rounded outline-none bg-[var(--surface)] text-[var(--text-primary)] opacity-60 cursor-not-allowed"
+              />
             </div>
             <div className="md:col-span-2 space-y-2">
               <label className="text-sm font-medium text-gray-700">

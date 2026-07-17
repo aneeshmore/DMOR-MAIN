@@ -298,7 +298,7 @@ const CompanyDetailsPage: React.FC = () => {
                         if (file) {
                           if (file.size > 500 * 1024) {
                             // 500KB limit
-                            alert('File too large. Please upload an image under 500KB.');
+                            showToast.error('File too large. Please upload an image under 500KB.');
                             return;
                           }
                           const reader = new FileReader();

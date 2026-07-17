@@ -18,6 +18,7 @@ import { companyApi } from '@/features/company/api/companyApi';
 import { CompanyInfo } from '@/features/company/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { addPdfFooter, addPdfHeader } from '@/utils/pdfUtils';
+import { showToast } from '@/utils/toast';
 
 ChartJS.register(ArcElement, Tooltip, Legend, Colors);
 
@@ -444,10 +445,10 @@ const ProfitLossReport = () => {
 
       const fileName = `Profit_Loss_Report_${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
-      alert('PDF exported successfully!');
+      showToast.success('PDF exported successfully!');
     } catch (error) {
       console.error('PDF Export Error:', error);
-      alert('Error exporting PDF');
+      showToast.error('Error exporting PDF');
     } finally {
       setExportLoading(false);
     }
@@ -528,7 +529,7 @@ const ProfitLossReport = () => {
       document.body.removeChild(link);
     } catch (error) {
       console.error('Error exporting Excel:', error);
-      alert('Failed to export Excel.');
+      showToast.error('Failed to export Excel.');
     } finally {
       setExportLoading(false);
     }

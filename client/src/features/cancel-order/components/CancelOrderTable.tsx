@@ -12,6 +12,7 @@ import {
 import { CancelOrderRecord } from '../types';
 import { format } from 'date-fns';
 import { decodeHtml } from '@/utils/stringUtils';
+import { showToast } from '@/utils/toast';
 
 interface CancelOrderTableProps {
   data: CancelOrderRecord[];
@@ -42,7 +43,7 @@ export const CancelOrderTable: React.FC<CancelOrderTableProps> = ({
 
   const handleConfirmCancel = (orderId: number) => {
     if (!cancelReason.trim()) {
-      alert('Please provide a reason for cancellation');
+      showToast.error('Please provide a reason for cancellation');
       return;
     }
     onCancelOrder(orderId, cancelReason);

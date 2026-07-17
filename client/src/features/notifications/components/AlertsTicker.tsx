@@ -5,6 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/utils/cn';
 import { decodeHtml } from '@/utils/stringUtils';
+import { confirmDialog } from '@/components/ui';
 
 export const AlertsTicker = () => {
   const [isTickerModalOpen, setIsTickerModalOpen] = useState(false);
@@ -41,8 +42,15 @@ export const AlertsTicker = () => {
     return items;
   }, [notifications]);
 
-  const handleDelete = (id: number) => {
-    if (confirm('Delete notification?')) {
+  const handleDelete = async (id: number) => {
+    if (
+      await confirmDialog({
+        title: 'Delete Notification',
+        message: 'Delete notification?',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      })
+    ) {
       deleteNotification.mutate(id);
     }
   };

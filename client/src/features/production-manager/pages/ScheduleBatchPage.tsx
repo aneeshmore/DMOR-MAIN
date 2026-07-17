@@ -52,6 +52,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { confirmDialog } from '@/components/ui';
 
 interface SelectedProduct {
   orderId: number;
@@ -1285,7 +1286,16 @@ export default function ScheduleBatchPage() {
   };
 
   const handleCancelBatch = async (batchId: number) => {
-    if (!window.confirm('Are you sure you want to cancel this batch?')) return;
+    if (
+      !(await confirmDialog({
+        title: 'Cancel Batch',
+        message: 'Are you sure you want to cancel this batch?',
+        confirmLabel: 'Cancel Batch',
+        cancelLabel: 'Keep Batch',
+        variant: 'danger',
+      }))
+    )
+      return;
     try {
       await productionManagerApi.cancelBatch(batchId, 'User cancelled');
       showToast.success('Batch cancelled');

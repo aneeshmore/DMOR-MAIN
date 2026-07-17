@@ -6,6 +6,7 @@ import { inwardApi } from '../api/inwardApi';
 import { InwardEntry, CreateInwardInput } from '../types';
 import { PageHeader } from '@/components/common';
 import { showToast } from '@/utils/toast';
+import { confirmDialog } from '@/components/ui';
 
 export const InwardDashboard: React.FC = () => {
   const [inwards, setInwards] = useState<InwardEntry[]>([]);
@@ -118,9 +119,12 @@ export const InwardDashboard: React.FC = () => {
 
   const handleDelete = async (entries: InwardEntry[]) => {
     if (
-      !confirm(
-        `Are you sure you want to delete ${entries.length} inward ${entries.length === 1 ? 'entry' : 'entries'}?`
-      )
+      !(await confirmDialog({
+        title: 'Delete Inward',
+        message: `Are you sure you want to delete ${entries.length} inward ${entries.length === 1 ? 'entry' : 'entries'}?`,
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      }))
     ) {
       return;
     }
