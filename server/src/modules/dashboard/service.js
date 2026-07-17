@@ -18,15 +18,21 @@ export class DashboardService {
     }
   }
 
-  async getOrderPaymentStatus(status = 'Pending') {
+  async getOrderPaymentStatus(status = 'Pending Accounts Approval') {
     try {
       const validStatuses = [
-        'Pending',
-        'On Hold',
-        'Accepted',
+        // New workflow statuses
+        'Pending Accounts Approval',
+        'Pending Factory Approval',
+        'Factory Approved',
         'Scheduled for Production',
         'Ready for Dispatch',
         'Dispatched',
+        'On Hold',
+        // Legacy statuses (existing orders)
+        'Pending',
+        'Verified',
+        'Accepted',
         'Delivered',
         'Cancelled',
       ];

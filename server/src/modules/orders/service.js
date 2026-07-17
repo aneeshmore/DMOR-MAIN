@@ -146,6 +146,7 @@ export class OrdersService {
         return {
           ...detail,
           productName: d.products?.productName,
+          hsnCode: d.hsnCode,
         };
       }) // Handle if details query also changed, but usually details query returns raw join result?
     );
@@ -188,7 +189,7 @@ export class OrdersService {
       customerId: orderInfo.customerId,
       salespersonId: orderInfo.salespersonId,
       orderNumber: orderInfo.orderNumber || orderNumber,
-      status: orderInfo.status || 'Pending',
+      status: orderInfo.status || 'Pending Accounts Approval',
       totalAmount,
       priorityLevel: orderInfo.priority || 'Normal',
       orderDate: orderInfo.orderDate ? new Date(orderInfo.orderDate) : new Date(),
@@ -325,10 +326,10 @@ export class OrdersService {
     // Check status - only allow editing if Pending or Rejected
     // "Accepted" orders are locked for general edits (but PM can update delivery date via specific endpoints)
     if (!bypassStatusCheck) {
-      const allowedStatuses = ['Pending', 'Rejected'];
+      const allowedStatuses = ['Pending', 'Pending Accounts Approval', 'Rejected'];
       if (!allowedStatuses.includes(existing.status)) {
         throw new AppError(
-          `Cannot edit order in '${existing.status}' status. Only Pending or Rejected orders can be edited.`,
+          `Cannot edit order in '${existing.status}' status. Only orders pending accounts approval or rejected orders can be edited.`,
           400
         );
       }

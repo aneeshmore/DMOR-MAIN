@@ -39,6 +39,18 @@ const PackagingMaterialTable = () => {
   };
 
   const handleSaveAll = () => {
+    // Validate HSN codes before saving (blank allowed for legacy products)
+    const invalidHsn = Object.values(edits).some(
+      (changes: any) =>
+        changes.hsnCode !== undefined &&
+        changes.hsnCode !== '' &&
+        !/^(\d{4}|\d{6}|\d{8})$/.test(changes.hsnCode)
+    );
+    if (invalidHsn) {
+      showToast.error('HSN Code must be a 4, 6, or 8 digit number');
+      return;
+    }
+
     const summary: any[] = [];
     Object.entries(edits).forEach(([idStr, changes]) => {
       const id = Number(idStr);
@@ -79,6 +91,13 @@ const PackagingMaterialTable = () => {
           field: 'minStockLevel',
           oldValue: product.minStockLevel,
           newValue: changes.minStockLevel,
+        });
+      }
+      if (changes.hsnCode !== undefined && changes.hsnCode !== product.hsnCode) {
+        changeRecord.changes.push({
+          field: 'hsnCode',
+          oldValue: product.hsnCode || 'N/A',
+          newValue: changes.hsnCode || 'N/A',
         });
       }
 
@@ -182,8 +201,9 @@ const PackagingMaterialTable = () => {
           <thead className="bg-[var(--surface-hover)] text-[var(--text-secondary)] border-b border-[var(--border)]">
             <tr>
               <th className="px-4 py-3 font-medium">Packaging Custom Name</th>
-              <th className="px-4 py-3 font-medium">Purchase Cost</th>
+              <th className="px-4 py-3 font-medium">HSN Code</th>
               <th className="px-4 py-3 font-medium">GST (%)</th>
+              <th className="px-4 py-3 font-medium">Purchase Cost</th>
               <th className="px-4 py-3 font-medium">Min Stock</th>
             </tr>
           </thead>
@@ -193,6 +213,7 @@ const PackagingMaterialTable = () => {
               const isEdited = !!edits[elementId];
               const currentCost = edits[elementId]?.purchaseCost ?? product.purchaseCost;
               const currentGst = edits[elementId]?.gst ?? product.gst ?? '';
+              const currentHsnCode = edits[elementId]?.hsnCode ?? product.hsnCode ?? '';
               const currentMinStock = edits[elementId]?.minStockLevel ?? product.minStockLevel ?? 0;
               const editedName = edits[elementId]?.masterProductName;
               const isNameEdited =
@@ -220,19 +241,24 @@ const PackagingMaterialTable = () => {
                   </td>
                   <td className="px-4 py-3">
                     <input
-                      type="number"
+                      type="text"
                       data-column="2"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
-                      value={currentCost}
-                      onChange={e => handleInputChange(elementId, 'purchaseCost', e.target.value)}
+                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentHsnCode}
+                      onChange={e => {
+                        if (/^\d{0,8}$/.test(e.target.value)) {
+                          handleInputChange(elementId, 'hsnCode', e.target.value);
+                        }
+                      }}
                       onKeyDown={handleEnterKeyNavigation}
+                      placeholder="HSN Code"
                     />
                   </td>
                   <td className="px-4 py-3">
                     <input
                       type="number"
                       data-column="3"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      className="w-16 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentGst}
                       onChange={e => handleInputChange(elementId, 'gst', e.target.value)}
                       onKeyDown={handleEnterKeyNavigation}
@@ -242,7 +268,17 @@ const PackagingMaterialTable = () => {
                     <input
                       type="number"
                       data-column="4"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentCost}
+                      onChange={e => handleInputChange(elementId, 'purchaseCost', e.target.value)}
+                      onKeyDown={handleEnterKeyNavigation}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      data-column="5"
+                      className="w-20 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentMinStock}
                       onChange={e => handleInputChange(elementId, 'minStockLevel', e.target.value)}
                       onKeyDown={handleEnterKeyNavigation}
@@ -253,7 +289,7 @@ const PackagingMaterialTable = () => {
             })}
             {paginatedProducts.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                   No packaging materials found matching your search.
                 </td>
               </tr>

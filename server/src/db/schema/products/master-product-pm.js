@@ -5,7 +5,7 @@
  * Stores material type, dimensions, and weight specifications.
  */
 
-import { integer, numeric } from 'drizzle-orm/pg-core';
+import { integer, numeric, varchar } from 'drizzle-orm/pg-core';
 import { appSchema } from '../core/app-schema.js';
 import { masterProducts } from './master-products.js';
 
@@ -17,4 +17,5 @@ export const masterProductPM = appSchema.table('master_product_pm', {
   capacity: numeric('capacity', { precision: 12, scale: 4 }),
   purchaseCost: numeric('purchase_cost', { precision: 12, scale: 3 }),
   availableQty: numeric('available_qty', { precision: 18, scale: 4 }),
+  hsnCode: varchar('hsn_code', { length: 50 }),
 });

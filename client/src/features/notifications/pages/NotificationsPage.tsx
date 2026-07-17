@@ -211,7 +211,13 @@ const NotificationsPage = () => {
       const type = n.type;
       const status = n.data?.status;
       if (type === 'NewOrder') return true;
-      if (type === 'OrderUpdate' && ['On Hold', 'Pending'].includes(status)) return true;
+      if (
+        type === 'OrderUpdate' &&
+        ['On Hold', 'Pending', 'Pending Accounts Approval', 'Pending Factory Approval'].includes(
+          status
+        )
+      )
+        return true;
       return false;
     }).length;
 
@@ -219,7 +225,10 @@ const NotificationsPage = () => {
       const type = n.type;
       const status = n.data?.status;
       if (type === 'ProductionComplete') return true;
-      if (type === 'OrderUpdate' && ['Accepted', 'Production Started'].includes(status))
+      if (
+        type === 'OrderUpdate' &&
+        ['Factory Approved', 'Accepted', 'Production Started'].includes(status)
+      )
         return true;
       return false;
     }).length;
@@ -262,12 +271,21 @@ const NotificationsPage = () => {
 
       if (activeTab === 'pending') {
         if (type === 'NewOrder') return true;
-        if (type === 'OrderUpdate' && ['On Hold', 'Pending'].includes(status)) return true;
+        if (
+          type === 'OrderUpdate' &&
+          ['On Hold', 'Pending', 'Pending Accounts Approval', 'Pending Factory Approval'].includes(
+            status
+          )
+        )
+          return true;
         return false;
       }
       if (activeTab === 'accepted') {
         if (type === 'ProductionComplete') return true;
-        if (type === 'OrderUpdate' && ['Accepted', 'Production Started'].includes(status))
+        if (
+          type === 'OrderUpdate' &&
+          ['Factory Approved', 'Accepted', 'Production Started'].includes(status)
+        )
           return true;
         return false;
       }
@@ -666,10 +684,11 @@ const NotificationsPage = () => {
             <div
               className={cn(
                 'px-4 py-2 rounded-lg flex justify-between items-center text-sm font-medium',
-                selectedOrderDetails.status === 'Accepted'
+                selectedOrderDetails.status === 'Factory Approved' ||
+                  selectedOrderDetails.status === 'Accepted'
                   ? 'bg-green-100 text-green-700'
                   : selectedOrderDetails.status === 'On Hold'
-                    ? 'bg-orange-100 text-orange-700'
+                    ? 'bg-yellow-100 text-yellow-700'
                     : 'bg-blue-100 text-blue-700'
               )}
             >
@@ -965,10 +984,11 @@ const NotificationsPage = () => {
                                 <div
                                   className={cn(
                                     'px-4 py-2 rounded-lg flex justify-between items-center text-sm font-medium w-full',
-                                    order.status === 'Accepted'
+                                    order.status === 'Factory Approved' ||
+                                      order.status === 'Accepted'
                                       ? 'bg-green-100 text-green-700'
                                       : order.status === 'On Hold'
-                                        ? 'bg-orange-100 text-orange-700'
+                                        ? 'bg-yellow-100 text-yellow-700'
                                         : 'bg-blue-100 text-blue-700'
                                   )}
                                 >

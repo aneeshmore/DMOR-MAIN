@@ -1,4 +1,4 @@
-import { eq, desc, sql, and, getTableColumns } from 'drizzle-orm';
+import { eq, desc, sql, and, getTableColumns, aliasedTable } from 'drizzle-orm';
 import db from '../../db/index.js';
 import {
   products,
@@ -6,11 +6,16 @@ import {
   units,
   masterProducts,
   masterProductFG,
+  masterProductRM,
   masterProductPM,
 } from '../../db/schema/index.js';
 
 export class InventoryRepository {
   async findAllProducts(filters = {}) {
+    // PM subtype joined on the product's own master (for HSN), distinct from the
+    // packaging join below which is on products.packagingId (for capacity).
+    const pmMain = aliasedTable(masterProductPM, 'pm_main');
+
     let query = db
       .select({
         ...getTableColumns(products),
@@ -21,11 +26,14 @@ export class InventoryRepository {
         hardenerId: masterProductFG.hardenerId,
         // PM Capacity from packaging
         pmCapacity: masterProductPM.capacity,
+        hsnCode: sql`COALESCE(${masterProductFG.hsnCode}, ${masterProductRM.hsnCode}, ${pmMain.hsnCode})`,
       })
       .from(products)
       .leftJoin(masterProducts, eq(products.masterProductId, masterProducts.masterProductId))
       .leftJoin(units, eq(masterProducts.defaultUnitId, units.unitId))
       .leftJoin(masterProductFG, eq(products.masterProductId, masterProductFG.masterProductId))
+      .leftJoin(masterProductRM, eq(products.masterProductId, masterProductRM.masterProductId))
+      .leftJoin(pmMain, eq(products.masterProductId, pmMain.masterProductId))
       .leftJoin(masterProductPM, eq(products.packagingId, masterProductPM.masterProductId));
 
     const whereConditions = [];

@@ -7,19 +7,26 @@ export const createOrderSchema = z.object({
   priority: z.enum(['Low', 'Normal', 'High', 'Urgent']).optional().default('Normal'),
   status: z
     .enum([
-      'Pending',
-      'On Hold',
-      'Accepted',
+      // New workflow statuses
+      'Pending Accounts Approval',
+      'Pending Factory Approval',
+      'Factory Approved',
       'Scheduled for Production',
       'Ready for Dispatch',
+      'Dispatched',
+      'On Hold',
+      // Legacy statuses (existing orders keep working)
+      'Pending',
+      'Verified',
+      'Accepted',
+      'Scheduled',
       'Confirmed',
       'Started',
-      'Dispatched',
       'Delivered',
       'Cancelled',
     ])
     .optional()
-    .default('Pending'),
+    .default('Pending Accounts Approval'),
   orderDate: z.string().datetime().optional(),
   deliveryAddress: z.string().nullable().optional(),
   remarks: z.string().nullable().optional(),
@@ -41,14 +48,21 @@ export const updateOrderSchema = z.object({
   priority: z.enum(['Low', 'Normal', 'High', 'Urgent']).optional(),
   status: z
     .enum([
-      'Pending',
-      'On Hold',
-      'Accepted',
+      // New workflow statuses
+      'Pending Accounts Approval',
+      'Pending Factory Approval',
+      'Factory Approved',
       'Scheduled for Production',
       'Ready for Dispatch',
+      'Dispatched',
+      'On Hold',
+      // Legacy statuses (existing orders keep working)
+      'Pending',
+      'Verified',
+      'Accepted',
+      'Scheduled',
       'Confirmed',
       'Started',
-      'Dispatched',
       'Delivered',
       'Cancelled',
     ])

@@ -203,7 +203,9 @@ export const InwardTable: React.FC<InwardTableProps> = ({ data, onEdit, onDelete
                             className="px-3 py-2 align-top border-r border-[var(--border)] bg-[var(--surface-secondary)]"
                           >
                             <span className="text-sm text-[var(--text-primary)]">
-                              {bill.productType === 'FG' ? '-' : bill.supplierName}
+                              {bill.supplierName && bill.supplierName !== 'Unknown Supplier'
+                                ? bill.supplierName
+                                : '-'}
                             </span>
                           </td>
                         )}

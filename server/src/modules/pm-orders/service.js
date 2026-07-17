@@ -20,9 +20,9 @@ export class PMOrdersService {
       throw new AppError('Order not found', 404);
     }
 
-    if (existing.orders.status !== 'Accepted') {
+    if (!['Factory Approved', 'Accepted'].includes(existing.orders.status)) {
       throw new AppError(
-        'Order must be in Accepted state to be approved by Production Manager',
+        'Order must be in Factory Approved state to be scheduled by Production Manager',
         400
       );
     }

@@ -25,11 +25,13 @@ export class AdminAccountsRepository {
       .leftJoin(accounts, eq(orders.orderId, accounts.orderId))
       .where(
         or(
-          // Orders with Pending status (not yet accepted)
+          // Orders awaiting accounts approval (new + legacy status names)
+          eq(orders.status, 'Pending Accounts Approval'),
           eq(orders.status, 'Pending'),
           // Orders on hold
           eq(orders.status, 'On Hold'),
-          // Orders verified (payment cleared) but not yet sent to production
+          // Orders approved by accounts but not yet released to factory (new + legacy)
+          eq(orders.status, 'Pending Factory Approval'),
           eq(orders.status, 'Verified')
         )
       )

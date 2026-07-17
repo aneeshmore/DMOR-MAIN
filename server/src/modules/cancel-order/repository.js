@@ -4,12 +4,19 @@ import { orders, products, orderDetails, customers, accounts } from '../../db/sc
 
 // Statuses that can still be cancelled
 const CANCELLABLE_STATUSES = [
-  'Pending',
+  // New workflow statuses
+  'Pending Accounts Approval',
+  'Pending Factory Approval',
+  'Factory Approved',
+  'Scheduled for Production',
+  'Ready for Dispatch',
   'On Hold',
+  // Legacy status names (existing orders)
+  'Pending',
+  'Verified',
   'Accepted',
   'Scheduled',
   'In Production',
-  'Ready for Dispatch',
   'Confirmed',
   'Started',
 ];
@@ -160,7 +167,18 @@ export class CancelOrderRepository {
           })
           .where(eq(products.productId, item.productId));
       }
-    } else if (['Accepted', 'Scheduled', 'In Production', 'Confirmed', 'Started'].includes(order.status)) {
+    } else if (
+      [
+        'Factory Approved',
+        'Scheduled for Production',
+        // Legacy status names (existing orders)
+        'Accepted',
+        'Scheduled',
+        'In Production',
+        'Confirmed',
+        'Started',
+      ].includes(order.status)
+    ) {
       // Stock was reserved but not yet deducted from available
       // Release the reservation
       for (const item of details) {

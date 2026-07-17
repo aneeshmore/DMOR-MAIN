@@ -195,8 +195,14 @@ export class NotificationsService {
     const title = `${customerName} - ${status}`;
 
     let message;
-    if (status === 'Accepted') {
-      message = `${displayId} for ${customerName} has been accepted by accountant.`;
+    if (status === 'Factory Approved' || status === 'Accepted') {
+      message = `${displayId} for ${customerName} has been approved for production.`;
+    } else if (status === 'Pending Factory Approval') {
+      message = `${displayId} for ${customerName} approved by accounts, awaiting factory approval.`;
+    } else if (status === 'Scheduled for Production') {
+      message = `${displayId} for ${customerName} has been scheduled for production.`;
+    } else if (status === 'Ready for Dispatch') {
+      message = `${displayId} for ${customerName} is ready for dispatch.`;
     } else if (status === 'On Hold') {
       message = `${displayId} for ${customerName} has been put on hold by accountant.`;
     } else if (status === 'Rejected') {
@@ -219,7 +225,7 @@ export class NotificationsService {
     }
 
     // 2. Dynamic Rules for other stakeholders
-    if (['Accepted', 'On Hold', 'Rejected'].includes(status)) {
+    if (['Factory Approved', 'Accepted', 'On Hold', 'Rejected'].includes(status)) {
       const recipients = await this.getRecipients('OrderUpdate'); // General subscribers
 
       // We might want to filter contextually (e.g., Accountants only care about X).
@@ -236,7 +242,7 @@ export class NotificationsService {
           title,
           message,
           data: { orderId, orderNumber, status },
-          priority: status === 'Accepted' ? 'normal' : 'high',
+          priority: status === 'Factory Approved' || status === 'Accepted' ? 'normal' : 'high',
           isRead: false,
         });
       }
@@ -262,7 +268,7 @@ export class NotificationsService {
         type: 'NewOrder',
         title,
         message,
-        data: { orderId, orderNumber, customerName, status: 'Pending' },
+        data: { orderId, orderNumber, customerName, status: 'Pending Accounts Approval' },
         priority: 'normal',
         isRead: false,
       });

@@ -339,10 +339,11 @@ export const DashboardNotifications: React.FC<DashboardNotificationsProps> = ({
             <div
               className={cn(
                 'px-4 py-2 rounded-lg flex justify-between items-center text-sm font-medium',
-                selectedOrderDetails.status === 'Accepted'
+                selectedOrderDetails.status === 'Factory Approved' ||
+                  selectedOrderDetails.status === 'Accepted'
                   ? 'bg-green-100 text-green-700'
                   : selectedOrderDetails.status === 'On Hold'
-                    ? 'bg-orange-100 text-orange-700'
+                    ? 'bg-yellow-100 text-yellow-700'
                     : 'bg-blue-100 text-blue-700'
               )}
             >

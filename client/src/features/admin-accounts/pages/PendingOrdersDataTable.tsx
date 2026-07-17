@@ -399,6 +399,11 @@ export function PendingOrdersDataTable({
                   >
                     <Check className="w-3.5 h-3.5" />
                     {row.original.status === 'Verified' ? 'Send to Prod' : 'Accept'}
+                    <Check className="w-3 h-3" />
+                    {row.original.status === 'Verified' ||
+                    row.original.status === 'Pending Factory Approval'
+                      ? 'Send to Prod'
+                      : 'Accept'}
                   </button>
 
                   <button

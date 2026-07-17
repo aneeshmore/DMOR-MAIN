@@ -81,12 +81,16 @@ export class AdminAccountsService {
       paymentDate: new Date(),
     };
 
-    // Determine Status Flow: Pending -> Verified -> Accepted
-    // If currently Verified, move to Accepted (Ready for Production)
-    // If currently Pending (or other), move to Verified (Payment Cleared but manual release to PM)
-    let newStatus = 'Verified';
-    if (existing.orders.status === 'Verified') {
-      newStatus = 'Accepted';
+    // Determine Status Flow: Pending Accounts Approval -> Pending Factory Approval -> Factory Approved
+    // If currently awaiting factory approval, move to Factory Approved (Ready for Production)
+    // Otherwise (awaiting accounts approval), move to Pending Factory Approval
+    // Legacy names ('Verified', 'Pending') are accepted so existing orders keep flowing.
+    let newStatus = 'Pending Factory Approval';
+    if (
+      existing.orders.status === 'Verified' ||
+      existing.orders.status === 'Pending Factory Approval'
+    ) {
+      newStatus = 'Factory Approved';
     }
 
     // Update the order status
@@ -97,8 +101,8 @@ export class AdminAccountsService {
     await this.repository.updateAccount(orderId, accountData);
     await this.repository.updateOrder(orderId, orderData);
 
-    // Only perform Production checks/notifications if fully Accepted
-    if (newStatus === 'Accepted') {
+    // Only perform Production checks/notifications if fully Factory Approved
+    if (newStatus === 'Factory Approved') {
       // Check for material shortages after payment clearance
       await this.checkMaterialRequirements(orderId);
 
@@ -114,7 +118,7 @@ export class AdminAccountsService {
         await this.notificationsService.createOrderStatusNotification(
           orderId,
           customerName,
-          'Accepted',
+          'Factory Approved',
           recipientId,
           order?.orderNumber
         );
@@ -159,11 +163,14 @@ export class AdminAccountsService {
       paymentDate: new Date(),
     };
 
-    // Determine Status Flow: Pending -> Verified -> Accepted (Legacy compatibility)
-    // If currently Verified, move to Accepted
-    let newStatus = 'Verified';
-    if (existing.orders.status === 'Verified') {
-      newStatus = 'Accepted';
+    // Determine Status Flow: Pending Accounts Approval -> Pending Factory Approval -> Factory Approved
+    // Legacy names ('Verified', 'Pending') are accepted so existing orders keep flowing.
+    let newStatus = 'Pending Factory Approval';
+    if (
+      existing.orders.status === 'Verified' ||
+      existing.orders.status === 'Pending Factory Approval'
+    ) {
+      newStatus = 'Factory Approved';
     }
 
     // Update the order status
@@ -174,8 +181,8 @@ export class AdminAccountsService {
     await this.repository.updateAccount(orderId, accountData);
     await this.repository.updateOrder(orderId, orderData);
 
-    // Only perform Production checks/notifications if fully Accepted
-    if (newStatus === 'Accepted') {
+    // Only perform Production checks/notifications if fully Factory Approved
+    if (newStatus === 'Factory Approved') {
       // Check for material shortages after payment clearance
       await this.checkMaterialRequirements(orderId);
     }
@@ -197,7 +204,7 @@ export class AdminAccountsService {
     }
 
     const currentStatus = existing.orders.status;
-    const newStatus = currentStatus === 'On Hold' ? 'Pending' : 'On Hold';
+    const newStatus = currentStatus === 'On Hold' ? 'Pending Accounts Approval' : 'On Hold';
 
     const orderData = {
       status: newStatus,
@@ -338,7 +345,7 @@ export class AdminAccountsService {
     }
 
     const orderData = {
-      status: 'Pending',
+      status: 'Pending Accounts Approval',
     };
 
     await this.repository.updateOrder(orderId, orderData);

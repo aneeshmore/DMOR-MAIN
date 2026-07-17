@@ -16,10 +16,14 @@ async function ensureProductColumns() {
   try {
     await db.execute(sql`
       ALTER TABLE app.master_products
-        ADD COLUMN IF NOT EXISTS gst VARCHAR(50)
+        ADD COLUMN IF NOT EXISTS gst VARCHAR(50);
+      ALTER TABLE app.master_product_fg ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(255);
+      ALTER TABLE app.master_product_rm ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(255);
+      ALTER TABLE app.master_product_pm ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(255);
     `);
     _columnsReady = true;
   } catch (err) {
+    console.error('Error ensuring product columns:', err);
     _columnsReady = true;
   }
 }

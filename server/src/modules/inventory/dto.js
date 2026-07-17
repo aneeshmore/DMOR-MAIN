@@ -33,6 +33,9 @@ export class ProductDTO {
     this.Subcategory = data.subcategory || product.subcategory || null;
     this.HardenerId = data.hardenerId || product.hardenerId || product.hardener_id || null;
     this.CapacityLtr = data.pmCapacity || product.pmCapacity || product.capacity || null;
+
+    // HSN Code (from master product subtype: FG / RM / PM)
+    this.hsnCode = data.hsnCode || product.hsnCode || product.hsn_code || '';
   }
 }
 

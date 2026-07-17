@@ -599,11 +599,15 @@ export class ProductionManagerService {
     }
 
     const allowedStatuses = [
+      'Factory Approved',
+      'Pending Accounts Approval',
+      'Pending Factory Approval',
+      'Scheduled for Production',
+      'Ready for Dispatch',
+      // Legacy status names (existing orders)
       'Accepted',
       'Pending',
       'Verified',
-      'Scheduled for Production',
-      'Ready for Dispatch',
     ];
     if (!allowedStatuses.includes(existing.order.status)) {
       throw new AppError(
@@ -795,9 +799,9 @@ export class ProductionManagerService {
     // Cancel batch
     await this.repo.cancelBatch(batchId, performedBy, reason);
 
-    // Revert orders to Accepted status
+    // Revert orders to Factory Approved status
     const orderIds = batch.orders.map(o => o.batchProduct.orderId);
-    await this.repo.updateMultipleOrdersStatus(orderIds, 'Accepted', {
+    await this.repo.updateMultipleOrdersStatus(orderIds, 'Factory Approved', {
       productionBatchId: null,
       pmRemarks: `Previous batch cancelled: ${reason}`,
     });
