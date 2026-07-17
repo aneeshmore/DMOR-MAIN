@@ -4,6 +4,7 @@ import { productionManagerApi, MaterialRequirement } from '../api/productionMana
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { showToast } from '@/utils/toast';
+import { formatQty } from '@/utils/formatters';
 
 interface MasterProductSummary {
   masterProductId: number;
@@ -222,7 +223,7 @@ export function BatchScheduleModal({
                         <div className="text-right">
                           <div className="text-xs text-[var(--text-secondary)]">Total Weight</div>
                           <div className="text-lg font-bold text-[var(--primary)]">
-                            {mp.totalWeight.toFixed(2)} kg
+                            {formatQty(mp.totalWeight)} kg
                           </div>
                         </div>
                       </div>
@@ -238,7 +239,7 @@ export function BatchScheduleModal({
                             <div className="flex items-center gap-4 text-[var(--text-secondary)]">
                               <span>Qty: {product.quantity}</span>
                               <span className="font-medium text-[var(--text-primary)]">
-                                {product.weight.toFixed(2)} kg
+                                {formatQty(product.weight)} kg
                               </span>
                             </div>
                           </div>
@@ -288,7 +289,7 @@ export function BatchScheduleModal({
                             <div>
                               <span className="text-[var(--text-secondary)]">Required: </span>
                               <span className="font-medium text-[var(--text-primary)]">
-                                {material.requiredQuantity.toFixed(2)} kg
+                                {formatQty(material.requiredQuantity)} kg
                               </span>
                             </div>
                             <div>
@@ -298,12 +299,12 @@ export function BatchScheduleModal({
                                   isAvailable ? 'text-[var(--success)]' : 'text-[var(--danger)]'
                                 }`}
                               >
-                                {material.availableQuantity.toFixed(2)} kg
+                                {formatQty(material.availableQuantity)} kg
                               </span>
                             </div>
                             {!isAvailable && (
                               <div className="text-[var(--danger)] font-medium">
-                                Shortage: {shortage.toFixed(2)} kg
+                                Shortage: {formatQty(shortage)} kg
                               </div>
                             )}
                           </div>

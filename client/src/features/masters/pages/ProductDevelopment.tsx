@@ -9,6 +9,7 @@ import { productDevelopmentApi } from '@/features/masters/api/productDevelopment
 import { productApi } from '@/features/master-products/api/productApi';
 import logger from '@/utils/logger';
 import { showToast } from '@/utils/toast';
+import { getGlossInfo, getPerformanceInfo } from '../utils/glossInfo';
 import { handleApiError } from '@/utils/errorHandler';
 import {
   DndContext,
@@ -1193,51 +1194,98 @@ const ProductDevelopment = () => {
           />
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex flex-wrap gap-6 text-sm font-medium text-[var(--text-secondary)] pt-4 border-t border-[var(--border)]">
-          <div>
-            SVR:{' '}
-            <span className="text-[var(--text-primary)]">
-              {addedItems.length > 0 ? `${calculateSolidVolumeRatio().toFixed(3)}%` : '--'}
-            </span>
-          </div>
-          <div>
-            PVC:{' '}
-            <span className="text-[var(--text-primary)]">
-              {addedItems.length > 0 ? `${calculatePVC().toFixed(3)}%` : '--'}
-            </span>
-          </div>
-          <div>
-            CPVC:{' '}
-            <span className="text-[var(--text-primary)]">
-              {addedItems.length > 0 ? `${calculateCPVC().toFixed(3)}%` : '--'}
-            </span>
-          </div>
-          <div>
-            Total Volume:{' '}
-            <span className="text-[var(--text-primary)]">
-              {addedItems.length > 0 ? calculateTotalVolume().toFixed(4) : '--'}
-            </span>
-          </div>
-          <div>
-            Total Solid:{' '}
-            <span className="text-[var(--text-primary)]">
-              {addedItems.length > 0 ? calculateTotalSolid().toFixed(3) : '--'}
-            </span>
-          </div>
-          <div>
-            Σ sv:{' '}
-            <span className="text-[var(--text-primary)]">
-              {addedItems.length > 0 ? calculateSolidVolume().toFixed(4) : '--'}
-            </span>
-          </div>
-          <div>
-            Theoretical Density:{' '}
-            <span className="text-[var(--text-primary)]">
-              {theoreticalDensity ? theoreticalDensity.toFixed(3) : '--'}
-            </span>
+        {/* Mixture Totals - same card styling as the 2K page */}
+        <div className="bg-gradient-to-r from-[var(--primary-bg)] to-[var(--surface-highlight)] border border-[var(--primary)] rounded-lg p-4 mt-6">
+          <h4 className="text-sm font-semibold uppercase text-[var(--primary)] mb-3">
+            Mixture Totals
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+            <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+              <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">SVR</div>
+              <div className="text-lg font-bold text-[var(--text-primary)]">
+                {addedItems.length > 0 ? `${calculateSolidVolumeRatio().toFixed(3)}%` : '--'}
+              </div>
+            </div>
+            <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+              <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">PVC</div>
+              <div className="text-lg font-bold text-[var(--text-primary)]">
+                {addedItems.length > 0 ? `${calculatePVC().toFixed(3)}%` : '--'}
+              </div>
+            </div>
+            <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+              <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">CPVC</div>
+              <div className="text-lg font-bold text-[var(--text-primary)]">
+                {addedItems.length > 0 ? `${calculateCPVC().toFixed(3)}%` : '--'}
+              </div>
+            </div>
+            <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+              <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                Total Volume
+              </div>
+              <div className="text-lg font-bold text-[var(--text-primary)]">
+                {addedItems.length > 0 ? calculateTotalVolume().toFixed(4) : '--'}
+              </div>
+            </div>
+            <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+              <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                Total Solid
+              </div>
+              <div className="text-lg font-bold text-[var(--text-primary)]">
+                {addedItems.length > 0 ? calculateTotalSolid().toFixed(3) : '--'}
+              </div>
+            </div>
+            <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+              <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">Σ SV</div>
+              <div className="text-lg font-bold text-[var(--text-primary)]">
+                {addedItems.length > 0 ? calculateSolidVolume().toFixed(4) : '--'}
+              </div>
+            </div>
+            <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+              <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                Theoretical Density
+              </div>
+              <div className="text-lg font-bold text-[var(--text-primary)]">
+                {theoreticalDensity ? theoreticalDensity.toFixed(3) : '--'}
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Gloss Information (derived from PVC / CPVC of the formulation) */}
+        {addedItems.length > 0 &&
+          (() => {
+            const gloss = getGlossInfo(calculatePVC());
+            const perf = getPerformanceInfo(calculatePVC(), calculateCPVC());
+            return (
+              <div className="bg-gradient-to-r from-[var(--primary-bg)] to-[var(--surface-highlight)] border border-[var(--primary)] rounded-lg p-4 mt-6">
+                <h4 className="text-sm font-semibold uppercase text-[var(--primary)] mb-3">
+                  Gloss Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+                    <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                      Gloss Type
+                    </div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">{gloss.type}</div>
+                  </div>
+                  <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+                    <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                      Typical Gloss Feel
+                    </div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">{gloss.feel}</div>
+                  </div>
+                  <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
+                    <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">
+                      Expected Performance
+                    </div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">
+                      {perf.performance}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         <div className="fixed bottom-0 right-0 p-6 z-50">
           <div className="flex gap-3">
             <Button

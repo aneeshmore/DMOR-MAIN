@@ -247,7 +247,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
 
           for (const rm of rms) {
             const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
-            const isReduced = !rm.isAdditional && (parseNumber(rm.actualQty) < plannedQty - 0.001);
+            const isReduced = !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
             const computedPercentage = (parseNumber(rm.actualQty) / plannedQtyTotal) * 100;
 
             const processedObj = {
@@ -267,10 +267,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
           const regular = allMaterials.filter(rm => !rm.isAdditional);
           const additional = allMaterials.filter(rm => rm.isAdditional);
 
-          const totalPercentage = allMaterials.reduce(
-            (s, rm) => s + rm.computedPercentage,
-            0
-          );
+          const totalPercentage = allMaterials.reduce((s, rm) => s + rm.computedPercentage, 0);
           const totalActual = allMaterials.reduce(
             (s, rm) => s + parseNumber(rm.actualQty || rm.percentage || '0'),
             0
@@ -303,20 +300,36 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                     const isUnderlinedOrBold = rm.isReduced;
                     return (
                       <tr key={`reg-${idx}`}>
-                        <td className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}>{idx + 1}</td>
-                        <td className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
+                          {idx + 1}
+                        </td>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {isUnderlinedOrBold ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {formatNumberForPreview(rm.computedPercentage)}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
-                          {formatNumberForPreview(rm.actualQty || rm.percentage)}
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
+                          {parseNumber(rm.actualQty ?? rm.percentage ?? '0') === 0
+                            ? '0.00*'
+                            : formatNumberForPreview(rm.actualQty || rm.percentage)}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {formatNumberForPreview(rm.unitPrice)}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {formatNumberForPreview(
                             parseNumber(rm.actualQty ?? rm.percentage ?? '0') *
                               (rm.unitPrice !== null && rm.unitPrice !== undefined
@@ -330,25 +343,42 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                   {/* Additional Materials */}
                   {additional.map((rm, idx) => {
                     const isUnderlinedOrBold = anyExceeds100;
-                    const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumberForPreview(rm.computedPercentage);
+                    const pctVal =
+                      rm.computedPercentage <= 0.0001
+                        ? '-'
+                        : formatNumberForPreview(rm.computedPercentage);
                     return (
                       <tr key={`add-${idx}`}>
-                        <td className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {regular.length + idx + 1}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {isUnderlinedOrBold ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {pctVal}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
-                          {formatNumberForPreview(rm.actualQty || rm.percentage)}
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
+                          {parseNumber(rm.actualQty ?? rm.percentage ?? '0') === 0
+                            ? '0.00*'
+                            : formatNumberForPreview(rm.actualQty || rm.percentage)}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {formatNumberForPreview(rm.unitPrice)}
                         </td>
-                        <td className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}>
+                        <td
+                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                        >
                           {formatNumberForPreview(
                             parseNumber(rm.actualQty ?? rm.percentage ?? '0') *
                               (rm.unitPrice !== null && rm.unitPrice !== undefined
@@ -380,7 +410,8 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
               </table>
               {anyExceeds100 && (
                 <div className="text-[10px] text-red-500 font-semibold mt-2">
-                  * Underlined raw materials were added or reduced separately during batch production.
+                  * Underlined raw materials were added or reduced separately during batch
+                  production.
                 </div>
               )}
             </div>
@@ -1647,106 +1678,132 @@ const BatchProductionReport = () => {
               <div className="ml-4 border-l-2 border-[var(--color-warning)] pl-4">
                 <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
                   Raw Materials (BOM)
-                </h4>                {row.original.rawMaterials && row.original.rawMaterials.length > 0 ? (() => {
-                  const rawMaterialsList = (row.original.rawMaterials || []).filter(rm => rm.productType !== 'PM');
-                  const plannedQtyTotal = parseNumber(row.original.plannedQuantity) || 1;
+                </h4>{' '}
+                {row.original.rawMaterials && row.original.rawMaterials.length > 0 ? (
+                  (() => {
+                    const rawMaterialsList = (row.original.rawMaterials || []).filter(
+                      rm => rm.productType !== 'PM'
+                    );
+                    const plannedQtyTotal = parseNumber(row.original.plannedQuantity) || 1;
 
-                  const processedRegular = [];
-                  const processedAdditional = [];
+                    const processedRegular = [];
+                    const processedAdditional = [];
 
-                  for (const rm of rawMaterialsList) {
-                    const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
-                    const isReduced = !rm.isAdditional && (parseNumber(rm.actualQty) < plannedQty - 0.001);
-                    const computedPercentage = (parseNumber(rm.actualQty) / plannedQtyTotal) * 100;
+                    for (const rm of rawMaterialsList) {
+                      const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
+                      const isReduced =
+                        !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
+                      const computedPercentage =
+                        (parseNumber(rm.actualQty) / plannedQtyTotal) * 100;
 
-                    const processedObj = {
-                      ...rm,
-                      isReduced,
-                      computedPercentage,
-                    };
+                      const processedObj = {
+                        ...rm,
+                        isReduced,
+                        computedPercentage,
+                      };
 
-                    if (rm.isAdditional) {
-                      processedAdditional.push(processedObj);
-                    } else {
-                      processedRegular.push(processedObj);
+                      if (rm.isAdditional) {
+                        processedAdditional.push(processedObj);
+                      } else {
+                        processedRegular.push(processedObj);
+                      }
                     }
-                  }
 
-                  const all = [...processedRegular, ...processedAdditional];
-                  const regular = all.filter(rm => !rm.isAdditional);
-                  const additional = all.filter(rm => rm.isAdditional);
+                    const all = [...processedRegular, ...processedAdditional];
+                    const regular = all.filter(rm => !rm.isAdditional);
+                    const additional = all.filter(rm => rm.isAdditional);
 
-                  const totalPercentage = all.reduce((sum, rm) => sum + rm.computedPercentage, 0);
-                  const totalActual = all.reduce((sum, rm) => sum + parseNumber(rm.actualQty || rm.percentage || '0'), 0);
-                  const anyExceeds100 = all.some(rm => rm.isAdditional || rm.isReduced);
+                    const totalPercentage = all.reduce((sum, rm) => sum + rm.computedPercentage, 0);
+                    const totalActual = all.reduce(
+                      (sum, rm) => sum + parseNumber(rm.actualQty || rm.percentage || '0'),
+                      0
+                    );
+                    const anyExceeds100 = all.some(rm => rm.isAdditional || rm.isReduced);
 
-                  return (
-                    <>
-                      <table className="w-full text-sm text-left bg-[var(--surface)] rounded-lg border border-[var(--border)]">
-                        <thead className="bg-[var(--color-neutral-100)] text-[var(--text-secondary)]">
-                          <tr>
-                            <th className="px-4 py-2">Material Name</th>
-                            <th className="px-4 py-2 text-right">Percentage (%)</th>
-                            <th className="px-4 py-2 text-right">Actual Weight</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border)]">
-                          {/* Regular materials */}
-                          {regular.map((rm, index) => {
-                            const isUnderline = rm.isReduced;
-                            return (
-                              <tr key={`${rm.rawMaterialId}-${index}`}>
-                                <td className={`px-4 py-2 text-[var(--text-primary)] ${isUnderline ? 'font-bold' : 'font-normal'}`}>
-                                  {isUnderline ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
-                                </td>
-                                <td className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}>
-                                  {formatNumber(rm.computedPercentage)}
-                                </td>
-                                <td className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}>
-                                  {formatNumber(rm.actualQty || rm.percentage)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          {/* Additional materials */}
-                          {additional.map((rm, index) => {
-                            const isUnderline = anyExceeds100;
-                            const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumber(rm.computedPercentage);
-                            return (
-                              <tr key={`extra-${rm.rawMaterialId}-${index}`}>
-                                <td className={`px-4 py-2 text-[var(--text-primary)] ${isUnderline ? 'font-bold' : 'font-normal'}`}>
-                                  {isUnderline ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
-                                </td>
-                                <td className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}>
-                                  {pctVal}
-                                </td>
-                                <td className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}>
-                                  {formatNumber(rm.actualQty || rm.percentage)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                        <tfoot className="bg-[var(--color-neutral-100)] font-semibold">
-                          <tr>
-                            <td className="px-4 py-2 text-[var(--text-primary)]">Total</td>
-                            <td className="px-4 py-2 text-right text-[var(--text-primary)]">
-                              {formatNumber(totalPercentage)}
-                            </td>
-                            <td className="px-4 py-2 text-right text-[var(--text-primary)]">
-                              {formatNumber(totalActual)}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                      {anyExceeds100 && (
-                        <div className="text-[10px] text-red-500 font-semibold mt-2 pl-2">
-                          * Underlined raw materials were added or reduced separately during batch production.
-                        </div>
-                      )}
-                    </>
-                  );
-                })() : (
+                    return (
+                      <>
+                        <table className="w-full text-sm text-left bg-[var(--surface)] rounded-lg border border-[var(--border)]">
+                          <thead className="bg-[var(--color-neutral-100)] text-[var(--text-secondary)]">
+                            <tr>
+                              <th className="px-4 py-2">Material Name</th>
+                              <th className="px-4 py-2 text-right">Percentage (%)</th>
+                              <th className="px-4 py-2 text-right">Actual Weight</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border)]">
+                            {/* Regular materials */}
+                            {regular.map((rm, index) => {
+                              const isUnderline = rm.isReduced;
+                              return (
+                                <tr key={`${rm.rawMaterialId}-${index}`}>
+                                  <td
+                                    className={`px-4 py-2 text-[var(--text-primary)] ${isUnderline ? 'font-bold' : 'font-normal'}`}
+                                  >
+                                    {isUnderline ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
+                                  </td>
+                                  <td
+                                    className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}
+                                  >
+                                    {formatNumber(rm.computedPercentage)}
+                                  </td>
+                                  <td
+                                    className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}
+                                  >
+                                    {formatNumber(rm.actualQty || rm.percentage)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {/* Additional materials */}
+                            {additional.map((rm, index) => {
+                              const isUnderline = anyExceeds100;
+                              const pctVal =
+                                rm.computedPercentage <= 0.0001
+                                  ? '-'
+                                  : formatNumber(rm.computedPercentage);
+                              return (
+                                <tr key={`extra-${rm.rawMaterialId}-${index}`}>
+                                  <td
+                                    className={`px-4 py-2 text-[var(--text-primary)] ${isUnderline ? 'font-bold' : 'font-normal'}`}
+                                  >
+                                    {isUnderline ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
+                                  </td>
+                                  <td
+                                    className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}
+                                  >
+                                    {pctVal}
+                                  </td>
+                                  <td
+                                    className={`px-4 py-2 text-right text-[var(--text-secondary)] ${isUnderline ? 'font-bold' : ''}`}
+                                  >
+                                    {formatNumber(rm.actualQty || rm.percentage)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot className="bg-[var(--color-neutral-100)] font-semibold">
+                            <tr>
+                              <td className="px-4 py-2 text-[var(--text-primary)]">Total</td>
+                              <td className="px-4 py-2 text-right text-[var(--text-primary)]">
+                                {formatNumber(totalPercentage)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-[var(--text-primary)]">
+                                {formatNumber(totalActual)}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                        {anyExceeds100 && (
+                          <div className="text-[10px] text-red-500 font-semibold mt-2 pl-2">
+                            * Underlined raw materials were added or reduced separately during batch
+                            production.
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()
+                ) : (
                   <p className="text-sm text-[var(--text-secondary)] italic">
                     No raw materials found for this product.
                   </p>
