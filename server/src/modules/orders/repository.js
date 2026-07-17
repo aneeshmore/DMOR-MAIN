@@ -7,6 +7,10 @@ import {
   products,
   accounts,
   employees,
+  masterProducts,
+  masterProductFG,
+  masterProductRM,
+  masterProductPM,
 } from '../../db/schema/index.js';
 import logger from '../../config/logger.js';
 // Data access layer for orders
@@ -170,11 +174,33 @@ export class OrdersRepository {
   }
 
   async getOrderDetails(orderId) {
-    return await db
-      .select()
+    const results = await db
+      .select({
+        order_details: orderDetails,
+        products,
+        hsnCode: sql`COALESCE(${masterProductFG.hsnCode}, ${masterProductRM.hsnCode}, ${masterProductPM.hsnCode})`,
+      })
       .from(orderDetails)
       .leftJoin(products, eq(orderDetails.productId, products.productId))
+      .leftJoin(masterProducts, eq(products.masterProductId, masterProducts.masterProductId))
+      .leftJoin(
+        masterProductFG,
+        eq(masterProducts.masterProductId, masterProductFG.masterProductId)
+      )
+      .leftJoin(
+        masterProductRM,
+        eq(masterProducts.masterProductId, masterProductRM.masterProductId)
+      )
+      .leftJoin(
+        masterProductPM,
+        eq(masterProducts.masterProductId, masterProductPM.masterProductId)
+      )
       .where(eq(orderDetails.orderId, orderId));
+
+    return results.map(row => ({
+      ...row,
+      hsnCode: row.hsnCode,
+    }));
   }
 
   async create(orderData) {

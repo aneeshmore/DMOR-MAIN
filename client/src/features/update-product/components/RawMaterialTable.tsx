@@ -39,6 +39,18 @@ const RawMaterialTable = () => {
   };
 
   const handleSaveAll = () => {
+    // Validate HSN codes before saving (blank allowed for legacy products)
+    const invalidHsn = Object.values(edits).some(
+      (changes: any) =>
+        changes.hsnCode !== undefined &&
+        changes.hsnCode !== '' &&
+        !/^(\d{4}|\d{6}|\d{8})$/.test(changes.hsnCode)
+    );
+    if (invalidHsn) {
+      showToast.error('HSN Code must be a 4, 6, or 8 digit number');
+      return;
+    }
+
     const summary: any[] = [];
     Object.entries(edits).forEach(([idStr, changes]) => {
       const id = Number(idStr);
@@ -93,6 +105,13 @@ const RawMaterialTable = () => {
           field: 'minStockLevel',
           oldValue: product.minStockLevel,
           newValue: changes.minStockLevel,
+        });
+      }
+      if (changes.hsnCode !== undefined && changes.hsnCode !== product.hsnCode) {
+        changeRecord.changes.push({
+          field: 'hsnCode',
+          oldValue: product.hsnCode || 'N/A',
+          newValue: changes.hsnCode || 'N/A',
         });
       }
 
@@ -196,11 +215,12 @@ const RawMaterialTable = () => {
           <thead className="bg-[var(--surface-hover)] text-[var(--text-secondary)] border-b border-[var(--border)]">
             <tr>
               <th className="px-4 py-3 font-medium">Raw Material Name</th>
-              <th className="px-4 py-3 font-medium">Purchase Cost</th>
+              <th className="px-4 py-3 font-medium">HSN Code</th>
               <th className="px-4 py-3 font-medium">GST (%)</th>
+              <th className="px-4 py-3 font-medium">Purchase Cost</th>
+              <th className="px-4 py-3 font-medium">Min Stock</th>
               <th className="px-4 py-3 font-medium">Density</th>
               <th className="px-4 py-3 font-medium">Solids %</th>
-              <th className="px-4 py-3 font-medium">Min Stock</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
@@ -209,6 +229,7 @@ const RawMaterialTable = () => {
               const currentCost =
                 edits[product.masterProductId]?.purchaseCost ?? product.purchaseCost;
               const currentGst = edits[product.masterProductId]?.gst ?? product.gst ?? '';
+              const currentHsnCode = edits[product.masterProductId]?.hsnCode ?? product.hsnCode ?? '';
               const currentDensity = edits[product.masterProductId]?.density ?? product.density;
               const currentSolids = edits[product.masterProductId]?.solids ?? product.solids;
               const currentMinStock =
@@ -251,21 +272,24 @@ const RawMaterialTable = () => {
                   </td>
                   <td className="px-4 py-3">
                     <input
-                      type="number"
+                      type="text"
                       data-column="2"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
-                      value={currentCost}
-                      onChange={e =>
-                        handleInputChange(product.masterProductId, 'purchaseCost', e.target.value)
-                      }
+                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentHsnCode}
+                      onChange={e => {
+                        if (/^\d{0,8}$/.test(e.target.value)) {
+                          handleInputChange(product.masterProductId, 'hsnCode', e.target.value);
+                        }
+                      }}
                       onKeyDown={handleEnterKeyNavigation}
+                      placeholder="HSN Code"
                     />
                   </td>
                   <td className="px-4 py-3">
                     <input
                       type="number"
                       data-column="3"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      className="w-16 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentGst}
                       onChange={e =>
                         handleInputChange(product.masterProductId, 'gst', e.target.value)
@@ -277,7 +301,31 @@ const RawMaterialTable = () => {
                     <input
                       type="number"
                       data-column="4"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentCost}
+                      onChange={e =>
+                        handleInputChange(product.masterProductId, 'purchaseCost', e.target.value)
+                      }
+                      onKeyDown={handleEnterKeyNavigation}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      data-column="5"
+                      className="w-20 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentMinStock}
+                      onChange={e =>
+                        handleInputChange(product.masterProductId, 'minStockLevel', e.target.value)
+                      }
+                      onKeyDown={handleEnterKeyNavigation}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      data-column="6"
+                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentDensity}
                       onChange={e =>
                         handleInputChange(product.masterProductId, 'density', e.target.value)
@@ -288,23 +336,11 @@ const RawMaterialTable = () => {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      data-column="5"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      data-column="7"
+                      className="w-20 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentSolids}
                       onChange={e =>
                         handleInputChange(product.masterProductId, 'solids', e.target.value)
-                      }
-                      onKeyDown={handleEnterKeyNavigation}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      data-column="6"
-                      className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
-                      value={currentMinStock}
-                      onChange={e =>
-                        handleInputChange(product.masterProductId, 'minStockLevel', e.target.value)
                       }
                       onKeyDown={handleEnterKeyNavigation}
                     />
@@ -314,7 +350,7 @@ const RawMaterialTable = () => {
             })}
             {paginatedProducts.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                <td colSpan={7} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                   No raw materials found matching your search.
                 </td>
               </tr>

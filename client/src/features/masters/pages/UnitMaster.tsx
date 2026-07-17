@@ -138,6 +138,9 @@ export default function UnitMaster() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isAddConfirmModalOpen, setIsAddConfirmModalOpen] = useState(false);
   const [pendingItem, setPendingItem] = useState<Unit | null>(null);
+  const [formResetKey, setFormResetKey] = useState(0);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [unitToDelete, setUnitToDelete] = useState<number | null>(null);
 
   // Default units that should always be present
   const DEFAULT_UNITS = [
@@ -199,6 +202,7 @@ export default function UnitMaster() {
         showToast.success('Unit created successfully');
         setPendingItem(null);
         setIsAddConfirmModalOpen(false);
+        setFormResetKey(prev => prev + 1);
       } else if (!response.success) {
         logger.error('Create failed:', response.error);
       }
@@ -251,19 +255,25 @@ export default function UnitMaster() {
     setEditingUnit(null);
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this unit? This action cannot be undone.'
-    );
-    if (!confirmed) return;
+  const handleDelete = (id: number) => {
+    setUnitToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
 
+  const confirmDelete = async () => {
+    if (unitToDelete === null) return;
     try {
-      logger.info('Deleting unit:', { id });
-      await unitApi.delete(id);
-      setUnits(prev => prev.filter(u => u.UnitID !== id));
+      setIsAdding(true);
+      logger.info('Deleting unit:', { id: unitToDelete });
+      await unitApi.delete(unitToDelete);
+      setUnits(prev => prev.filter(u => u.UnitID !== unitToDelete));
       showToast.success('Unit deleted successfully');
+      setIsDeleteModalOpen(false);
+      setUnitToDelete(null);
     } catch (error) {
       logger.error('Failed to delete unit:', error);
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -287,7 +297,7 @@ export default function UnitMaster() {
 
         // Hide actions for default units
         if (DEFAULT_UNIT_NAMES.includes(unit.UnitName.toUpperCase())) {
-          return null;
+          return <span className="text-sm italic text-[var(--text-secondary)]">Default</span>;
         }
 
         return (
@@ -338,6 +348,7 @@ export default function UnitMaster() {
                 {editingUnit ? 'Edit Unit' : 'Add New Unit'}
               </h2>
               <UnitForm
+                key={formResetKey}
                 item={editingUnit}
                 existingUnits={units}
                 onSave={
@@ -428,6 +439,41 @@ export default function UnitMaster() {
                 </>
               ) : (
                 'Confirm'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Confirmation Modal for Delete */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Confirm Delete"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Are you sure you want to delete this unit? This action cannot be undone.
+          </p>
+
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--border)]">
+            <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="primary" 
+              onClick={confirmDelete} 
+              disabled={isAdding}
+              className="!bg-red-500 hover:!bg-red-600 !border-red-500 text-white"
+            >
+              {isAdding ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
               )}
             </Button>
           </div>

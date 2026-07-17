@@ -16,7 +16,7 @@ export class DashboardController {
 
   getOrderPaymentStatus = async (req, res, next) => {
     try {
-      const status = req.query.status || 'Pending';
+      const status = req.query.status || 'Pending Accounts Approval';
       const data = await this.service.getOrderPaymentStatus(status);
       res.json({ success: true, data });
     } catch (error) {

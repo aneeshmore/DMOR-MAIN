@@ -193,14 +193,23 @@ const CreateOrderPage: React.FC = () => {
           case 'In Production':
             className = 'bg-purple-100 text-purple-800 border-purple-200';
             break;
+          case 'Factory Approved':
           case 'Confirmed':
           case 'Accepted':
             className = 'bg-teal-100 text-teal-800 border-teal-200';
+            break;
+          case 'Pending Factory Approval':
+          case 'Verified':
+            className = 'bg-amber-100 text-amber-800 border-amber-200';
+            break;
+          case 'On Hold':
+            className = 'bg-yellow-100 text-yellow-800 border-yellow-200';
             break;
           case 'Cancelled':
           case 'Rejected':
             variant = 'destructive';
             break;
+          case 'Pending Accounts Approval':
           case 'Pending':
             className = 'bg-orange-100 text-orange-800 border-orange-200';
             break;
@@ -241,7 +250,10 @@ const CreateOrderPage: React.FC = () => {
               <Eye size={14} className="mr-1.5" />
               View
             </Button>
-            {(order.status === 'Accepted' ||
+            {(order.status === 'Factory Approved' ||
+              order.status === 'Pending Factory Approval' ||
+              order.status === 'Scheduled for Production' ||
+              order.status === 'Accepted' ||
               order.status === 'Confirmed' ||
               order.status === 'Delivered' ||
               order.status === 'Dispatched' ||
@@ -258,7 +270,9 @@ const CreateOrderPage: React.FC = () => {
                 Invoice
               </Button>
             )}
-            {(order.status === 'Pending' || order.status === 'Rejected') && (
+            {(order.status === 'Pending Accounts Approval' ||
+              order.status === 'Pending' ||
+              order.status === 'Rejected') && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -373,7 +387,7 @@ const CreateOrderPage: React.FC = () => {
           // Note: In CreateOrderForm, productNames are fetched. Here we might need to rely on what's available or fetch product names.
           // However, fullOrder.orderDetails usually contains basic info.
           // Let's try to use what we have.
-          hsn: '',
+          hsn: item.hsnCode || '',
           dueOn: '',
           quantity: item.quantity,
           rate: Number(item.unitPrice),
@@ -514,12 +528,19 @@ const CreateOrderPage: React.FC = () => {
                             : selectedOrder.status === 'In Production' ||
                                 selectedOrder.status === 'Scheduled for Production'
                               ? 'bg-purple-100 text-purple-800 border-purple-200'
-                              : selectedOrder.status === 'Confirmed' ||
+                              : selectedOrder.status === 'Factory Approved' ||
+                                  selectedOrder.status === 'Confirmed' ||
                                   selectedOrder.status === 'Accepted'
                                 ? 'bg-teal-100 text-teal-800 border-teal-200'
-                                : selectedOrder.status === 'Pending'
-                                  ? 'bg-orange-100 text-orange-800 border-orange-200'
-                                  : ''
+                                : selectedOrder.status === 'Pending Factory Approval' ||
+                                    selectedOrder.status === 'Verified'
+                                  ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                  : selectedOrder.status === 'On Hold'
+                                    ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                    : selectedOrder.status === 'Pending Accounts Approval' ||
+                                        selectedOrder.status === 'Pending'
+                                      ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                      : ''
                     }
                   >
                     {selectedOrder.status}
@@ -557,6 +578,7 @@ const CreateOrderPage: React.FC = () => {
                       <tr>
                         <th className="text-left p-3 font-medium">#</th>
                         <th className="text-left p-3 font-medium">Product</th>
+                        <th className="text-left p-3 font-medium">HSN</th>
                         <th className="text-right p-3 font-medium">Qty</th>
                         <th className="text-right p-3 font-medium">Rate</th>
                         <th className="text-right p-3 font-medium">Disc%</th>
@@ -573,6 +595,9 @@ const CreateOrderPage: React.FC = () => {
                             <td className="p-3 font-medium">
                               {item.productName || `Product ID: ${item.productId}`}
                             </td>
+                            <td className="p-3 text-[var(--text-secondary)]">
+                              {item.hsnCode || '-'}
+                            </td>
                             <td className="p-3 text-right">{item.quantity}</td>
                             <td className="p-3 text-right">₹{unitPrice.toFixed(2)}</td>
                             <td className="p-3 text-right">{item.discount || 0}%</td>
@@ -585,7 +610,7 @@ const CreateOrderPage: React.FC = () => {
                     </tbody>
                     <tfoot className="bg-[var(--surface-secondary)]">
                       <tr className="border-t-2 border-[var(--border)]">
-                        <td colSpan={5} className="p-3 text-right font-semibold">
+                        <td colSpan={6} className="p-3 text-right font-semibold">
                           Total:
                         </td>
                         <td className="p-3 text-right font-bold text-[var(--primary)]">

@@ -24,4 +24,5 @@ export const masterProductRM = appSchema.table('master_product_rm', {
   subcategory: varchar('subcategory', { length: 50 }).default('General'), // 'General', 'Resin', 'Extender'
   solidDensity: numeric('solid_density', { precision: 12, scale: 3 }),
   oilAbsorption: numeric('oil_absorption', { precision: 12, scale: 3 }),
+  hsnCode: varchar('hsn_code', { length: 50 }),
 });

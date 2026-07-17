@@ -3,6 +3,7 @@ import { masterProducts } from '../../db/schema/products/master-products.js';
 import { products } from '../../db/schema/products/products.js';
 import { masterProductRM } from '../../db/schema/products/master-product-rm.js';
 import { masterProductPM } from '../../db/schema/products/master-product-pm.js';
+import { masterProductFG } from '../../db/schema/products/master-product-fg.js';
 import { eq } from 'drizzle-orm';
 
 export class UpdateProductRepository {
@@ -19,9 +20,22 @@ export class UpdateProductRepository {
         minStockLevel: products.minStockLevel, // <--- From products (SKU level)
         incentiveAmount: products.incentiveAmount,
         fillingDensity: products.fillingDensity,
+        hsnCode: masterProductFG.hsnCode,
+        costPrice: masterProductFG.purchaseCost,
+        devCostPrice: masterProductFG.productionCost,
+        packingCost: masterProductPM.purchaseCost,
+        pmCapacity: masterProductPM.capacity,
       })
       .from(products)
       .innerJoin(masterProducts, eq(products.masterProductId, masterProducts.masterProductId))
+      .leftJoin(
+        masterProductFG,
+        eq(masterProducts.masterProductId, masterProductFG.masterProductId)
+      )
+      .leftJoin(
+        masterProductPM,
+        eq(products.packagingId, masterProductPM.masterProductId)
+      )
       .where(eq(masterProducts.productType, 'FG'));
   }
 
@@ -50,6 +64,48 @@ export class UpdateProductRepository {
       }
     }
 
+    // Update masterProductFG hsnCode or costPrice if provided
+    if (data.hsnCode !== undefined || data.costPrice !== undefined) {
+      const productRecord = await db
+        .select({ 
+          masterProductId: products.masterProductId,
+          packagingId: products.packagingId 
+        })
+        .from(products)
+        .where(eq(products.productId, id))
+        .limit(1);
+
+      const masterId = productRecord[0]?.masterProductId;
+      if (masterId) {
+        let updateVals = {};
+        if (data.hsnCode !== undefined) updateVals.hsnCode = data.hsnCode;
+        
+        if (data.costPrice !== undefined) {
+          let pmCapacity = 1;
+          let pmCost = 0;
+          const packagingId = productRecord[0]?.packagingId;
+          
+          if (packagingId) {
+             const pmRecord = await db.select({ capacity: masterProductPM.capacity, purchaseCost: masterProductPM.purchaseCost }).from(masterProductPM).where(eq(masterProductPM.masterProductId, packagingId)).limit(1);
+             pmCapacity = Number(pmRecord[0]?.capacity) || 1;
+             pmCost = Number(pmRecord[0]?.purchaseCost) || 0;
+          }
+          
+          updateVals.purchaseCost = String((Number(data.costPrice) - pmCost) / pmCapacity);
+        }
+
+        if (Object.keys(updateVals).length > 0) {
+          await db
+            .insert(masterProductFG)
+            .values({ masterProductId: masterId, ...updateVals })
+            .onConflictDoUpdate({
+              target: masterProductFG.masterProductId,
+              set: updateVals,
+            });
+        }
+      }
+    }
+
     // Update product specific fields only if there are changes
     if (Object.keys(updateData).length > 0) {
       productUpdate = await db
@@ -74,6 +130,7 @@ export class UpdateProductRepository {
         solids: masterProductRM.rmSolids,
         minStockLevel: masterProducts.minStockLevel,
         subcategory: masterProductRM.subcategory,
+        hsnCode: masterProductRM.hsnCode,
       })
       .from(masterProducts)
       .leftJoin(
@@ -88,6 +145,7 @@ export class UpdateProductRepository {
     if (data.purchaseCost !== undefined) updateData.purchaseCost = data.purchaseCost;
     if (data.density !== undefined) updateData.rmDensity = data.density;
     if (data.solids !== undefined) updateData.rmSolids = data.solids;
+    if (data.hsnCode !== undefined) updateData.hsnCode = data.hsnCode;
 
     // For upsert, we need the PK
     updateData.masterProductId = id;
@@ -129,6 +187,7 @@ export class UpdateProductRepository {
         gst: masterProducts.gst,
         purchaseCost: masterProductPM.purchaseCost,
         minStockLevel: masterProducts.minStockLevel,
+        hsnCode: masterProductPM.hsnCode,
       })
       .from(masterProducts)
       .leftJoin(
@@ -141,6 +200,7 @@ export class UpdateProductRepository {
   async updatePackagingMaterial(id, data) {
     const updateData = {};
     if (data.purchaseCost !== undefined) updateData.purchaseCost = data.purchaseCost;
+    if (data.hsnCode !== undefined) updateData.hsnCode = data.hsnCode;
 
     // For upsert, we need the PK
     updateData.masterProductId = id;

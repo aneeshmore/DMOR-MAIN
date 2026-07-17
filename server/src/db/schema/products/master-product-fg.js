@@ -25,4 +25,5 @@ export const masterProductFG = appSchema.table('master_product_fg', {
   // New fields for categorization
   subcategory: varchar('subcategory', { length: 50 }).default('General'), // 'General', 'Hardener', 'Base'
   hardenerId: integer('hardener_id').references(() => masterProducts.masterProductId),
+  hsnCode: varchar('hsn_code', { length: 50 }),
 });
