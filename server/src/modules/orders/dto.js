@@ -19,6 +19,7 @@ export class OrderDTO {
     this.paymentDate = order.paymentDate || order.payment_date;
     this.expectedDeliveryTime = order.expectedDeliveryTime || order.expected_delivery_time;
     this.expectedDeliveryDate = order.expectedDeliveryDate || order.expected_delivery_date;
+    this.dispatchDate = order.dispatchDate || order.dispatch_date || null;
     this.createdAt = order.createdAt || order.created_at;
     this.updatedAt = order.updatedAt || order.updated_at;
 

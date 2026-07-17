@@ -27,14 +27,27 @@ export class MasterProductsService {
     return new MasterProductDTO(masterProduct);
   }
 
+  /**
+   * System-controlled default unit per product type:
+   * FG -> NO, RM -> KG, PM -> NO.
+   * The client-provided unit is always ignored.
+   */
+  async resolveDefaultUnitId(productType) {
+    const unitName = productType === 'RM' ? 'KG' : 'NO';
+    return await this.repository.getUnitIdByName(unitName);
+  }
+
   async createMasterProduct(masterProductData) {
     try {
+      // Unit is derived from Product Type — never taken from the client
+      const defaultUnitId = await this.resolveDefaultUnitId(masterProductData.ProductType);
+
       // Create the master product first
       const masterProduct = await this.repository.createMasterProduct({
         masterProductName: masterProductData.MasterProductName,
         productType: masterProductData.ProductType,
         description: masterProductData.Description,
-        defaultUnitId: masterProductData.DefaultUnitID,
+        defaultUnitId,
         gst:
           masterProductData.GST !== undefined && masterProductData.GST !== null
             ? masterProductData.GST.toString()
@@ -99,8 +112,13 @@ export class MasterProductsService {
     if (updateData.MasterProductName !== undefined)
       updateFields.masterProductName = updateData.MasterProductName;
     if (updateData.Description !== undefined) updateFields.description = updateData.Description;
-    if (updateData.DefaultUnitID !== undefined)
-      updateFields.defaultUnitId = updateData.DefaultUnitID;
+    // Unit is system-controlled (FG/PM -> NO, RM -> KG) and never client-editable.
+    // Product type is immutable here, so an existing valid unit is preserved;
+    // legacy records without a unit are backfilled from their product type.
+    const existingUnitId = masterProduct.defaultUnitId ?? masterProduct.default_unit_id;
+    if (existingUnitId === null || existingUnitId === undefined) {
+      updateFields.defaultUnitId = await this.resolveDefaultUnitId(productType);
+    }
     if (updateData.IsActive !== undefined) updateFields.isActive = updateData.IsActive;
     if (updateData.GST !== undefined)
       updateFields.gst = updateData.GST !== null ? updateData.GST.toString() : null;

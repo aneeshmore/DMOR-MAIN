@@ -98,6 +98,35 @@ export class MasterProductsRepository {
     return result[0];
   }
 
+  /**
+   * Resolve a unit id by its name (case-insensitive).
+   * Creates the unit if it does not exist yet, so system-assigned
+   * default units ('NO', 'KG') are always resolvable without magic numbers.
+   */
+  async getUnitIdByName(unitName) {
+    const [existing] = await db
+      .select({ unitId: units.unitId })
+      .from(units)
+      .where(sql`LOWER(${units.unitName}) = LOWER(${unitName})`)
+      .limit(1);
+    if (existing) return existing.unitId;
+
+    const inserted = await db
+      .insert(units)
+      .values({ unitName })
+      .onConflictDoNothing({ target: units.unitName })
+      .returning({ unitId: units.unitId });
+    if (inserted[0]) return inserted[0].unitId;
+
+    // Conflict raced with a concurrent insert — read it back
+    const [row] = await db
+      .select({ unitId: units.unitId })
+      .from(units)
+      .where(sql`LOWER(${units.unitName}) = LOWER(${unitName})`)
+      .limit(1);
+    return row?.unitId ?? null;
+  }
+
   async updateMasterProduct(masterProductId, updateData) {
     await ensureProductColumns();
     const result = await db

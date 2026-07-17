@@ -248,7 +248,8 @@ export class OrdersService {
         billAmount: order.totalAmount,
         paymentStatus: 'Pending',
         paymentCleared: false,
-        remarks: orderInfo.remarks || 'Auto-created from order',
+        // Admin remark starts empty — only populated when an Accounts/Admin user enters one.
+        // (Salesperson remark lives on orders.notes and is displayed separately.)
       });
       logger.info('Created account record for order');
     } catch (accountError) {

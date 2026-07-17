@@ -111,7 +111,7 @@ export const DiscardDashboard: React.FC = () => {
                   ? 'Raw Material'
                   : tab === 'PM'
                     ? 'Packaging Material'
-                    : 'Final Good'}
+                    : 'Finished Good'}
             </Button>
           ))}
         </div>

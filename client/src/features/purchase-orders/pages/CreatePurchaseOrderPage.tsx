@@ -39,15 +39,18 @@ const StatusBadge: React.FC<{ status: PurchaseOrder['status'] }> = ({ status }) 
     Pending: 'bg-orange-100 text-orange-800 border-orange-200',
     Confirmed: 'bg-teal-100 text-teal-800 border-teal-200',
     Received: 'bg-green-100 text-green-800 border-green-200',
+    Completed: 'bg-green-100 text-green-800 border-green-200',
     'Partially Received': 'bg-blue-100 text-blue-800 border-blue-200',
     Cancelled: '',
   };
+  // Display-only label mapping: backend status stays 'Completed'
+  const label = status === 'Completed' ? 'Received' : status;
   return (
     <Badge
       variant={status === 'Cancelled' ? 'destructive' : 'secondary'}
       className={cls[status] || ''}
     >
-      {status}
+      {label}
     </Badge>
   );
 };
@@ -1409,14 +1412,16 @@ const CreatePurchaseOrderPage: React.FC = () => {
                 <Download size={14} className="mr-1" /> Download
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDelete(po)}
-              className="text-red-500 hover:text-red-600 hover:bg-red-50 ml-1"
-            >
-              <Trash2 size={14} />
-            </Button>
+            {po.status !== 'Completed' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDelete(po)}
+                className="text-red-500 hover:text-red-600 hover:bg-red-50 ml-1"
+              >
+                <Trash2 size={14} />
+              </Button>
+            )}
           </div>
         );
       },
