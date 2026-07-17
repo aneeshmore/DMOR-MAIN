@@ -24,6 +24,7 @@ import { customerApi } from '@/features/masters/api/customerApi';
 import { Customer } from '@/features/masters/types';
 import { showToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { confirmDialog } from '@/components/ui';
 
 type ActiveTab = 'reports' | 'customers';
 
@@ -550,7 +551,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
       fetchCustomers();
     } catch (err: any) {
       console.error('Failed to link customer', err);
-      alert(err.message || 'Failed to link customer.');
+      showToast.error(err.message || 'Failed to link customer.');
     } finally {
       setLinkSaving(false);
     }
@@ -607,7 +608,12 @@ export const FieldIntelligenceListPage: React.FC = () => {
   // ── Handlers ──────────────────────────────────────────────────
   const handleDelete = async (id: string) => {
     if (
-      window.confirm('Are you sure you want to delete this report? This action cannot be undone.')
+      await confirmDialog({
+        title: 'Delete Report',
+        message: 'Are you sure you want to delete this report? This action cannot be undone.',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      })
     ) {
       try {
         await fieldIntelligenceApi.delete(id);
@@ -615,7 +621,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
         setReports(prev => prev.filter(r => r.id !== id));
       } catch (err) {
         console.error('Delete failed', err);
-        alert('Failed to delete the report.');
+        showToast.error('Failed to delete the report.');
       }
     }
   };
@@ -633,7 +639,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
       link.remove();
     } catch (err) {
       console.error('Export failed', err);
-      alert('Failed to export report data.');
+      showToast.error('Failed to export report data.');
     } finally {
       setExporting(false);
     }

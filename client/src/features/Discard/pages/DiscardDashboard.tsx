@@ -6,6 +6,7 @@ import { DiscardEntry, CreateDiscardInput } from '../types';
 import { showToast } from '@/utils/toast';
 import { PageHeader } from '@/components/common';
 import { Button } from '@/components/ui';
+import { confirmDialog } from '@/components/ui';
 
 export const DiscardDashboard: React.FC = () => {
   const [discards, setDiscards] = useState<DiscardEntry[]>([]);
@@ -65,9 +66,13 @@ export const DiscardDashboard: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     if (
-      window.confirm(
-        'Are you sure you want to delete this entry? Stock adjustments might not be fully reverted.'
-      )
+      await confirmDialog({
+        title: 'Delete Entry',
+        message:
+          'Are you sure you want to delete this entry? Stock adjustments might not be fully reverted.',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      })
     ) {
       try {
         await discardApi.deleteDiscard(id);
@@ -126,4 +131,4 @@ export const DiscardDashboard: React.FC = () => {
       </div>
     </div>
   );
-};
+}

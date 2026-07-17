@@ -6,6 +6,8 @@ import { inventoryApi } from '@/features/inventory/api/inventoryApi';
 import { CreateDiscardInput, DiscardEntry } from '../types';
 import { Product } from '@/features/inventory/types';
 import { Calendar, Save } from 'lucide-react';
+import { showToast } from '@/utils/toast';
+import { confirmDialog } from '@/components/ui';
 
 interface DiscardFormProps {
   onSubmit: (data: CreateDiscardInput) => Promise<void>;
@@ -143,19 +145,19 @@ export const DiscardForm: React.FC<DiscardFormProps> = ({
     const selectedId = materialType === 'FG' ? formData.productId : formData.masterProductId;
 
     if (selectedId === 0) {
-      alert('Please select a product');
+      showToast.error('Please select a product');
       return;
     }
 
     const numUnits = Number(formData.numberOfUnits);
 
     if (isNaN(numUnits) || numUnits <= 0) {
-      alert('Quantity must be greater than 0');
+      showToast.error('Quantity must be greater than 0');
       return;
     }
 
     if (!formData.reason || formData.reason.trim() === '') {
-      alert('Please provide a reason for the discard');
+      showToast.error('Please provide a reason for the discard');
       return;
     }
 
@@ -166,9 +168,12 @@ export const DiscardForm: React.FC<DiscardFormProps> = ({
         ? selectedProduct?.productName
         : selectedProduct?.masterProductName || selectedProduct?.productName;
 
-    const confirmed = window.confirm(
-      `Are you sure you want to discard ${numUnits} units of "${productName}"?\n\nThis action cannot be undone.`
-    );
+    const confirmed = await confirmDialog({
+      title: 'Discard Material',
+      message: `Are you sure you want to discard ${numUnits} units of "${productName}"?\n\nThis action cannot be undone.`,
+      confirmLabel: 'Discard',
+      variant: 'danger',
+    });
 
     if (!confirmed) {
       return;

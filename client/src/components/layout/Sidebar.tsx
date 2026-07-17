@@ -4,6 +4,7 @@ import { NavItem } from '@/config/routeRegistry';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/utils/cn';
+import { confirmDialog } from '@/components/ui';
 
 interface SidebarProps {
   items: NavItem[];
@@ -64,8 +65,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
     }
   };
 
-  const handleLogout = () => {
-    const confirmed = confirm('Are you sure you want to logout?');
+  const handleLogout = async () => {
+    const confirmed = await confirmDialog({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      confirmLabel: 'Logout',
+      variant: 'warning',
+    });
     if (confirmed && onLogout) {
       onLogout();
     }

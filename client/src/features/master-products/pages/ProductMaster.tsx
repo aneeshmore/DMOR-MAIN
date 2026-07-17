@@ -9,6 +9,7 @@ import logger from '@/utils/logger';
 import { showToast } from '@/utils/toast';
 import { handleApiError } from '@/utils/errorHandler';
 import apiClient from '@/api/client';
+import { confirmDialog } from '@/components/ui';
 
 const API_PREFIX = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
@@ -243,7 +244,15 @@ const ProductMaster = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    if (
+      !(await confirmDialog({
+        title: 'Delete Product',
+        message: 'Are you sure you want to delete this product?',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      }))
+    )
+      return;
 
     try {
       logger.info('Deleting product:', { id });

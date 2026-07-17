@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { Input, Button, Modal } from '@/components/ui';
 import { ColumnDef } from '@tanstack/react-table';
+import { confirmDialog } from '@/components/ui';
 
 // Validation function
 const validateCustomerTypeName = (name: string) => {
@@ -247,9 +248,12 @@ export default function CustomerTypeMaster() {
   };
 
   const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this customer type? This action cannot be undone.'
-    );
+    const confirmed = await confirmDialog({
+      title: 'Delete Customer Type',
+      message: 'Are you sure you want to delete this customer type? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
     if (!confirmed) return;
 
     try {

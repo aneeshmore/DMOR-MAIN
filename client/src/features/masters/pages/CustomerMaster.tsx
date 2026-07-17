@@ -13,6 +13,7 @@ import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { useAuth } from '@/contexts/AuthContext';
 import { Edit2, Trash2, Plus, X, Lock, Unlock } from 'lucide-react';
+import { confirmDialog } from '@/components/ui';
 
 // Helper to safely extract string from mobile number (might be array or string)
 const extractMobileString = (value: string | string[] | null | undefined): string => {
@@ -1384,7 +1385,15 @@ export default function CustomerMaster() {
     const newStatus = !customer.IsActive;
     const action = newStatus ? 'activate' : 'deactivate';
 
-    if (!window.confirm(`Are you sure you want to ${action} this customer?`)) return;
+    if (
+      !(await confirmDialog({
+        title: 'Change Customer Status',
+        message: `Are you sure you want to ${action} this customer?`,
+        confirmLabel: 'Continue',
+        variant: 'warning',
+      }))
+    )
+      return;
 
     try {
       logger.info(`${action}ing customer:`, { id: customer.CustomerID });

@@ -32,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { addPdfFooter, addPdfHeader } from '@/utils/pdfUtils';
 import { companyApi } from '@/features/company/api/companyApi';
 import { CompanyInfo } from '@/features/company/types';
+import { showToast } from '@/utils/toast';
 
 ChartJS.register(
   CategoryScale,
@@ -547,10 +548,10 @@ const CancelledOrdersReport: React.FC = () => {
 
       const fileName = `Cancelled_Orders_Report_${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
-      alert('PDF exported successfully!');
+      showToast.success('PDF exported successfully!');
     } catch (error) {
       console.error('Error exporting PDF:', error);
-      alert('Failed to export PDF.');
+      showToast.error('Failed to export PDF.');
     } finally {
       setExportLoading(false);
     }
@@ -599,7 +600,7 @@ const CancelledOrdersReport: React.FC = () => {
       document.body.removeChild(link);
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      alert('Failed to export Excel.');
+      showToast.error('Failed to export Excel.');
     } finally {
       setExportLoading(false);
     }

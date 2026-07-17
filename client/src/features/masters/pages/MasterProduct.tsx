@@ -8,6 +8,7 @@ import { MasterProduct as MasterProductType } from '@/features/master-products/t
 import logger from '@/utils/logger';
 import { showToast } from '@/utils/toast';
 import { handleApiError } from '@/utils/errorHandler';
+import { confirmDialog } from '@/components/ui';
 
 const MasterProduct = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -285,7 +286,15 @@ const MasterProduct = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this master product?')) return;
+    if (
+      !(await confirmDialog({
+        title: 'Delete Master Product',
+        message: 'Are you sure you want to delete this master product?',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      }))
+    )
+      return;
 
     try {
       logger.info('Deleting master product:', { id });
@@ -485,6 +494,15 @@ const MasterProduct = () => {
               }}
               placeholder="0.00"
               required
+            />
+
+            {/* Unit is system-assigned from Product Type (FG/PM -> NO, RM -> KG) */}
+            <Input
+              label="Unit"
+              value={activeTab === 'RM' ? 'KG' : 'NO'}
+              readOnly
+              disabled
+              helperText="Assigned automatically based on product type"
             />
 
             {activeTab === 'FG' && (
