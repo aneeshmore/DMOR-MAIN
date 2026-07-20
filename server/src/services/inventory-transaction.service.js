@@ -48,11 +48,16 @@ export class InventoryTransactionService {
 
       let currentStock = 0;
       let masterProductId = null;
+      let productName = null;
+      let minStockLevel = 0;
 
       if (product) {
         // It's an SKU (FG)
         currentStock = parseFloat(product.availableQuantity || 0);
         masterProductId = product.masterProductId;
+        productName = product.productName;
+        minStockLevel = parseFloat(product.minStockLevel || 0);
+        var productType = 'FG';
       } else {
         // 2. Failing that, check if it's a Master Product (RM/PM) passed as productId
         // We assume the caller might be passing masterProductId as productId for RM/PM
@@ -69,6 +74,9 @@ export class InventoryTransactionService {
         }
 
         masterProductId = masterProductData.masterProductId;
+        productName = masterProductData.masterProductName;
+        minStockLevel = parseFloat(masterProductData.minStockLevel || 0);
+        productType = masterProductData.productType;
 
         if (masterProductData.productType === 'RM') {
           currentStock = parseFloat(masterProductData.rmDetails?.availableQty || 0);
@@ -117,7 +125,8 @@ export class InventoryTransactionService {
             : null,
         notes,
         createdBy: parseInt(createdBy),
-        masterProductId: product.masterProductId,
+        // Use the resolved masterProductId (product is null for RM/PM master rows)
+        masterProductId: masterProductId,
       };
 
       // Insert transaction record
@@ -126,6 +135,36 @@ export class InventoryTransactionService {
       console.log(
         `✅ Inventory transaction recorded: ${transactionType} for product ${productId}, qty: ${quantity}`
       );
+
+      // [LOW STOCK NOTIFICATION] Threshold monitoring on every stock movement.
+      // Below minimum -> create one notification for the MaterialShortage
+      // subscribers (deduped). Back above minimum -> clear the active alert.
+      // Non-blocking: never fails the transaction itself.
+      try {
+        if (productName && minStockLevel > 0) {
+          // Lazy import to avoid circular dependencies at module load
+          const { NotificationsService } = await import('../modules/notifications/service.js');
+          const notifService = new NotificationsService();
+
+          if (balanceAfter < minStockLevel) {
+            const exists = await notifService.repository.hasActiveLowStockNotification(productId, productType);
+            if (!exists) {
+              await notifService.createLowStockNotification({
+                productId,
+                productName,
+                availableQty: balanceAfter,
+                minLevel: minStockLevel,
+                productType,
+              });
+            }
+          } else {
+            // Stock recovered — remove active low-stock/shortage alerts for this product
+            await notifService.clearResolvedShortageAlerts(productId, balanceAfter, minStockLevel);
+          }
+        }
+      } catch (lowStockErr) {
+        console.error('Low stock notification check failed (non-blocking):', lowStockErr);
+      }
 
       return transaction;
     } catch (error) {

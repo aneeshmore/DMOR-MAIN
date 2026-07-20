@@ -237,10 +237,10 @@ const FinalGoodTable = () => {
             <tr>
               <th className="px-4 py-3 font-medium">Product Name (SKU)</th>
               <th className="px-4 py-3 font-medium text-[var(--text-secondary)]">Cost Price</th>
+              <th className="px-4 py-3 font-medium">Selling Price</th>
               <th className="px-4 py-3 font-medium text-[var(--text-secondary)]">Profit / Loss (%)</th>
               <th className="px-4 py-3 font-medium">HSN Code</th>
               <th className="px-4 py-3 font-medium">GST (%)</th>
-              <th className="px-4 py-3 font-medium">Selling Price</th>
               <th className="px-4 py-3 font-medium">Min Stock</th>
               <th className="px-4 py-3 font-medium">Filling Density</th>
               <th className="px-4 py-3 font-medium">Incentives</th>
@@ -307,12 +307,28 @@ const FinalGoodTable = () => {
                         }
                         onKeyDown={handleEnterKeyNavigation}
                       />
-                      {(!product.costPrice || Number(product.costPrice) === 0) && (
-                        <span className="text-[10px] text-blue-500 font-normal mt-0.5 leading-none absolute -bottom-3">
+                      {(!product.costPrice || Number(product.costPrice) === 0) ? (
+                        <span className="text-[10px] text-blue-500 font-normal mt-0.5 leading-none absolute -bottom-3 whitespace-nowrap">
                           (Production Cost)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-green-500 font-normal mt-0.5 leading-none absolute -bottom-3 whitespace-nowrap">
+                          (Material Inward)
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      data-column="4"
+                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
+                      value={currentSellingPrice}
+                      onChange={e =>
+                        handleInputChange(product.productId, 'sellingPrice', e.target.value)
+                      }
+                      onKeyDown={handleEnterKeyNavigation}
+                    />
                   </td>
                   {/* Profit / Loss % */}
                   <td className="px-4 py-3">
@@ -346,18 +362,6 @@ const FinalGoodTable = () => {
                       className="w-16 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
                       value={currentGst}
                       onChange={e => handleInputChange(product.productId, 'gst', e.target.value)}
-                      onKeyDown={handleEnterKeyNavigation}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      data-column="4"
-                      className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
-                      value={currentSellingPrice}
-                      onChange={e =>
-                        handleInputChange(product.productId, 'sellingPrice', e.target.value)
-                      }
                       onKeyDown={handleEnterKeyNavigation}
                     />
                   </td>

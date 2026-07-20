@@ -96,6 +96,7 @@ console.log('Forcing server restart for schema sync...');
 const PORT = config.port;
 import { startCustomerJobs } from './jobs/customerJobs.js';
 import { repairMissingInventorySubRows } from './jobs/inventoryIntegrityJob.js';
+import { sweepLowStockNotifications } from './jobs/lowStockSweepJob.js';
 
 app.listen(PORT, '0.0.0.0', () => {
   logger.info('API Server started', {
@@ -109,6 +110,9 @@ app.listen(PORT, '0.0.0.0', () => {
 
   // Self-heal legacy RM/PM masters missing inventory sub-rows (idempotent, insert-only)
   repairMissingInventorySubRows();
+
+  // Create low-stock notifications for products already below minimum (idempotent)
+  sweepLowStockNotifications();
 });
 
 export default app;
