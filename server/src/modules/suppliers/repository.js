@@ -198,6 +198,65 @@ export class SuppliersRepository {
     return dependencies;
   }
 
+  /**
+   * Bulk lookup of every supplier id referenced by operational records.
+   *
+   * Uses the same foreign-key discovery as findSupplierDependencies(), so the
+   * "in use" rule stays identical to the delete guard. Runs as a single UNION
+   * query (one round trip regardless of how many suppliers exist) — no per-row
+   * queries, so the supplier list has no N+1 cost.
+   *
+   * @returns {Promise<Set<number>>} supplier ids that cannot be deleted
+   */
+  async findReferencedSupplierIds() {
+    const referenced = new Set();
+
+    try {
+      const fkResult = await db.execute(sql`
+        SELECT
+          tc.table_schema,
+          tc.table_name,
+          kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+          ON ccu.constraint_name = tc.constraint_name
+         AND ccu.table_schema = tc.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND ccu.table_schema = 'app'
+          AND ccu.table_name = 'suppliers'
+          AND ccu.column_name = 'supplier_id'
+      `);
+
+      const fkRows = fkResult.rows || fkResult;
+      const parts = [];
+
+      for (const row of fkRows) {
+        if (row.table_schema !== 'app') continue;
+        parts.push(
+          `SELECT DISTINCT ${quoteIdentifier(row.column_name)} AS supplier_id FROM ${quoteIdentifier(row.table_schema)}.${quoteIdentifier(row.table_name)} WHERE ${quoteIdentifier(row.column_name)} IS NOT NULL`
+        );
+      }
+
+      if (parts.length === 0) return referenced;
+
+      const unionResult = await db.execute(sql.raw(parts.join(' UNION ')));
+      const rows = unionResult.rows || unionResult;
+      for (const row of rows) {
+        if (row.supplier_id != null) referenced.add(Number(row.supplier_id));
+      }
+    } catch (error) {
+      // Never break the supplier list because of this lookup.
+      // On failure every supplier is treated as deletable; the delete API
+      // still blocks referenced vendors, so data integrity is unaffected.
+      logger.error('Failed to resolve referenced supplier ids', { error: error.message });
+    }
+
+    return referenced;
+  }
+
   async create(supplierData) {
     await ensureSupplierColumns();
     const result = await db.insert(suppliers).values(supplierData).returning();

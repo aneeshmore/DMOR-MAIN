@@ -56,6 +56,8 @@ export interface Supplier {
   creditDays?: number;
   paymentTerms?: string;
   isActive?: boolean;
+  /** false when the vendor is referenced by operational records (delete hidden) */
+  isDeletable?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

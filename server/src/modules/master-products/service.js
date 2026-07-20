@@ -454,6 +454,14 @@ export class MasterProductsService {
 
     const updated = await this.repository.updateProduct(productId, updateFields);
     logger.info('Product updated', { id: productId });
+
+    // Reconcile low-stock notification state when min stock level changes (non-blocking)
+    if (updateData.MinStockLevel !== undefined) {
+      import('../../jobs/lowStockSweepJob.js')
+        .then(({ reconcileLowStockForProduct }) => reconcileLowStockForProduct(productId))
+        .catch(err => logger.error('Low stock reconcile failed:', err));
+    }
+
     return new ProductDTO(updated);
   }
 

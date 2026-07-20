@@ -6,14 +6,45 @@ import { NotificationRule, rulesApi } from '../api/rulesApi';
 import { authApi, Role } from '@/features/authority/api/authApi';
 import { departmentApi } from '@/features/masters/api';
 import { Department } from '@/features/masters/types';
-import { Trash2, Plus, RefreshCw, Bell } from 'lucide-react';
+import { Trash2, Plus, RefreshCw, Bell, ShoppingCart, Settings, AlertTriangle, Truck } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 
-const NOTIFICATION_TYPES = [
-  'MaterialShortage',
-  'NewOrder',
-  'OrderUpdate',
+const NOTIFICATION_TYPE_CONFIG = [
+  {
+    type: 'NewOrder',
+    label: 'New Order',
+    icon: ShoppingCart,
+    iconColor: 'text-blue-500',
+    description: 'Triggered when a salesperson places a new customer order and it enters the approval queue.',
+    suggestedRoles: 'SuperAdmin, Admin, Accounts Manager',
+  },
+  {
+    type: 'OrderUpdate',
+    label: 'Order Update',
+    icon: Settings,
+    iconColor: 'text-purple-500',
+    description: 'Sent on every order status change: Accounts approval → Factory approval → Production → Ready for Dispatch.',
+    suggestedRoles: 'SuperAdmin, Admin, Production Manager, Sales Person',
+  },
+  {
+    type: 'MaterialShortage',
+    label: 'Material Shortage',
+    icon: AlertTriangle,
+    iconColor: 'text-yellow-500',
+    description: 'Raised when raw material stock falls below the minimum required to fulfil active orders.',
+    suggestedRoles: 'SuperAdmin, Admin, Accounts Manager, Production Manager',
+  },
+  {
+    type: 'Dispatch',
+    label: 'Dispatch',
+    icon: Truck,
+    iconColor: 'text-green-500',
+    description: 'Sent when an order is dispatched / delivered. Salesperson receives updates for their own orders.',
+    suggestedRoles: 'SuperAdmin, Admin, Sales Person',
+  },
 ];
+
+const NOTIFICATION_TYPES = NOTIFICATION_TYPE_CONFIG.map(c => c.type);
 
 const NotificationSettings = () => {
   const [rules, setRules] = useState<NotificationRule[]>([]);
@@ -138,19 +169,37 @@ const NotificationSettings = () => {
       <div className="bg-[var(--surface)] rounded-lg shadow border border-[var(--border)] p-6">
         {/* Tabs */}
         <div className="flex border-b border-[var(--border)] overflow-x-auto no-scrollbar mb-6">
-          {NOTIFICATION_TYPES.map(type => (
+          {NOTIFICATION_TYPE_CONFIG.map(({ type, label, icon: Icon, iconColor }) => (
             <button
               key={type}
               onClick={() => setActiveType(type)}
-              className={`px-4 py-2 border-b-2 whitespace-nowrap transition-colors ${activeType === type
+              className={`flex items-center gap-2 px-4 py-2 border-b-2 whitespace-nowrap transition-colors ${
+                activeType === type
                   ? 'border-blue-600 text-blue-600 font-medium'
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+              }`}
             >
-              {type.replace(/([A-Z])/g, ' $1').trim()}
+              <Icon size={15} className={activeType === type ? 'text-blue-500' : iconColor} />
+              {label}
             </button>
           ))}
         </div>
+
+        {/* Type Description */}
+        {(() => {
+          const cfg = NOTIFICATION_TYPE_CONFIG.find(c => c.type === activeType);
+          return cfg ? (
+            <div className="mb-6 p-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] flex items-start gap-3 text-sm">
+              <cfg.icon size={16} className={`mt-0.5 shrink-0 ${cfg.iconColor}`} />
+              <div>
+                <p className="text-[var(--text-primary)]">{cfg.description}</p>
+                <p className="text-[var(--text-secondary)] text-xs mt-1">
+                  <span className="font-medium">Suggested roles:</span> {cfg.suggestedRoles}
+                </p>
+              </div>
+            </div>
+          ) : null;
+        })()}
 
         {/* Content */}
         <div className="space-y-4">

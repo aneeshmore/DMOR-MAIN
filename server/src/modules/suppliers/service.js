@@ -11,7 +11,14 @@ export class SuppliersService {
   async getAllSuppliers(filters = {}) {
     try {
       const suppliers = await this.repository.findAll(filters);
-      return suppliers.map(s => new SupplierDTO(s));
+      // Single bulk lookup (one query) so the UI can hide Delete for vendors
+      // that are referenced by operational records.
+      const referencedIds = await this.repository.findReferencedSupplierIds();
+      return suppliers.map(s => {
+        const dto = new SupplierDTO(s);
+        dto.isDeletable = !referencedIds.has(Number(dto.supplierId));
+        return dto;
+      });
     } catch (error) {
       logger.error('Failed to fetch suppliers', { error: error.message });
       throw error;

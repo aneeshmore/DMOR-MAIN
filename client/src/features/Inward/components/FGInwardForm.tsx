@@ -325,7 +325,6 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
               Supplier{' '}
-              <span className="text-[var(--text-secondary)] font-normal">(Optional)</span>
             </label>
             <SearchableSelect
               options={suppliers.map(s => ({
@@ -343,7 +342,6 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
               Bill Number{' '}
-              <span className="text-[var(--text-secondary)] font-normal">(Optional)</span>
             </label>
             <Input
               type="text"
@@ -411,7 +409,6 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
             <div className="md:col-span-2 space-y-2">
               <label className="text-sm font-medium text-gray-700">
                 Price Per Unit{' '}
-                <span className="text-[var(--text-secondary)] font-normal">(Optional)</span>
               </label>
               <Input
                 type="number"
@@ -464,11 +461,10 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                   {items.map((item, idx) => (
                     <tr
                       key={idx}
-                      className={`transition-colors duration-150 ${
-                        editingItemIndex === idx
-                          ? 'bg-[var(--primary-light)] border-l-4 border-l-[var(--primary)]'
-                          : 'hover:bg-[var(--surface-hover)]'
-                      }`}
+                      className={`transition-colors duration-150 ${editingItemIndex === idx
+                        ? 'bg-[var(--primary-light)] border-l-4 border-l-[var(--primary)]'
+                        : 'hover:bg-[var(--surface-hover)]'
+                        }`}
                     >
                       <td className="px-4 py-3 text-[var(--text-primary)] font-medium whitespace-nowrap">
                         {getProductName(item)}
