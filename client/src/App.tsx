@@ -106,6 +106,7 @@ function AppContent() {
 import { Toaster } from '@/components/ui/Toaster';
 import { ToastSwipeProvider } from '@/hooks/useToastSwipeDismiss';
 import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog';
+import { GlobalPdfGenerator } from '@/features/quotations/components/GlobalPdfGenerator';
 
 export default function App() {
   return (
@@ -117,6 +118,7 @@ export default function App() {
               <ToastSwipeProvider>
                 <ConfirmDialogProvider>
                   <GlobalLoader />
+                  <GlobalPdfGenerator />
                   <AppContent />
                   <Toaster />
                 </ConfirmDialogProvider>

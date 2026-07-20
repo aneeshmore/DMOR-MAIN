@@ -251,6 +251,7 @@ export class DispatchPlanningRepository {
       .select({
         id: vehicles.vehicleId,
         vehicleNumber: vehicles.vehicleNumber,
+        vehicleModel: vehicles.vehicleModel,
         driverName: vehicles.driverName,
         capacity: vehicles.capacity,
         isAvailable: vehicles.isAvailable,
@@ -260,7 +261,7 @@ export class DispatchPlanningRepository {
   }
 
   async ensureVehicleExists(data) {
-    const { vehicleNumber, driverName, capacity } = data;
+    const { vehicleNumber, vehicleModel, driverName, capacity } = data;
 
     // Normalize: trim whitespace; keep original casing (dispatch records join
     // vehicles by the raw vehicle_number string, so casing must not be rewritten)
@@ -278,6 +279,7 @@ export class DispatchPlanningRepository {
       .insert(vehicles)
       .values({
         vehicleNumber: normalizedNumber,
+        vehicleModel: vehicleModel ? vehicleModel.toString().trim() : vehicleModel,
         driverName: driverName ? driverName.toString().trim() : driverName,
         capacity,
         isAvailable: true,

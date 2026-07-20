@@ -16,6 +16,9 @@ export class SupplierDTO {
       data.paymentTerms ||
       (this.creditDays != null && this.creditDays !== '' ? `${this.creditDays} Days` : null);
     this.isActive = data.isActive ?? data.is_active ?? true;
+    // Set by the service for list responses; defaults to true so single-record
+    // responses and existing consumers keep their previous behaviour.
+    this.isDeletable = data.isDeletable ?? true;
     this.createdAt = data.createdAt || data.created_at;
     this.updatedAt = data.updatedAt || data.updated_at;
   }

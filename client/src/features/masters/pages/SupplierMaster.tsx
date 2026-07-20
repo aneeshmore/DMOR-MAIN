@@ -671,7 +671,13 @@ export default function SupplierMaster() {
     {
       accessorKey: 'mobileNo',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Mobile No" />,
-      cell: ({ row }) => <span>{row.original.mobileNo || '—'}</span>,
+      cell: ({ row }) => {
+        // Show both mobile numbers when the second one exists (no duplicate commas)
+        const numbers = [row.original.mobileNo, row.original.mobileNo2]
+          .map(n => (n || '').trim())
+          .filter(Boolean);
+        return <span>{numbers.length > 0 ? numbers.join(', ') : '—'}</span>;
+      },
     },
     {
       accessorKey: 'state',
@@ -696,14 +702,16 @@ export default function SupplierMaster() {
           >
             <Edit2 size={16} />
           </button>
-          <button
-            onClick={() => handleDelete(row.original.supplierId)}
-            className="p-2 rounded-lg hover:bg-red-50 text-[var(--text-secondary)] hover:text-[var(--danger)] transition-colors border border-transparent hover:border-red-200 focus-ring"
-            title="Delete"
-            aria-label="Delete"
-          >
-            <Trash2 size={16} />
-          </button>
+          {row.original.isDeletable !== false && (
+            <button
+              onClick={() => handleDelete(row.original.supplierId)}
+              className="p-2 rounded-lg hover:bg-red-50 text-[var(--text-secondary)] hover:text-[var(--danger)] transition-colors border border-transparent hover:border-red-200 focus-ring"
+              title="Delete"
+              aria-label="Delete"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ),
     },

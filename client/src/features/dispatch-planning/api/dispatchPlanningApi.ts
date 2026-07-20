@@ -52,6 +52,7 @@ export const dispatchPlanningApi = {
 
   addVehicle: async (payload: {
     vehicleNumber: string;
+    vehicleModel?: string;
     driverName?: string;
     capacity?: number;
   }) => {

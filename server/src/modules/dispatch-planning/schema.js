@@ -11,6 +11,7 @@ export const createDispatchSchema = z.object({
 
 export const createVehicleSchema = z.object({
   vehicleNumber: z.string().trim().min(1, 'Vehicle number is required').max(50),
+  vehicleModel: z.string().trim().max(100).optional().nullable(),
   driverName: z.string().trim().max(100).optional().nullable(),
   capacity: z.number().nonnegative('Capacity cannot be negative').optional().nullable(),
 });
