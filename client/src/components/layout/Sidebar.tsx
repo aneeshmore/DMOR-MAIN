@@ -188,12 +188,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
               <img src="/morex-logo.png" alt="Morex Logo" className="w-full h-full object-contain" />
             </div>
             {!isCollapsed && (
-              <div className="flex flex-col">
-                <span className="font-bold tracking-tight text-base text-[var(--sidebar-text-active)]">
-                  MOREX TECH
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold tracking-tight text-sm text-[var(--sidebar-text-active)] whitespace-nowrap truncate">
+                  MOREX TECHNOLOGIES
                 </span>
                 <span className="text-[11px] text-[var(--sidebar-text)] uppercase tracking-wider font-medium">
-                  OMS
+                  ERP
                 </span>
               </div>
             )}

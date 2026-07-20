@@ -14,6 +14,7 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import { useNotifications, useAllNotifications, useMarkAsRead } from '../hooks';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/utils/cn';
 import { showToast } from '@/utils/toast'; // Or path to stringUtils if already imported but we need to add it.
 import { decodeHtml } from '@/utils/stringUtils';
@@ -51,10 +52,35 @@ const getPriorityClass = (priority: string) => {
 };
 
 const NotificationsPage = () => {
+  // [ROLE-BASED VISIBILITY] The system-wide (Admin) view is restricted to admin
+  // roles; everyone else always sees their personal feed only.
+  const { user } = useAuth();
+  const isAdminViewer = user?.Role
+    ? ['Admin', 'SuperAdmin', 'Administrator'].includes(user.Role)
+    : false;
+
+  // [ROLE-BASED SECTIONS] Each role only sees the notification sections in its scope:
+  // - Salesperson:        Accepted (approved by accounts) + Dispatched
+  // - Accounts Manager:   Pending Accounts Approval + Low Stock
+  // - Production Manager: Accepted (pending factory approval) + Low Stock
+  // - Admin:              everything
+  const roleLower = user?.Role?.toLowerCase() || '';
+  const visibleSections: Array<'pending' | 'accepted' | 'dispatch' | 'low-stock'> = isAdminViewer
+    ? ['pending', 'accepted', 'dispatch', 'low-stock']
+    : roleLower.includes('sales')
+      ? ['accepted', 'dispatch']
+      : roleLower.includes('account')
+        ? ['pending', 'low-stock']
+        : roleLower.includes('production') || roleLower.includes('factory')
+          ? ['accepted', 'low-stock']
+          : ['pending', 'accepted', 'dispatch', 'low-stock'];
+
   const [activeTab, setActiveTab] = useState<
     'pending' | 'accepted' | 'dispatch' | 'low-stock' | 'all'
-  >('pending');
-  const [viewSystemWide, setViewSystemWide] = useState(true);
+  >(() => visibleSections[0] || 'all');
+
+  // Admins always see the system-wide feed; employees always see their own.
+  const systemWide = isAdminViewer;
   const [orderStats, setOrderStats] = useState<{ status: string; count: number }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
@@ -101,11 +127,11 @@ const NotificationsPage = () => {
     data: allNotifications = [],
     isLoading: loadingAll,
     refetch: refetchAll,
-  } = useAllNotifications(viewSystemWide);
+  } = useAllNotifications(systemWide);
 
-  const notifications = viewSystemWide ? allNotifications : myNotifications;
-  const isLoading = viewSystemWide ? loadingAll : loadingMy;
-  const refetch = viewSystemWide ? refetchAll : refetchMy;
+  const notifications = systemWide ? allNotifications : myNotifications;
+  const isLoading = systemWide ? loadingAll : loadingMy;
+  const refetch = systemWide ? refetchAll : refetchMy;
 
   const markAsRead = useMarkAsRead();
 
@@ -130,8 +156,8 @@ const NotificationsPage = () => {
             existing.ids.push(n.notificationId);
 
             // Add order detail if not present
-            const orderId = n.data.orderId;
-            if (!existing.orderMap.has(orderId)) {
+            const orderId = n.data?.orderId;
+            if (orderId != null && !existing.orderMap.has(orderId)) {
               existing.orderMap.set(orderId, {
                 orderId,
                 orderNumber: n.data.orderNumber || `#${orderId}`,
@@ -141,17 +167,20 @@ const NotificationsPage = () => {
             }
           } else {
             const orderMap = new Map();
-            orderMap.set(n.data.orderId, {
-              orderId: n.data.orderId,
-              orderNumber: n.data.orderNumber || `#${n.data.orderId}`,
-              requiredQty: s.requiredQty,
-            });
+            if (n.data?.orderId != null) {
+              orderMap.set(n.data.orderId, {
+                orderId: n.data.orderId,
+                orderNumber: n.data.orderNumber || `#${n.data.orderId}`,
+                requiredQty: s.requiredQty,
+              });
+            }
 
             shortageMap.set(s.materialName, {
               isGroup: true,
               type: 'MaterialShortageGroup',
               title: `Shortage: ${s.materialName}`,
               materialName: s.materialName,
+              productType: s.productType,
               totalRequired: s.requiredQty,
               unit: s.unit,
               orderMap,
@@ -192,7 +221,9 @@ const NotificationsPage = () => {
     shortageMap.forEach(val => {
       const orderCount = val.orderMap.size;
       val.affectedOrders = Array.from(val.orderMap.values());
-      val.message = `Shortage affecting ${orderCount} Order(s). Total Required: ${val.totalRequired} ${val.unit}`;
+      val.message = orderCount > 0 
+        ? `Shortage affecting ${orderCount} Order(s). Total Required: ${val.totalRequired} ${val.unit}`
+        : `Low Stock Alert. Total Required: ${val.totalRequired} ${val.unit}`;
       val.notificationId = val.ids[0];
       grouped.push(val);
     });
@@ -204,7 +235,7 @@ const NotificationsPage = () => {
     return grouped.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [notifications, viewSystemWide]);
+  }, [notifications, systemWide]);
 
   const stats = useMemo(() => {
     const pending = groupedNotifications.filter(n => {
@@ -213,9 +244,7 @@ const NotificationsPage = () => {
       if (type === 'NewOrder') return true;
       if (
         type === 'OrderUpdate' &&
-        ['On Hold', 'Pending', 'Pending Accounts Approval', 'Pending Factory Approval'].includes(
-          status
-        )
+        ['On Hold', 'Pending', 'Pending Accounts Approval'].includes(status)
       )
         return true;
       return false;
@@ -227,7 +256,16 @@ const NotificationsPage = () => {
       if (type === 'ProductionComplete') return true;
       if (
         type === 'OrderUpdate' &&
-        ['Factory Approved', 'Accepted', 'Production Started'].includes(status)
+        [
+          'Pending Factory Approval',
+          'Factory Approved',
+          'Production Started',
+          'Scheduled for Production',
+          'Ready for Dispatch',
+          // Legacy status names (existing orders)
+          'Verified',
+          'Accepted',
+        ].includes(status)
       )
         return true;
       return false;
@@ -273,9 +311,7 @@ const NotificationsPage = () => {
         if (type === 'NewOrder') return true;
         if (
           type === 'OrderUpdate' &&
-          ['On Hold', 'Pending', 'Pending Accounts Approval', 'Pending Factory Approval'].includes(
-            status
-          )
+          ['On Hold', 'Pending', 'Pending Accounts Approval'].includes(status)
         )
           return true;
         return false;
@@ -284,7 +320,16 @@ const NotificationsPage = () => {
         if (type === 'ProductionComplete') return true;
         if (
           type === 'OrderUpdate' &&
-          ['Factory Approved', 'Accepted', 'Production Started'].includes(status)
+          [
+            'Pending Factory Approval',
+            'Factory Approved',
+            'Production Started',
+            'Scheduled for Production',
+            'Ready for Dispatch',
+            // Legacy status names (existing orders)
+            'Verified',
+            'Accepted',
+          ].includes(status)
         )
           return true;
         return false;
@@ -332,15 +377,34 @@ const NotificationsPage = () => {
 
     try {
       const orderIds = Array.from(group.orderMap.keys()) as number[];
-      const ordersData = await Promise.all(
-        orderIds.map(id => adminAccountsApi.getOrderDetails(id))
-      );
+      const validOrderIds = orderIds.filter(id => id != null);
+      
+      let ordersData: any[] = [];
+      if (validOrderIds.length > 0) {
+        ordersData = await Promise.all(
+          validOrderIds.map(async id => {
+            try {
+              return await adminAccountsApi.getOrderDetails(id);
+            } catch (err) {
+              const basicInfo = group.orderMap.get(id);
+              return {
+                orderId: id,
+                orderNumber: basicInfo?.orderNumber || `#${id}`,
+                customerName: basicInfo?.customerName || 'Unknown',
+                orderCreatedDate: null,
+                items: [{ productName: group.materialName, size: '-', quantity: basicInfo?.requiredQty || 0, unit: group.unit || '' }],
+                status: 'Unknown',
+              };
+            }
+          })
+        );
+      }
       setShortageDetails({
         materialName: group.materialName,
         orders: ordersData,
       });
     } catch (e) {
-      showToast.error('Failed to fetch order details');
+      showToast.error('Failed to process order details');
     } finally {
       setIsLoadingShortage(false);
     }
@@ -396,7 +460,7 @@ const NotificationsPage = () => {
       case 'MaterialShortageGroup':
         return {
           label: 'Resolve Shortage',
-          action: () => navigate('/operations/pm-inward'),
+          action: () => navigate('/operations/purchase-orders'),
           icon: <AlertTriangle size={12} className="mr-1" />,
         };
 
@@ -413,34 +477,53 @@ const NotificationsPage = () => {
     // Group logic (keep existing specific logic for shortages if needed, else merge)
     if (n.isGroup) {
       // Material Shortage Group
+      
+      // Determine badge color
+      const typeBadgeClass: Record<string, string> = {
+        FG: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+        RM: 'bg-green-500/10 text-green-500 border-green-500/20',
+        PM: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+      };
+      const typeLabel = n.productType || 'FG';
+      const badgeStyle = typeBadgeClass[typeLabel] || typeBadgeClass.FG;
+
       return (
-        <div className="mt-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-100 dark:border-red-800">
+        <div className="mt-2 text-sm text-red-500 bg-red-500/5 p-3 rounded border border-red-500/20">
           <div className="flex justify-between items-center mb-2">
-            <span className="font-semibold">
-              Total Deficit: {n.totalRequired} {n.unit}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-bold border uppercase', badgeStyle)}>
+                {typeLabel}
+              </span>
+              <span className="font-semibold">
+                Total Deficit: {n.totalRequired} {n.unit}
+              </span>
+            </div>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 text-xs bg-[var(--surface)] border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-                onClick={() => handleViewShortageDetails(n)}
-              >
-                <Eye size={12} className="mr-1" /> Details
-              </Button>
+              {n.affectedOrders && n.affectedOrders.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 text-xs bg-[var(--surface)] border border-red-500/30 text-red-500 hover:bg-red-500/10"
+                  onClick={() => handleViewShortageDetails(n)}
+                >
+                  <Eye size={12} className="mr-1" /> Details
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="secondary"
                 className="h-7 text-xs bg-[var(--surface)] border border-[var(--border)]"
-                onClick={() => navigate('/operations/pm-inward')}
+                onClick={() => navigate('/operations/purchase-orders')}
               >
                 Resolve
               </Button>
             </div>
           </div>
-          <p className="text-xs text-red-500 dark:text-red-400">
-            Affecting {n.affectedOrders.length} orders.
-          </p>
+          {n.affectedOrders && n.affectedOrders.length > 0 && (
+            <p className="text-xs text-red-500 mt-2">
+              Affecting {n.affectedOrders.length} orders.
+            </p>
+          )}
         </div>
       );
     }
@@ -496,8 +579,9 @@ const NotificationsPage = () => {
     <div className="space-y-6">
       <PageHeader title="Notification Management" description="Dashboard" />
 
-      {/* Stats Cards */}
+      {/* Stats Cards — scoped to the user's visible sections */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {visibleSections.includes('pending') && (
         <div
           onClick={() => setActiveTab('pending')}
           className={cn(
@@ -511,10 +595,12 @@ const NotificationsPage = () => {
             <Clock />
           </div>
           <div>
-            <p className="text-sm text-[var(--text-secondary)]">Pending Orders</p>
+            <p className="text-sm text-[var(--text-secondary)]">Pending Accounts Approval</p>
             <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.pending}</p>
           </div>
         </div>
+        )}
+        {visibleSections.includes('accepted') && (
         <div
           onClick={() => setActiveTab('accepted')}
           className={cn(
@@ -528,10 +614,14 @@ const NotificationsPage = () => {
             <CheckSquare />
           </div>
           <div>
-            <p className="text-sm text-[var(--text-secondary)]">Accepted/In Prod</p>
+            <p className="text-sm text-[var(--text-secondary)]">
+              Order approved by accounts / Pending Factory Approval
+            </p>
             <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.accepted}</p>
           </div>
         </div>
+        )}
+        {visibleSections.includes('dispatch') && (
         <div
           onClick={() => setActiveTab('dispatch')}
           className={cn(
@@ -549,6 +639,8 @@ const NotificationsPage = () => {
             <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.dispatch}</p>
           </div>
         </div>
+        )}
+        {visibleSections.includes('low-stock') && (
         <div
           onClick={() => setActiveTab('low-stock')}
           className={cn(
@@ -566,11 +658,12 @@ const NotificationsPage = () => {
             <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.lowStock}</p>
           </div>
         </div>
+        )}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — scoped to the user's visible sections */}
       <div className="border-b border-[var(--border)] flex gap-6 text-sm font-medium text-[var(--text-secondary)]">
-        {['pending', 'accepted', 'low-stock', 'dispatch', 'all'].map(tab => (
+        {[...visibleSections, 'all'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
@@ -599,15 +692,7 @@ const NotificationsPage = () => {
           />
         </div>
         <div className="flex items-center gap-4 text-[var(--text-secondary)]">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={viewSystemWide}
-              onChange={e => setViewSystemWide(e.target.checked)}
-              className="rounded"
-            />
-            <span>Admin View (All)</span>
-          </label>
+          {isAdminViewer && <span className="text-xs">Admin View (All)</span>}
           <span>Showing: {filteredNotifications.length}</span>
         </div>
       </div>
