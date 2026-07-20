@@ -167,6 +167,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
   const [quotationAddress, setQuotationAddress] = useState('');
   const [selectedPaymentTerms, setSelectedPaymentTerms] = useState('');
   const [selectedDeliveryTerms, setSelectedDeliveryTerms] = useState('');
+  const [validTillDays, setValidTillDays] = useState<string>('');
   const [quotationLoading, setQuotationLoading] = useState(false);
 
   // Quotations List State
@@ -1107,6 +1108,8 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
     setQuotationAddress(customer?.address || customer?.Address || deliveryAddress || '');
     setSelectedPaymentTerms(paymentTermsOptions[0]?.value || '');
     setSelectedDeliveryTerms(deliveryTermsOptions[0]?.value || '');
+    setValidTillDays('');
+    setQuotationLoading(false);
     setShowQuotationModal(true);
   }, [
     isFormValid,
@@ -1118,8 +1121,14 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
   ]);
 
   const handleCreateQuotation = async () => {
-    if (!selectedPaymentTerms || !selectedDeliveryTerms) {
-      showToast.error('Please select payment terms and delivery terms');
+    if (!selectedPaymentTerms || !selectedDeliveryTerms || !validTillDays) {
+      showToast.error('Please select payment terms, delivery terms, and valid till days');
+      return;
+    }
+    
+    const validTillNum = Number(validTillDays);
+    if (!validTillDays || isNaN(validTillNum) || validTillNum <= 0 || !Number.isInteger(validTillNum)) {
+      showToast.error('Valid Till must be a positive integer');
       return;
     }
 
@@ -1186,6 +1195,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         // Terms & References
         paymentTerms: selectedPaymentTerms,
         deliveryTerms: selectedDeliveryTerms,
+        validTillDays: Number(validTillDays),
         buyerRef: '',
         otherRef: `${salespersonName}`, // *** KEY FIELD ***
         dispatchThrough: '',
@@ -1348,6 +1358,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
       setQuotationAddress(decodeHtml(content.buyerAddress || content.customerAddress) || '');
       setSelectedPaymentTerms(content.paymentTerms || '');
       setSelectedDeliveryTerms(content.deliveryTerms || '');
+      setValidTillDays(content.validTillDays?.toString() || '');
 
       showToast.success('Quotation loaded for editing');
 
@@ -1402,6 +1413,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         otherRef: salespersonName,
         paymentTerms: selectedPaymentTerms,
         deliveryTerms: selectedDeliveryTerms,
+        validTillDays: Number(validTillDays),
         remarks: remarks,
         status: 'Pending', // Reset status to Pending when updated
         items: validDetails.map((item, index) => ({
@@ -1892,6 +1904,29 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
               )}
             </div>
 
+            {/* Valid Till (Days) */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                Valid Till *
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={validTillDays}
+                  onChange={e => {
+                    const val = e.target.value.trim();
+                    if (val === '' || /^[1-9]\d*$/.test(val)) {
+                      setValidTillDays(val);
+                    }
+                  }}
+                  placeholder="e.g. 15"
+                  className="w-24 px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+                  required
+                />
+                <span className="text-sm text-[var(--text-secondary)] whitespace-nowrap">Days</span>
+              </div>
+            </div>
+
             {/* Action Buttons */}
             <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border)]">
               <Button
@@ -1904,7 +1939,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
               <Button
                 variant="primary"
                 onClick={handleCreateQuotation}
-                disabled={quotationLoading || !selectedPaymentTerms || !selectedDeliveryTerms}
+                disabled={quotationLoading || !selectedPaymentTerms || !selectedDeliveryTerms || !validTillDays}
               >
                 {quotationLoading ? 'Creating...' : 'Create Quotation'}
               </Button>

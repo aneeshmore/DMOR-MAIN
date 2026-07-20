@@ -285,33 +285,6 @@ export function PendingOrdersDataTable({
       },
 
       {
-        id: 'billNo',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Bill No" />,
-        size: 130,
-        cell: function BillNoCell({ row, table }) {
-          const tableEditedData = (table.options.meta as any)?.editedData || {};
-          const tableOnInputChange = (table.options.meta as any)?.onInputChange;
-          const isOrderOnHold = row.original.status === 'On Hold' || row.original.onHold;
-          const isApproved =
-            tableEditedData[row.original.orderId]?.accountsApproved === 'Approved';
-
-          return (
-            <div className="flex justify-center px-1">
-              <EditableCell
-                orderId={row.original.orderId}
-                field="billNo"
-                value={tableEditedData[row.original.orderId]?.billNo || ''}
-                placeholder="Bill No"
-                onInputChange={tableOnInputChange}
-                inputClassName="w-full min-w-[100px] !text-[12px] !py-1.5 shadow-sm rounded-md"
-                disabled={isOrderOnHold || !isApproved}
-              />
-            </div>
-          );
-        },
-      },
-
-      {
         id: 'paymentCleared',
         size: 120,
         header: ({ column }) => <DataTableColumnHeader column={column} title="Accounts Approved" />,
@@ -340,6 +313,33 @@ export function PendingOrdersDataTable({
                 onChange={val =>
                   tableOnInputChange(row.original.orderId, 'accountsApproved', val)
                 }
+              />
+            </div>
+          );
+        },
+      },
+
+      {
+        id: 'billNo',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Bill No" />,
+        size: 130,
+        cell: function BillNoCell({ row, table }) {
+          const tableEditedData = (table.options.meta as any)?.editedData || {};
+          const tableOnInputChange = (table.options.meta as any)?.onInputChange;
+          const isOrderOnHold = row.original.status === 'On Hold' || row.original.onHold;
+          const isApproved =
+            tableEditedData[row.original.orderId]?.accountsApproved === 'Approved';
+
+          return (
+            <div className="flex justify-center px-1">
+              <EditableCell
+                orderId={row.original.orderId}
+                field="billNo"
+                value={tableEditedData[row.original.orderId]?.billNo || ''}
+                placeholder="Bill No"
+                onInputChange={tableOnInputChange}
+                inputClassName="w-full min-w-[100px] !text-[12px] !py-1.5 shadow-sm rounded-md"
+                disabled={isOrderOnHold || !isApproved}
               />
             </div>
           );
@@ -398,8 +398,6 @@ export function PendingOrdersDataTable({
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-emerald-600 bg-white hover:bg-emerald-50 border border-emerald-200 rounded-md transition-colors font-medium text-xs shadow-sm disabled:opacity-50 disabled:bg-gray-50"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    {row.original.status === 'Verified' ? 'Send to Prod' : 'Accept'}
-                    <Check className="w-3 h-3" />
                     {row.original.status === 'Verified' ||
                     row.original.status === 'Pending Factory Approval'
                       ? 'Send to Prod'

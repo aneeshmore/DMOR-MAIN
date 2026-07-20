@@ -26,21 +26,18 @@ import {
 import { PageHeader, PriorityBadge } from '@/components/common';
 import { Button } from '@/components/ui/Button';
 import { decodeHtml } from '@/utils/stringUtils';
-import { confirmDialog } from '@/components/ui';
+import { confirmDialog, SearchableSelect } from '@/components/ui';
 
 interface Vehicle {
   id: number;
   vehicleNo: string;
   model: string;
   capacity: number; // in Tons
+  driverName?: string;
 }
 
 // Dummy initial vehicles
-const INITIAL_VEHICLES: Vehicle[] = [
-  { id: 1, vehicleNo: 'MH-12-AB-1234', model: 'Tata Ace', capacity: 1.5 },
-  { id: 2, vehicleNo: 'MH-14-XY-9876', model: 'Eicher Pro', capacity: 5.0 },
-  { id: 3, vehicleNo: 'MH-12-CD-5555', model: 'Mahindra Bolero', capacity: 1.2 },
-];
+// Vehicles are loaded from the vehicle master (app.vehicles) via the API
 
 // Orders View Types
 interface OrderViewItem {
@@ -70,9 +67,11 @@ interface OrderViewItem {
 
 export default function DispatchPlanning() {
   // Vehicle State
-  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | '' | 'other'>('');
   const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
+  const [isSavingVehicle, setIsSavingVehicle] = useState(false);
 
   // Form State
   const [dispatchRemark, setDispatchRemark] = useState('');
@@ -202,27 +201,74 @@ export default function DispatchPlanning() {
     }
   }, []);
 
+  // Load vehicles from the vehicle master
+  const fetchVehicles = useCallback(async () => {
+    try {
+      setLoadingVehicles(true);
+      const data = await dispatchPlanningApi.getVehicles();
+      // Map API response to the local Vehicle shape used by this page
+      const formatted: Vehicle[] = (data || []).map(
+        (v: {
+          id: number;
+          vehicleNumber: string;
+          vehicleModel?: string;
+          driverName?: string;
+          capacity: number;
+        }) => ({
+          id: v.id,
+          vehicleNo: v.vehicleNumber,
+          // Display priority: Vehicle Model -> Driver Name -> none (never "N/A")
+          model:
+            v.vehicleModel && v.vehicleModel !== 'N/A'
+              ? v.vehicleModel
+              : v.driverName && v.driverName !== 'N/A'
+                ? v.driverName
+                : '',
+          capacity: v.capacity,
+          driverName: v.driverName && v.driverName !== 'N/A' ? v.driverName : undefined,
+        })
+      );
+      setVehicles(formatted);
+    } catch {
+      setVehicles([]);
+      showToast.error('Failed to load vehicles from database');
+    } finally {
+      setLoadingVehicles(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchOrdersView();
-  }, [fetchOrdersView]);
+    fetchVehicles();
+  }, [fetchOrdersView, fetchVehicles]);
 
-  const handleAddVehicle = (e: React.FormEvent) => {
+  const handleAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVehicle.vehicleNo || !newVehicle.capacity) {
       showToast.error('Vehicle No and Capacity are required');
       return;
     }
-    const v: Vehicle = {
-      id: Date.now(),
-      vehicleNo: newVehicle.vehicleNo,
-      model: newVehicle.model,
-      capacity: parseFloat(newVehicle.capacity),
-    };
-    setVehicles(prev => [...prev, v]);
-    setSelectedVehicleId(v.id);
-    setShowAddVehicleModal(false);
-    setNewVehicle({ vehicleNo: '', model: '', capacity: '' });
-    showToast.success('Vehicle added successfully');
+    try {
+      setIsSavingVehicle(true);
+      // Persist to the vehicle master (duplicate-safe upsert on the backend)
+      const created = await dispatchPlanningApi.addVehicle({
+        vehicleNumber: newVehicle.vehicleNo.trim(),
+        vehicleModel: newVehicle.model.trim(),
+        capacity: parseFloat(newVehicle.capacity),
+      });
+      await fetchVehicles();
+      if (created?.id) {
+        setSelectedVehicleId(created.id);
+      }
+      setShowAddVehicleModal(false);
+      setNewVehicle({ vehicleNo: '', model: '', capacity: '' });
+      showToast.success('Vehicle added successfully');
+    } catch {
+      // Keep the modal open and preserve entered values so the user can retry
+      showToast.error('Failed to save vehicle');
+    } finally {
+      setIsSavingVehicle(false);
+    }
   };
 
   const handleCreateDispatch = async () => {
@@ -436,6 +482,27 @@ export default function DispatchPlanning() {
   const remainingCapacityKg = capacityKg - totalWeightKg;
   const isOverloaded = remainingCapacityKg < 0;
 
+  const vehicleOptions = useMemo(() => {
+    const opts: any[] = [];
+    opts.push({
+      id: 'other',
+      value: 'other',
+      label: '🚶 Other (Customer Pickup)',
+      className: 'font-medium text-[var(--primary)]',
+      alwaysVisible: true,
+    });
+    
+    vehicles.forEach(v => {
+      opts.push({
+        id: v.id,
+        value: v.id,
+        label: `${decodeHtml(v.vehicleNo)}${v.model ? ` - ${decodeHtml(v.model)}` : ''} (${v.capacity} T)`,
+        searchValue: v.driverName,
+      });
+    });
+    return opts;
+  }, [vehicles]);
+
   // Orders View - Dispatch individual order
   const handleDispatchViewOrder = async (orderId: number, orderNumber: string) => {
     setDispatchingOrder(orderId);
@@ -478,30 +545,17 @@ export default function DispatchPlanning() {
                 Select Vehicle
               </label>
               <div className="flex gap-2">
-                <select
-                  className="flex-1 border border-[var(--border)] rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] outline-none bg-[var(--surface)] text-[var(--text-primary)] transition-colors"
+                <SearchableSelect
+                  className="flex-1"
+                  options={vehicleOptions}
                   value={selectedVehicleId}
-                  onChange={e => {
-                    const val = e.target.value;
-                    if (val === 'other') {
-                      setSelectedVehicleId('other');
-                    } else if (val === '') {
-                      setSelectedVehicleId('');
-                    } else {
-                      setSelectedVehicleId(Number(val));
-                    }
+                  emptyMessage="No vehicles found."
+                  onChange={(val: any) => {
+                    setSelectedVehicleId(val === undefined ? '' : val);
                   }}
-                >
-                  <option value="">-- Select a vehicle --</option>
-                  <option value="other" className="font-medium text-[var(--primary)]">
-                    🚶 Other (Customer Pickup)
-                  </option>
-                  {vehicles.map(v => (
-                    <option key={v.id} value={v.id}>
-                      {decodeHtml(v.vehicleNo)} - {decodeHtml(v.model)} ({v.capacity} T)
-                    </option>
-                  ))}
-                </select>
+                  placeholder={loadingVehicles ? 'Loading vehicles...' : '-- Select a vehicle --'}
+                  disabled={loadingVehicles}
+                />
                 <button
                   className="px-4 py-2.5 border border-[var(--border)] rounded-lg flex items-center gap-2 text-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all font-medium"
                   onClick={() => setShowAddVehicleModal(true)}
@@ -885,9 +939,10 @@ export default function DispatchPlanning() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors"
+                  disabled={isSavingVehicle}
+                  className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Vehicle
+                  {isSavingVehicle ? 'Saving...' : 'Add Vehicle'}
                 </button>
               </div>
             </form>

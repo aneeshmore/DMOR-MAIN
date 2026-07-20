@@ -168,7 +168,11 @@ export class QuotationsService {
       orderDetails,
       deliveryAddress: content.customerAddress || content.buyerAddress,
       remarks: `Converted from Quotation #${quotation.quotationNo}`,
-      status: 'Pending',
+      // No explicit status: OrdersService.createOrder applies the standard
+      // 'Pending Accounts Approval' default, so an order converted from a
+      // quotation enters the same approval workflow as one created directly.
+      // Previously this passed the legacy 'Pending' status, which overrode
+      // that default and mislabelled the order in Recent Orders.
       priority: 'Normal',
     };
 
