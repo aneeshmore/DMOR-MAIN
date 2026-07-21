@@ -1,7 +1,7 @@
 import React from 'react';
 import { UseFormRegister, FormState, UseFormSetValue, useWatch, Control } from 'react-hook-form';
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
-import { VISIT_PURPOSES } from '../constants/firConstants';
+import { VISIT_PURPOSES, VISIT_TYPES } from '../constants/firConstants';
 import SearchableSelect from './shared/SearchableSelect';
 
 interface SectionProps {
@@ -9,6 +9,7 @@ interface SectionProps {
   formState: FormState<FieldIntelligenceReport>;
   setValue: UseFormSetValue<FieldIntelligenceReport>;
   control: Control<FieldIntelligenceReport>;
+  disabled?: boolean;
 }
 
 export const VisitDetailsSection: React.FC<SectionProps> = ({
@@ -16,22 +17,54 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
   formState,
   setValue,
   control,
+  disabled = false,
 }) => {
   const { errors } = formState;
   const visitPurpose = useWatch({ control, name: 'visitPurpose' }) || [];
+  const timeIn = useWatch({ control, name: 'timeIn' });
+  const timeOut = useWatch({ control, name: 'timeOut' });
+  const gpsLat = useWatch({ control, name: 'gpsLatitude' });
+  const gpsLng = useWatch({ control, name: 'gpsLongitude' });
 
   React.useEffect(() => {
     register('visitPurpose', {
       validate: val => (val && val.length > 0) || 'Visit Purpose is required',
     });
-  }, [register]);
+    register('visitType');
+    setValue('visitType', 'Dealer Visit');
+  }, [register, setValue]);
+
+  // Auto-calculate Visit Duration (Minutes) from Time In and Time Out
+  React.useEffect(() => {
+    if (timeIn && timeOut) {
+      const [hIn, mIn] = timeIn.split(':').map(Number);
+      const [hOut, mOut] = timeOut.split(':').map(Number);
+      if (!isNaN(hIn) && !isNaN(mIn) && !isNaN(hOut) && !isNaN(mOut)) {
+        const startMin = hIn * 60 + mIn;
+        const endMin = hOut * 60 + mOut;
+        if (endMin >= startMin) {
+          const diffMinutes = endMin - startMin;
+          setValue('visitDuration', diffMinutes.toString(), { shouldValidate: true });
+        }
+      }
+    }
+  }, [timeIn, timeOut, setValue]);
+
+  const setNow = (field: 'timeIn' | 'timeOut') => {
+    if (disabled) return;
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    setValue(field, `${hours}:${minutes}`, { shouldValidate: true });
+  };
 
   const detectLocation = () => {
+    if (disabled) return;
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         position => {
-          setValue('gpsLatitude', position.coords.latitude.toFixed(6));
-          setValue('gpsLongitude', position.coords.longitude.toFixed(6));
+          setValue('gpsLatitude', position.coords.latitude.toFixed(6), { shouldValidate: true });
+          setValue('gpsLongitude', position.coords.longitude.toFixed(6), { shouldValidate: true });
         },
         error => {
           console.error('Error detecting location', error);
@@ -74,7 +107,8 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
           </label>
           <input
             type="date"
-            className={`input ${errors.visitDate ? 'border-red-500 focus:border-red-500 bg-red-50/10' : ''}`}
+            disabled={disabled}
+            className={`input disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed ${errors.visitDate ? 'border-red-500 focus:border-red-500 bg-red-50/10' : ''}`}
             {...register('visitDate', { required: 'Visit Date is required' })}
           />
           {errors.visitDate && (
@@ -89,14 +123,26 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
 
         {/* Time In */}
         <div>
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.timeIn ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Time In
-          </label>
+          <div className="flex justify-between items-center mb-1">
+            <label
+              className={`text-sm font-semibold ${errors.timeIn ? 'text-red-500' : 'text-gray-700'}`}
+            >
+              Time In
+            </label>
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => setNow('timeIn')}
+                className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5"
+              >
+                Set Now
+              </button>
+            )}
+          </div>
           <input
             type="time"
-            className={`input ${errors.timeIn ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            disabled={disabled}
+            className={`input disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed ${errors.timeIn ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('timeIn', { required: false })}
           />
           {errors.timeIn && (
@@ -111,15 +157,33 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
 
         {/* Time Out */}
         <div>
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.timeOut ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Time Out <span className="text-red-500">*</span>
-          </label>
+          <div className="flex justify-between items-center mb-1">
+            <label
+              className={`text-sm font-semibold ${errors.timeOut ? 'text-red-500' : 'text-gray-700'}`}
+            >
+              Time Out <span className="text-red-500">*</span>
+            </label>
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => setNow('timeOut')}
+                className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5"
+              >
+                Set Now
+              </button>
+            )}
+          </div>
           <input
             type="time"
-            className={`input ${errors.timeOut ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-            {...register('timeOut', { required: 'Time Out is required' })}
+            disabled={disabled}
+            className={`input disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed ${errors.timeOut ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            {...register('timeOut', {
+              required: 'Time Out is required',
+              validate: val => {
+                if (!timeIn || !val) return true;
+                return val > timeIn || 'Time Out cannot be before Time In';
+              },
+            })}
           />
           {errors.timeOut && (
             <p
@@ -131,28 +195,29 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
           )}
         </div>
 
-        {/* Visit Type hidden input */}
-        <input type="hidden" {...register('visitType')} />
-
-        {/* Duration */}
+        {/* Duration (Auto-Calculated) */}
         <div>
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.visitDuration ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Visit Duration (Minutes)
-          </label>
-          <input
-            type="text"
-            className={`input ${errors.visitDuration ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-            placeholder="e.g. 45 or N/A"
-            {...register('visitDuration', {
-              required: false,
-              validate: val => {
-                if (!val || val.toString().trim() === '') return true;
-                return (val as any) === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A';
-              },
-            })}
-          />
+          <div className="flex justify-between items-center mb-1">
+            <label
+              className={`text-sm font-semibold ${errors.visitDuration ? 'text-red-500' : 'text-gray-700'}`}
+            >
+              Visit Duration
+            </label>
+            <span className="text-xs text-emerald-600 font-medium">Auto-Calculated</span>
+          </div>
+          <div className="relative">
+            <input
+              type="text"
+              readOnly
+              disabled={disabled}
+              className={`input bg-gray-50 text-gray-800 font-semibold pr-14 truncate disabled:bg-gray-100 disabled:text-gray-500 ${errors.visitDuration ? 'border-red-500' : ''}`}
+              placeholder="Auto from Time In / Out"
+              {...register('visitDuration', { required: false })}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-500 pointer-events-none bg-gray-50 pl-1">
+              Mins
+            </span>
+          </div>
           {errors.visitDuration && (
             <p
               className="text-red-500 text-xs mt-1"
@@ -163,63 +228,70 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
           )}
         </div>
 
-        {/* GPS with detect button */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label
-              className={`block text-sm font-semibold mb-1 ${errors.gpsLatitude ? 'text-red-500' : 'text-gray-700'}`}
-            >
-              Latitude <span className="text-red-500">*</span>
+        {/* GPS Coordinates Section */}
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-sm font-semibold text-gray-700">
+              GPS Location <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              className={`input ${errors.gpsLatitude ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-              placeholder="18.5204 or N/A"
-              {...register('gpsLatitude', { required: 'Latitude is required' })}
-            />
-            {errors.gpsLatitude && (
-              <p
-                className="text-red-500 text-xs mt-1"
-                style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-              >
-                {errors.gpsLatitude.message}
-              </p>
-            )}
+            <button
+              type="button"
+              onClick={detectLocation}
+              disabled={disabled}
+              className="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              Auto-Detect GPS
+            </button>
           </div>
-          <div>
-            <label
-              className={`block text-sm font-semibold mb-1 ${errors.gpsLongitude ? 'text-red-500' : 'text-gray-700'}`}
-            >
-              Longitude <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <input
                 type="text"
-                className={`input pr-10 ${errors.gpsLongitude ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-                placeholder="73.8567 or N/A"
+                disabled={disabled}
+                className={`input w-full disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed ${errors.gpsLatitude ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+                placeholder="Lat (e.g. 18.5204)"
+                {...register('gpsLatitude', { required: 'Latitude is required' })}
+              />
+              {errors.gpsLatitude && (
+                <p
+                  className="text-red-500 text-xs mt-1"
+                  style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+                >
+                  {errors.gpsLatitude.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <input
+                type="text"
+                disabled={disabled}
+                className={`input w-full disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed ${errors.gpsLongitude ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+                placeholder="Lon (e.g. 73.8567)"
                 {...register('gpsLongitude', { required: 'Longitude is required' })}
               />
-              <button
-                type="button"
-                onClick={detectLocation}
-                className="absolute right-2 top-2 text-primary hover:text-primary-hover"
-                title="Detect GPS Location"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-              </button>
+              {errors.gpsLongitude && (
+                <p
+                  className="text-red-500 text-xs mt-1"
+                  style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+                >
+                  {errors.gpsLongitude.message}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -238,6 +310,7 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
           placeholder="Select Visit Purpose..."
           required
           error={errors.visitPurpose?.message as string}
+          disabled={disabled}
         />
       </div>
     </div>

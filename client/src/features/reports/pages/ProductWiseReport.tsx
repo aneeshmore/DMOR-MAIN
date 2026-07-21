@@ -711,6 +711,7 @@ const ProductWiseReport = () => {
             <ProductTransactionHistory
               productId={row.original.productId?.toString()}
               productType={row.original.productType}
+              productName={row.original.productName || row.original.masterProductName || undefined}
               reportCache={productReportCache}
               endDate={endDate} // Pass end date for "till date" context (ignores startDate for history)
             />

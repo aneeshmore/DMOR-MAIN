@@ -15,25 +15,42 @@ export const FieldIntelligenceEditPage: React.FC = () => {
   const [report, setReport] = useState<FieldIntelligenceReport | null>(null);
 
   useEffect(() => {
-    if (user && user.Role !== 'Admin' && user.Role !== 'SuperAdmin') {
-      showToast.error('Access denied. Only Admin and SuperAdmin can edit reports.');
-      navigate('/operations/field-intelligence');
-    }
-  }, [user, navigate]);
-
-  useEffect(() => {
     const loadReport = async () => {
       try {
         if (!id) return;
         const data = await fieldIntelligenceApi.getById(id);
 
-        // Form expects date string format YYYY-MM-DD
-        if (data.visitDate) {
-          data.visitDate = new Date(data.visitDate).toISOString().slice(0, 10);
+        const isAdmin = user?.Role === 'Admin' || user?.Role === 'SuperAdmin';
+        const isOwner =
+          Number(data.executiveId) === Number(user?.EmployeeID) ||
+          Number(data.createdBy) === Number(user?.EmployeeID);
+
+        // Only Draft reports are editable (by admin or the report owner).
+        // Submitted / any non-draft report is locked — even via direct URL.
+        if (!((isAdmin || isOwner) && data.status === 'Draft')) {
+          const msg =
+            data.status !== 'Draft'
+              ? 'This report is submitted and can no longer be edited.'
+              : 'Access denied. You do not have permission to edit this report.';
+          showToast.error(msg);
+          navigate('/operations/field-intelligence');
+          return;
         }
-        if (data.expectedOrderDate) {
-          data.expectedOrderDate = new Date(data.expectedOrderDate).toISOString().slice(0, 10);
-        }
+
+        // Form expects YYYY-MM-DD. Guard against 'N/A'/invalid values — drafts
+        // usually have no expectedOrderDate (DTO returns 'N/A'), and
+        // new Date('N/A').toISOString() throws RangeError, which would otherwise
+        // abort loading and surface as "Could not retrieve report data".
+        const toDateInput = (v: unknown): string | undefined => {
+          if (v === null || v === undefined || String(v).trim().toUpperCase() === 'N/A') {
+            return undefined;
+          }
+          const d = new Date(v as string | number | Date);
+          return isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
+        };
+        const normalizedVisitDate = toDateInput(data.visitDate);
+        if (normalizedVisitDate) data.visitDate = normalizedVisitDate;
+        data.expectedOrderDate = toDateInput(data.expectedOrderDate);
 
         setReport(data);
       } catch (err) {
@@ -45,8 +62,10 @@ export const FieldIntelligenceEditPage: React.FC = () => {
       }
     };
 
-    loadReport();
-  }, [id, navigate]);
+    if (user) {
+      loadReport();
+    }
+  }, [id, navigate, user]);
 
   const handleSubmit = async (data: FieldIntelligenceReport) => {
     try {

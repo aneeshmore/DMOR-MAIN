@@ -13,6 +13,8 @@ export interface Followup {
   reportId?: string;
   followupDate: string | Date;
   notes?: string;
+  actionType?: string;
+  followupMode?: string;
   status: 'Open' | 'Pending' | 'Completed' | 'Missed' | 'Cancelled';
 }
 
@@ -80,6 +82,7 @@ export interface FieldIntelligenceReport {
   contactPerson?: string;
   designation?: string;
   mobile?: string;
+  countryCode?: string;
   whatsapp?: string;
   email?: string;
   gstNumber?: string;
@@ -93,6 +96,7 @@ export interface FieldIntelligenceReport {
   area?: string;
   customerTypeId?: number | string;
   salesPersonId?: number | string;
+  openingBalance?: number | string;
   monthlyConsumption?: number | string;
   currentSupplier?: string;
   paintRequirementTypes: string[];
@@ -108,6 +112,7 @@ export interface FieldIntelligenceReport {
   creditDays?: number;
   outstandingAmount?: number | string;
   purchaseDecisionBy?: string;
+  contactRole?: string;
   purchaseCycle?: string;
   potentialBusinessValue?: number | string;
   expectedMonthlyBusiness?: number | string;
@@ -152,6 +157,10 @@ export interface FieldIntelligenceReport {
   uploads?: Upload[];
   insights?: AiInsight[];
   activityLogs?: ActivityLog[];
+  dynamicFields?: {
+    productRequirements?: any[];
+    [key: string]: any;
+  };
 }
 
 export interface DashboardSummary {

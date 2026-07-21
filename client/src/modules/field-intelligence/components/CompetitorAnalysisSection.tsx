@@ -17,6 +17,7 @@ interface SectionProps {
   formState?: FormState<FieldIntelligenceReport>;
   setValue: UseFormSetValue<FieldIntelligenceReport>;
   watch: (name: any) => any;
+  isDraftMode?: boolean;
 }
 
 export const CompetitorAnalysisSection: React.FC<SectionProps> = ({
@@ -25,6 +26,7 @@ export const CompetitorAnalysisSection: React.FC<SectionProps> = ({
   formState,
   setValue,
   watch,
+  isDraftMode,
 }) => {
   const { errors } = formState || {};
   const { fields, append, remove } = useFieldArray({
@@ -99,9 +101,19 @@ export const CompetitorAnalysisSection: React.FC<SectionProps> = ({
                       label="Competitor Brand"
                       options={COMPETITOR_BRANDS}
                       value={currentName || ''}
-                      onChange={v => setValue(`competitors.${index}.competitorName` as any, v)}
+                      onChange={v =>
+                        setValue(`competitors.${index}.competitorName` as any, v, {
+                          shouldValidate: true,
+                        })
+                      }
+                      onCreateOption={v =>
+                        setValue(`competitors.${index}.competitorName` as any, v, {
+                          shouldValidate: true,
+                        })
+                      }
                       placeholder="e.g. Kansai Nerolac, Asian Paints"
                       allowCustom
+                      persistKey="competitorName"
                       error={competitorError?.competitorName?.message}
                     />
                     {/* Hidden for RHF validation */}
