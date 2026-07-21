@@ -24,6 +24,7 @@ interface DynamicSectionProps {
   setValue: UseFormSetValue<FieldIntelligenceReport>;
   control: Control<FieldIntelligenceReport>;
   watch: (name: keyof FieldIntelligenceReport) => any;
+  isDraftMode?: boolean;
 }
 
 /**
@@ -36,7 +37,9 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
   setValue,
   control,
   watch,
+  isDraftMode = false,
 }) => {
+  const req = (msg: string) => (isDraftMode ? false : msg) as string | false;
   const errors: any = formState.errors;
   const visitType: string = useWatch({ control, name: 'visitType' }) || 'New Visit';
   const sections = getSectionsForVisitType(visitType);
@@ -49,37 +52,43 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
   // Register the custom components' fields on mount and when sections/visitType changes
   useEffect(() => {
     if (sections.showIndustrialFields) {
-      register('currentSystemUsed' as any, { required: 'Current Coating System is required' });
+      register('currentSystemUsed' as any, { required: req('Current Coating System is required') });
     } else {
       register('currentSystemUsed' as any, { required: false });
     }
 
     if (sections.showArchitectFields) {
-      register('requiredShade' as any, { required: 'Shade Preference is required' });
-      register('requiredFinish' as any, { required: 'Required Finish is required' });
+      register('requiredShade' as any, { required: req('Shade Preference is required') });
+      register('requiredFinish' as any, { required: req('Required Finish is required') });
     } else {
       register('requiredShade' as any, { required: false });
       register('requiredFinish' as any, { required: false });
     }
 
     if (sections.showTechnicalFields) {
-      register('technicalIssue' as any, { required: 'Technical Issue is required' });
+      register('technicalIssue' as any, { required: req('Technical Issue is required') });
     } else {
       register('technicalIssue' as any, { required: false });
     }
 
     if (sections.showGeneralTechnical) {
       register('paintRequirementTypes' as any, {
-        validate: val =>
-          !val || val.length === 0 ? 'At least one requirement type is required' : true,
+        validate: isDraftMode
+          ? undefined
+          : (val: any) =>
+              !val || val.length === 0 ? 'At least one requirement type is required' : true,
       });
       register('surfaceTypes' as any, {
-        validate: val =>
-          !val || val.length === 0 ? 'At least one surface substrate is required' : true,
+        validate: isDraftMode
+          ? undefined
+          : (val: any) =>
+              !val || val.length === 0 ? 'At least one surface substrate is required' : true,
       });
       register('applicationMethods' as any, {
-        validate: val =>
-          !val || val.length === 0 ? 'At least one application method is required' : true,
+        validate: isDraftMode
+          ? undefined
+          : (val: any) =>
+              !val || val.length === 0 ? 'At least one application method is required' : true,
       });
       register('technicalChallenges' as any, { validate: undefined });
     } else {
@@ -88,7 +97,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
       register('applicationMethods' as any, { validate: undefined });
       register('technicalChallenges' as any, { validate: undefined });
     }
-  }, [register, sections, visitType]);
+  }, [register, sections, visitType, isDraftMode]);
 
   // ── Complaint Visit Fields ────────────────────────────────────────────────
   const ComplaintFields = () => (
@@ -106,7 +115,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.complaintType ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('complaintType' as any, {
-              required: sections.showComplaintFields ? 'Complaint Type is required' : false,
+              required: sections.showComplaintFields ? req('Complaint Type is required') : false,
             })}
           >
             <option value="">Select complaint type...</option>
@@ -138,7 +147,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
             className={`input ${errors.complaintProduct ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. PU 2K Glossy – Shade 7035 or N/A"
             {...register('complaintProduct' as any, {
-              required: sections.showComplaintFields ? 'Product Used is required' : false,
+              required: sections.showComplaintFields ? req('Product Used is required') : false,
             })}
           />
           {errors.complaintProduct && (
@@ -152,27 +161,25 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
         </div>
 
         <div>
-          <label
-            className={`block text-sm font-semibold mb-1 ${errors.complaintBatchNumber ? 'text-red-500' : 'text-gray-700'}`}
-          >
-            Batch Number <span className="text-red-500">*</span>
+          <label className="block text-sm font-semibold mb-1 text-gray-700">Batch Number</label>
+          <input
+            type="text"
+            className="input"
+            placeholder="e.g. B24-0912-A or N/A"
+            {...register('complaintBatchNumber' as any, { required: false })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1 text-gray-700">
+            Invoice / Challan Number
           </label>
           <input
             type="text"
-            className={`input ${errors.complaintBatchNumber ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
-            placeholder="e.g. B24-0912-A or N/A"
-            {...register('complaintBatchNumber' as any, {
-              required: sections.showComplaintFields ? 'Batch Number is required' : false,
-            })}
+            className="input"
+            placeholder="e.g. INV-10293 or N/A"
+            {...register('complaintInvoiceNumber' as any, { required: false })}
           />
-          {errors.complaintBatchNumber && (
-            <p
-              className="text-red-500 text-xs mt-1"
-              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
-            >
-              {errors.complaintBatchNumber.message as string}
-            </p>
-          )}
         </div>
 
         <div>
@@ -184,7 +191,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.complaintResolutionStatus ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('complaintResolutionStatus' as any, {
-              required: sections.showComplaintFields ? 'Resolution Status is required' : false,
+              required: sections.showComplaintFields ? req('Resolution Status is required') : false,
             })}
           >
             <option value="">Select status...</option>
@@ -205,12 +212,82 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           )}
         </div>
 
+        <div>
+          <label
+            className={`block text-sm font-semibold mb-1 ${errors.complaintSeverity ? 'text-red-500' : 'text-gray-700'}`}
+          >
+            Severity <span className="text-red-500">*</span>
+          </label>
+          <select
+            className={`input ${errors.complaintSeverity ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            {...register('complaintSeverity' as any, {
+              required: sections.showComplaintFields ? req('Severity is required') : false,
+            })}
+          >
+            <option value="">Select severity...</option>
+            <option value="N/A">N/A</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+          {errors.complaintSeverity && (
+            <p
+              className="text-red-500 text-xs mt-1"
+              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+            >
+              {errors.complaintSeverity.message as string}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label
+            className={`block text-sm font-semibold mb-1 ${errors.complaintRaisedBy ? 'text-red-500' : 'text-gray-700'}`}
+          >
+            Complaint Raised By <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            className={`input ${errors.complaintRaisedBy ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            placeholder="e.g. Ramesh Patel (Owner) or N/A"
+            {...register('complaintRaisedBy' as any, {
+              required: sections.showComplaintFields
+                ? req('Complaint Raised By is required')
+                : false,
+            })}
+          />
+          {errors.complaintRaisedBy && (
+            <p
+              className="text-red-500 text-xs mt-1"
+              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+            >
+              {errors.complaintRaisedBy.message as string}
+            </p>
+          )}
+        </div>
+
+        {/* Spacer to align grid item */}
+        <div className="hidden sm:block"></div>
+
+        <div className="md:col-span-2">
+          <VoiceInput
+            label="Action Taken"
+            value={watch('complaintActionTaken' as any) || ''}
+            onChange={val => setValue('complaintActionTaken' as any, val, { shouldValidate: true })}
+            placeholder="Describe initial containment or troubleshooting actions taken... or N/A"
+            rows={2}
+            name="complaintActionTaken"
+          />
+          <input type="hidden" {...register('complaintActionTaken' as any)} />
+        </div>
+
         <div className="md:col-span-2">
           <VoiceInput
             label="Issue Description"
             value={watch('complaintDescription' as any) || ''}
             onChange={val => setValue('complaintDescription' as any, val, { shouldValidate: true })}
-            placeholder="Describe the complaint in detail – surface condition, application method, failure mode..."
+            placeholder="Describe the complaint in detail – surface condition, failure mode..."
             rows={3}
             required={sections.showComplaintFields}
             error={errors.complaintDescription?.message}
@@ -219,7 +296,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <input
             type="hidden"
             {...register('complaintDescription' as any, {
-              required: sections.showComplaintFields ? 'Issue Description is required' : false,
+              required: sections.showComplaintFields ? req('Issue Description is required') : false,
             })}
           />
         </div>
@@ -325,7 +402,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
             className={`input ${errors.dealerOrderRequirement ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. 200L PU next week or N/A"
             {...register('dealerOrderRequirement' as any, {
-              required: sections.showDealerFields ? 'Order Requirement is required' : false,
+              required: sections.showDealerFields ? req('Order Requirement is required') : false,
             })}
           />
           {errors.dealerOrderRequirement && (
@@ -370,7 +447,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.industrialApprovalStatus ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('industrialApprovalStatus' as any, {
-              required: sections.showIndustrialFields ? 'Approval Status is required' : false,
+              required: sections.showIndustrialFields ? req('Approval Status is required') : false,
             })}
           >
             <option value="">Select approval status...</option>
@@ -400,7 +477,9 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.trialRequirement ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('trialRequirement' as any, {
-              required: sections.showIndustrialFields ? 'Trial Requirement is required' : false,
+              required: sections.showIndustrialFields
+                ? req('Trial Requirement is required')
+                : false,
             })}
           >
             <option value="">Select...</option>
@@ -431,7 +510,9 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
             className={`input ${errors.industrialProductionVolume ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. 500 tractors/month or N/A"
             {...register('industrialProductionVolume' as any, {
-              required: sections.showIndustrialFields ? 'Production Volume is required' : false,
+              required: sections.showIndustrialFields
+                ? req('Production Volume is required')
+                : false,
             })}
           />
           {errors.industrialProductionVolume && (
@@ -465,7 +546,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
             className={`input ${errors.architectProjectName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. Nile Residency – Tower B or N/A"
             {...register('architectProjectName' as any, {
-              required: sections.showArchitectFields ? 'Project Name is required' : false,
+              required: sections.showArchitectFields ? req('Project Name is required') : false,
             })}
           />
           {errors.architectProjectName && (
@@ -487,7 +568,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.architectProjectScale ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('architectProjectScale' as any, {
-              required: sections.showArchitectFields ? 'Project Scale is required' : false,
+              required: sections.showArchitectFields ? req('Project Scale is required') : false,
             })}
           >
             <option value="">Select scale...</option>
@@ -544,7 +625,9 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
             className={`input ${errors.architectProductRecommendation ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. Recommended Premium Acrylic Emulsion + Texture Finish or N/A"
             {...register('architectProductRecommendation' as any, {
-              required: sections.showArchitectFields ? 'Product Recommendation is required' : false,
+              required: sections.showArchitectFields
+                ? req('Product Recommendation is required')
+                : false,
             })}
           />
           {errors.architectProductRecommendation && (
@@ -600,7 +683,9 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.productPerformanceObserved ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('productPerformanceObserved' as any, {
-              required: sections.showTechnicalFields ? 'Product Performance is required' : false,
+              required: sections.showTechnicalFields
+                ? req('Product Performance is required')
+                : false,
             })}
           >
             <option value="">Select...</option>
@@ -636,7 +721,9 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <input
             type="hidden"
             {...register('technicalSiteObservations' as any, {
-              required: sections.showTechnicalFields ? 'Site Observations are required' : false,
+              required: sections.showTechnicalFields
+                ? req('Site Observations are required')
+                : false,
             })}
           />
         </div>
@@ -657,7 +744,9 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <input
             type="hidden"
             {...register('technicalCorrectiveActions' as any, {
-              required: sections.showTechnicalFields ? 'Corrective Actions are required' : false,
+              required: sections.showTechnicalFields
+                ? req('Corrective Actions are required')
+                : false,
             })}
           />
         </div>
@@ -683,7 +772,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
             className={`input ${errors.siteName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. Brigade Cosmos Phase 2 or N/A"
             {...register('siteName' as any, {
-              required: sections.showSiteFields ? 'Site Name is required' : false,
+              required: sections.showSiteFields ? req('Site Name is required') : false,
             })}
           />
           {errors.siteName && (
@@ -705,7 +794,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.constructionStage ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('constructionStage' as any, {
-              required: sections.showSiteFields ? 'Construction Stage is required' : false,
+              required: sections.showSiteFields ? req('Construction Stage is required') : false,
             })}
           >
             <option value="">Select stage...</option>
@@ -739,7 +828,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
             className={`input ${errors.contractorName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. Rajesh Construction or N/A"
             {...register('contractorName' as any, {
-              required: sections.showSiteFields ? 'Contractor Name is required' : false,
+              required: sections.showSiteFields ? req('Contractor Name is required') : false,
             })}
           />
           {errors.contractorName && (
@@ -763,7 +852,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
             className={`input ${errors.estimatedArea ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. 15000 or N/A"
             {...register('estimatedArea' as any, {
-              required: sections.showSiteFields ? 'Estimated Area is required' : false,
+              required: sections.showSiteFields ? req('Estimated Area is required') : false,
               validate: val => {
                 if (!sections.showSiteFields) return true;
                 return val === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A';
@@ -804,7 +893,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <input
             type="hidden"
             {...register('marketFeedbackNotes' as any, {
-              required: sections.showMarketFeedback ? 'Market Feedback is required' : false,
+              required: sections.showMarketFeedback ? req('Market Feedback is required') : false,
             })}
           />
         </div>
@@ -818,7 +907,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.marketPriceTrend ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('marketPriceTrend' as any, {
-              required: sections.showMarketFeedback ? 'Price Trend is required' : false,
+              required: sections.showMarketFeedback ? req('Price Trend is required') : false,
             })}
           >
             <option value="">Select trend...</option>
@@ -847,7 +936,7 @@ export const DynamicVisitSection: React.FC<DynamicSectionProps> = ({
           <select
             className={`input ${errors.marketDemandTrend ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             {...register('marketDemandTrend' as any, {
-              required: sections.showMarketFeedback ? 'Demand Trend is required' : false,
+              required: sections.showMarketFeedback ? req('Demand Trend is required') : false,
             })}
           >
             <option value="">Select trend...</option>

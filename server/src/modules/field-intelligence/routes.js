@@ -91,6 +91,19 @@ const handleUploadMiddleware = (req, res, next) => {
   });
 };
 
+const validateUuidParam = (req, res, next) => {
+  const { id } = req.params;
+  const UUID_REGEX =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  if (!id || !UUID_REGEX.test(id)) {
+    return res.status(404).json({
+      success: false,
+      message: 'Field report not found',
+    });
+  }
+  next();
+};
+
 const router = Router();
 const controller = new FieldIntelligenceController();
 
@@ -137,24 +150,50 @@ router.get(
 );
 
 router.post(
-  '/link-customer',
-  requirePermission('POST:/field-intelligence/link-customer'),
-  controller.linkCustomer
+  '/company/chat',
+  requirePermission('POST:/field-intelligence'),
+  controller.chatWithCompanyCopilot
 );
 
-router.get('/:id', requirePermission('GET:/field-intelligence/:id'), controller.getReportDetails);
+router.post(
+  '/:id/chat',
+  validateUuidParam,
+  requirePermission('POST:/field-intelligence'),
+  controller.chatWithCopilot
+);
+
+router.get(
+  '/:id/ai-insights',
+  validateUuidParam,
+  requirePermission('GET:/field-intelligence/:id'),
+  controller.getReportAiInsights
+);
+
+router.get(
+  '/:id',
+  validateUuidParam,
+  requirePermission('GET:/field-intelligence/:id'),
+  controller.getReportDetails
+);
 
 router.patch(
   '/:id',
+  validateUuidParam,
   requirePermission('PATCH:/field-intelligence/:id'),
   validateUpdateReport,
   controller.updateReport
 );
 
-router.delete('/:id', requirePermission('DELETE:/field-intelligence/:id'), controller.deleteReport);
+router.delete(
+  '/:id',
+  validateUuidParam,
+  requirePermission('DELETE:/field-intelligence/:id'),
+  controller.deleteReport
+);
 
 router.post(
   '/:id/upload',
+  validateUuidParam,
   requirePermission('POST:/field-intelligence/:id/upload'),
   handleUploadMiddleware,
   controller.handleFileUpload

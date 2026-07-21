@@ -3,6 +3,7 @@ import db from '../../db/index.js';
 import { company } from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
+import logger from '../../config/logger.js';
 
 // Generate valid UUID deterministically from companyId instead of companyName hashing
 function getTenantIdFromCompanyId(companyId) {
@@ -81,14 +82,6 @@ export class FieldIntelligenceController {
           .json({ success: false, message: 'Forbidden: Access denied (Company context missing)' });
       }
 
-      const isAdmin = req.user?.role === 'Admin' || req.user?.role === 'SuperAdmin';
-      if (!isAdmin) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. Only Admin and SuperAdmin can modify CRM reports.',
-        });
-      }
-
       const report = await this.service.updateReport(
         req.params.id,
         req.validatedBody,
@@ -114,14 +107,6 @@ export class FieldIntelligenceController {
         return res
           .status(403)
           .json({ success: false, message: 'Forbidden: Access denied (Company context missing)' });
-      }
-
-      const isAdmin = req.user?.role === 'Admin' || req.user?.role === 'SuperAdmin';
-      if (!isAdmin) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. Only Admin and SuperAdmin can modify CRM reports.',
-        });
       }
 
       await this.service.deleteReport(req.params.id, req.user, context.companyId, context.tenantId);
@@ -154,6 +139,31 @@ export class FieldIntelligenceController {
       res.status(200).json({
         success: true,
         data: report,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getReportAiInsights = async (req, res, next) => {
+    try {
+      const context = await getTenantContext(req);
+      if (!context) {
+        return res
+          .status(403)
+          .json({ success: false, message: 'Forbidden: Access denied (Company context missing)' });
+      }
+
+      const insights = await this.service.getReportAiInsights(
+        req.params.id,
+        req.user,
+        context.companyId,
+        context.tenantId
+      );
+
+      res.status(200).json({
+        success: true,
+        data: insights,
       });
     } catch (error) {
       next(error);
@@ -418,27 +428,78 @@ export class FieldIntelligenceController {
     }
   };
 
-  linkCustomer = async (req, res, next) => {
+  chatWithCopilot = async (req, res, next) => {
     try {
+      const { id } = req.params;
+      const { messages } = req.body;
       const context = await getTenantContext(req);
-      if (!context) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-      const { customerId, customerName } = req.body;
-      const updated = await this.service.linkCustomerBulk(
-        customerId,
-        customerName,
-        context.companyId,
-        context.tenantId,
-        req.user
+      if (!Array.isArray(messages)) {
+        return res.status(400).json({ success: false, message: 'messages array is required' });
+      }
+
+      // Configure SSE Headers for streaming
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      await this.service.streamChat(
+        id,
+        messages,
+        res,
+        req.user,
+        context?.companyId,
+        context?.tenantId
       );
+      res.write('event: end\ndata: [DONE]\n\n');
+      res.end();
+    } catch (err) {
+      logger.error('Smart CRM chatWithCopilot error', { error: err.message });
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: err.message });
+      } else {
+        res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
+        res.end();
+      }
+    }
+  };
 
-      res.status(200).json({
-        success: true,
-        customerId: parseInt(customerId, 10),
-        updatedCount: updated.length,
-      });
-    } catch (error) {
-      next(error);
+  chatWithCompanyCopilot = async (req, res, next) => {
+    try {
+      const { customerName, customerId, messages } = req.body;
+      const context = await getTenantContext(req);
+
+      if (!customerName) {
+        return res.status(400).json({ success: false, message: 'customerName is required' });
+      }
+      if (!Array.isArray(messages)) {
+        return res.status(400).json({ success: false, message: 'messages array is required' });
+      }
+
+      // Configure SSE Headers for streaming
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      await this.service.streamCompanyChat(
+        customerName,
+        customerId,
+        messages,
+        res,
+        req.user,
+        context?.companyId,
+        context?.tenantId
+      );
+      res.write('event: end\ndata: [DONE]\n\n');
+      res.end();
+    } catch (err) {
+      logger.error('Smart CRM chatWithCompanyCopilot error', { error: err.message });
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: err.message });
+      } else {
+        res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
+        res.end();
+      }
     }
   };
 }

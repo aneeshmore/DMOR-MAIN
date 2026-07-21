@@ -7,6 +7,7 @@ interface SectionProps {
   formState: FormState<FieldIntelligenceReport>;
   setValue: UseFormSetValue<FieldIntelligenceReport>;
   watch: (name: keyof FieldIntelligenceReport) => any;
+  isDraftMode?: boolean;
 }
 
 export const OrderPossibilitySection: React.FC<SectionProps> = ({
@@ -14,7 +15,9 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
   formState,
   setValue,
   watch,
+  isDraftMode = false,
 }) => {
+  const req = (msg: string) => (isDraftMode ? false : msg) as string | false;
   const { errors } = formState;
   return (
     <div className="card p-6 mb-6">
@@ -49,11 +52,13 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
             className={`input ${errors.conversionProbability ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. 70 or N/A"
             {...register('conversionProbability', {
-              required: 'Conversion Probability is required',
+              required: req('Conversion Probability is required'),
               validate: val =>
-                (val as any) === 'N/A' ||
-                (!isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 100) ||
-                'Must be a percentage between 0 and 100 or N/A',
+                !val || (val as any).toString().trim() === ''
+                  ? true
+                  : (val as any) === 'N/A' ||
+                    (!isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 100) ||
+                    'Must be a percentage between 0 and 100 or N/A',
             })}
           />
           {errors.conversionProbability && (
@@ -111,9 +116,11 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
             className={`input ${errors.expectedOrderQuantity ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
             placeholder="e.g. 1000 or N/A"
             {...register('expectedOrderQuantity', {
-              required: 'Expected Order Quantity is required',
+              required: req('Expected Order Quantity is required'),
               validate: val =>
-                (val as any) === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A',
+                !val || val.toString().trim() === ''
+                  ? true
+                  : (val as any) === 'N/A' || !isNaN(Number(val)) || 'Must be a number or N/A',
             })}
           />
           {errors.expectedOrderQuantity && (
@@ -122,6 +129,33 @@ export const OrderPossibilitySection: React.FC<SectionProps> = ({
               style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
             >
               {errors.expectedOrderQuantity.message}
+            </p>
+          )}
+        </div>
+        {/* Immediate Requirement */}
+        <div>
+          <label
+            className={`block text-sm font-semibold mb-1 ${errors.immediateRequirement ? 'text-red-500' : 'text-gray-700'}`}
+          >
+            Immediate Requirement? <span className="text-red-500">*</span>
+          </label>
+          <select
+            className={`input ${errors.immediateRequirement ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+            {...register('immediateRequirement', {
+              required: req('Immediate Requirement is required'),
+            })}
+          >
+            <option value="">Select...</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+            <option value="N/A">N/A</option>
+          </select>
+          {errors.immediateRequirement && (
+            <p
+              className="text-red-500 text-xs mt-1"
+              style={{ fontSize: 'small', color: 'red', marginTop: '4px' }}
+            >
+              {errors.immediateRequirement.message}
             </p>
           )}
         </div>

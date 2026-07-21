@@ -6,7 +6,34 @@ import { isThemeEditorEnabled } from '@/plugins/themeEditor';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { cn } from '@/utils/cn';
 import { NotificationDropdown } from '@/features/notifications/components';
+import { routeRegistry, flattenRoutes } from '@/config/routeRegistry';
 import { confirmDialog } from '@/components/ui';
+
+// Set of real, navigable (non-dynamic) route paths. A breadcrumb segment is only
+// linked if its cumulative path is a registered page — this prevents dead links
+// for structural-only segments like ".../field-intelligence/customer", which
+// otherwise match the ":id" route and 404.
+const NAVIGABLE_PATHS = new Set(
+  flattenRoutes(routeRegistry)
+    .map(r => r.path)
+    .filter(p => p && !p.includes(':'))
+);
+
+// Friendly labels for URL segments whose slug differs from the product name.
+// (Route folders/paths keep their internal slug; only the breadcrumb label changes.)
+const SEGMENT_LABELS: Record<string, string> = {
+  'field-intelligence': 'Smart CRM',
+};
+
+// Detect id-like segments (UUIDs or numeric ids) so breadcrumbs show a friendly
+// label instead of a raw/"random" id.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const formatSegmentLabel = (segment: string): string => {
+  if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
+  if (UUID_RE.test(segment) || /^\d+$/.test(segment)) return 'Details';
+  return segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
+};
 
 interface HeaderProps {
   onThemeToggle: () => void;
@@ -83,20 +110,30 @@ export const Header: React.FC<HeaderProps> = ({ onThemeToggle, user, onLogout })
               .map((segment, index, array) => {
                 const path = `/${array.slice(0, index + 1).join('/')}`;
                 const isLast = index === array.length - 1;
-                const label = segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
+                const label = formatSegmentLabel(segment);
+
+                const linkable = !isLast && NAVIGABLE_PATHS.has(path);
 
                 return (
                   <div key={path} className="flex items-center">
                     <span className="mx-2 text-[var(--border)]">/</span>
-                    {isLast ? (
-                      <span className="font-medium text-[var(--text-primary)]">{label}</span>
-                    ) : (
+                    {linkable ? (
                       <Link
                         to={path}
                         className="text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors cursor-pointer"
                       >
                         {label}
                       </Link>
+                    ) : (
+                      <span
+                        className={
+                          isLast
+                            ? 'font-medium text-[var(--text-primary)]'
+                            : 'text-[var(--text-secondary)]'
+                        }
+                      >
+                        {label}
+                      </span>
                     )}
                   </div>
                 );

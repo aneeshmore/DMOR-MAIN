@@ -292,7 +292,7 @@ const ProductDevelopment = () => {
                 productId: item.materialId,
                 productName: rmDetails?.masterProductName || 'Unknown Material',
                 // Format percentage to 3 decimal places
-                percentage: parseFloat(String(item.percentage || '0')).toFixed(4),
+                percentage: parseFloat(String(item.percentage || '0')).toFixed(3),
 
                 sequence: item.sequence,
                 waitingTime: item.waitingTime || 0,
@@ -353,13 +353,13 @@ const ProductDevelopment = () => {
         if (totalPercent > 0 && totalPercent <= 1.05) {
           mappedItems = mappedItems.map(item => ({
             ...item,
-            percentage: (parseFloat(String(item.percentage ?? '0')) * 100).toFixed(4),
+            percentage: (parseFloat(String(item.percentage ?? '0')) * 100).toFixed(3),
           }));
         } else {
           // Ensure all percentages are formatted to 3 decimal places
           mappedItems = mappedItems.map(item => ({
             ...item,
-            percentage: parseFloat(String(item.percentage ?? '0')).toFixed(4),
+            percentage: parseFloat(String(item.percentage ?? '0')).toFixed(3),
           }));
         }
 
@@ -649,7 +649,7 @@ const ProductDevelopment = () => {
 
       materials: addedItems.map(item => ({
         ...item,
-        percentage: parseFloat(parseFloat(String(item.percentage)).toFixed(4)) || 0, // Format to 3 decimal places
+        percentage: parseFloat(parseFloat(String(item.percentage)).toFixed(3)) || 0, // Format to 3 decimal places
         sequence: typeof item.sequence === 'string' ? parseInt(item.sequence) : item.sequence,
         waitingTime:
           typeof item.waitingTime === 'string' ? parseFloat(item.waitingTime) : item.waitingTime,
@@ -706,7 +706,7 @@ const ProductDevelopment = () => {
       const newItems = data.map((item: any) => ({
         ...item,
         id: Date.now() + Math.random(),
-        percentage: parseFloat(String(item.percentage || '0')).toFixed(4), // Format to 3 decimal places
+        percentage: parseFloat(String(item.percentage || '0')).toFixed(3), // Format to 3 decimal places
       }));
 
       setAddedItems(newItems);
@@ -1002,7 +1002,7 @@ const ProductDevelopment = () => {
                                   handleUpdateItem(item.id, 'percentage', value);
                                 } else if (/^\d*\.?\d*$/.test(value)) {
                                   const parts = value.split('.');
-                                  if (parts[1] && parts[1].length > 4) {
+                                  if (parts[1] && parts[1].length > 3) {
                                     return;
                                   }
                                   handleUpdateItem(item.id, 'percentage', value);
@@ -1012,7 +1012,7 @@ const ProductDevelopment = () => {
                                 setFocusedPercentId(null);
                                 const value = e.target.value;
                                 if (value && !isNaN(parseFloat(value))) {
-                                  const formatted = parseFloat(value).toFixed(4);
+                                  const formatted = parseFloat(value).toFixed(3);
                                   handleUpdateItem(item.id, 'percentage', formatted);
                                 } else if (value === '') {
                                   handleUpdateItem(item.id, 'percentage', '');
@@ -1089,7 +1089,7 @@ const ProductDevelopment = () => {
                         totalPercentage.toFixed(3) === '100.000' ? 'text-green-600' : 'text-red-500'
                       }
                     >
-                      {formatDisplayPercentage(totalPercentage.toFixed(4))}%
+                      {totalPercentage.toFixed(3)}%
                     </span>
                   </td>
                   <td className="px-4 py-3">{calculateTotalSolid().toFixed(3)}</td>

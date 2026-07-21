@@ -193,6 +193,7 @@ export class MastersRepository {
         pinCode: customers.pinCode,
         salesPersonId: customers.salesPersonId,
         customerTypeId: customers.customerTypeId,
+        customerTypeName: customerTypes.customerTypeName,
         isActive: customers.isActive,
         currentBalance: customers.currentBalance,
         createdAt: customers.createdAt,
@@ -201,6 +202,7 @@ export class MastersRepository {
       })
       .from(customers)
       .leftJoin(employees, eq(customers.salesPersonId, employees.employeeId))
+      .leftJoin(customerTypes, eq(customers.customerTypeId, customerTypes.customerTypeId))
       .orderBy(sql`${customers.isActive} DESC`, customers.companyName);
 
     return result;
@@ -223,6 +225,7 @@ export class MastersRepository {
         pinCode: customers.pinCode,
         salesPersonId: customers.salesPersonId,
         customerTypeId: customers.customerTypeId,
+        customerTypeName: customerTypes.customerTypeName,
         isActive: customers.isActive,
         currentBalance: customers.currentBalance,
         createdAt: customers.createdAt,
@@ -231,6 +234,7 @@ export class MastersRepository {
       })
       .from(customers)
       .leftJoin(employees, eq(customers.salesPersonId, employees.employeeId))
+      .leftJoin(customerTypes, eq(customers.customerTypeId, customerTypes.customerTypeId))
       .where(eq(customers.isActive, true))
       .orderBy(customers.companyName);
 
@@ -262,6 +266,7 @@ export class MastersRepository {
         pinCode: customers.pinCode,
         salesPersonId: customers.salesPersonId,
         customerTypeId: customers.customerTypeId,
+        customerTypeName: customerTypes.customerTypeName,
         isActive: customers.isActive,
         currentBalance: customers.currentBalance,
         createdBy: customers.createdBy,
@@ -270,7 +275,8 @@ export class MastersRepository {
         salesPersonName: sql`concat(${employees.firstName}, ' ', ${employees.lastName})`,
       })
       .from(customers)
-      .leftJoin(employees, eq(customers.salesPersonId, employees.employeeId));
+      .leftJoin(employees, eq(customers.salesPersonId, employees.employeeId))
+      .leftJoin(customerTypes, eq(customers.customerTypeId, customerTypes.customerTypeId));
 
     // For admins, return all customers
     // For non-admins, filter by createdBy OR salesPersonId
@@ -291,8 +297,9 @@ export class MastersRepository {
     return await query.orderBy(customers.companyName);
   }
 
-  async findCustomerById(customerId) {
-    const result = await db
+  async findCustomerById(customerId, tx = null) {
+    const client = tx || db;
+    const result = await client
       .select({
         customerId: customers.customerId,
         customerUuid: customers.customerUuid,
@@ -308,6 +315,7 @@ export class MastersRepository {
         pinCode: customers.pinCode,
         salesPersonId: customers.salesPersonId,
         customerTypeId: customers.customerTypeId,
+        customerTypeName: customerTypes.customerTypeName,
         isActive: customers.isActive,
         currentBalance: customers.currentBalance,
         createdAt: customers.createdAt,
@@ -316,13 +324,15 @@ export class MastersRepository {
       })
       .from(customers)
       .leftJoin(employees, eq(customers.salesPersonId, employees.employeeId))
+      .leftJoin(customerTypes, eq(customers.customerTypeId, customerTypes.customerTypeId))
       .where(eq(customers.customerId, customerId))
       .limit(1);
 
     return result[0] || null;
   }
 
-  async findCustomerByMobileNo(mobileNo, excludeCustomerId = null) {
+  async findCustomerByMobileNo(mobileNo, excludeCustomerId = null, tx = null) {
+    const client = tx || db;
     const { sql, and, eq: eqOp } = await import('drizzle-orm');
 
     const conditions = [
@@ -336,7 +346,7 @@ export class MastersRepository {
       conditions.push(ne(customers.customerId, excludeCustomerId));
     }
 
-    const query = db
+    const query = client
       .select()
       .from(customers)
       .where(and(...conditions));
@@ -345,14 +355,15 @@ export class MastersRepository {
     return result[0] || null;
   }
 
-  async findCustomerByGST(gstNumber, excludeCustomerId = null) {
+  async findCustomerByGST(gstNumber, excludeCustomerId = null, tx = null) {
+    const client = tx || db;
     const { eq, and, ne } = await import('drizzle-orm');
 
-    let query = db.select().from(customers).where(eq(customers.gstNumber, gstNumber));
+    let query = client.select().from(customers).where(eq(customers.gstNumber, gstNumber));
 
     // If updating, exclude the current customer from the check
     if (excludeCustomerId) {
-      query = db
+      query = client
         .select()
         .from(customers)
         .where(
@@ -364,13 +375,14 @@ export class MastersRepository {
     return result[0] || null;
   }
 
-  async createCustomer(customerData) {
+  async createCustomer(customerData, tx = null) {
+    const client = tx || db;
     console.log('Repository - Creating customer with data:', JSON.stringify(customerData, null, 2));
     try {
-      const result = await db.insert(customers).values(customerData).returning();
+      const result = await client.insert(customers).values(customerData).returning();
       console.log('Repository - Customer created successfully, fetching full details...');
       // Fetch complete record with joins
-      return await this.findCustomerById(result[0].customerId);
+      return await this.findCustomerById(result[0].customerId, tx);
     } catch (error) {
       console.error('Repository - Database insert error:', error.message);
       throw error;

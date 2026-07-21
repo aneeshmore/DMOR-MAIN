@@ -9,6 +9,7 @@ interface VoiceInputProps {
   required?: boolean;
   error?: string;
   name?: string;
+  disabled?: boolean;
 }
 
 /**
@@ -24,6 +25,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   required = false,
   error,
   name,
+  disabled = false,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isSupported] = useState(
@@ -32,6 +34,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   const recognitionRef = useRef<any>(null);
 
   const startListening = useCallback(() => {
+    if (disabled) return;
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
@@ -55,7 +58,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [value, onChange]);
+  }, [value, onChange, disabled]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -80,9 +83,10 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`input pr-12 resize-none ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
+          disabled={disabled}
+          className={`input pr-12 resize-none disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/10' : ''}`}
         />
-        {isSupported && (
+        {isSupported && !disabled && (
           <button
             type="button"
             onClick={isListening ? stopListening : startListening}

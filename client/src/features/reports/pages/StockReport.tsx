@@ -155,14 +155,14 @@ const StockReport = () => {
       const row = [
         item.productName,
         item.productType,
-        item.availableQuantity,
-        item.availableWeightKg,
+        parseFloat(Number(item.availableQuantity).toFixed(2)).toString(),
+        parseFloat(Number(item.availableWeightKg).toFixed(2)).toString(),
       ];
       if (productTypeFilter !== 'FG') {
-        row.push(item.reservedQuantity);
+        row.push(parseFloat(Number(item.reservedQuantity).toFixed(2)).toString());
       }
       row.push(
-        item.minStockLevel,
+        parseFloat(Number(item.minStockLevel).toFixed(2)).toString(),
         `Rs. ${Number(item.sellingPrice).toFixed(2)}`,
         item.isActive ? 'Active' : 'Inactive'
       );
@@ -204,14 +204,14 @@ const StockReport = () => {
       const row = [
         item.productName,
         item.productType,
-        item.availableQuantity,
-        item.availableWeightKg,
+        parseFloat(Number(item.availableQuantity).toFixed(2)).toString(),
+        parseFloat(Number(item.availableWeightKg).toFixed(2)).toString(),
       ];
       if (productTypeFilter !== 'FG') {
-        row.push(item.reservedQuantity);
+        row.push(parseFloat(Number(item.reservedQuantity).toFixed(2)).toString());
       }
       row.push(
-        item.minStockLevel,
+        parseFloat(Number(item.minStockLevel).toFixed(2)).toString(),
         Number(item.sellingPrice).toFixed(2),
         item.isActive ? 'Active' : 'Inactive'
       );
@@ -787,7 +787,7 @@ const StockReport = () => {
           <div className="card p-4">
             <p className="text-sm text-[var(--text-secondary)] font-medium">Total Available</p>
             <p className="text-2xl font-bold text-[var(--color-success)] mt-1">
-              {stats.totalAvailable}
+              {parseFloat(Number(stats.totalAvailable).toFixed(2))}
             </p>
           </div>
         </div>

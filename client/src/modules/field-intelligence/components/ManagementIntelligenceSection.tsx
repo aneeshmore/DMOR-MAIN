@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { UseFormRegister, FormState, UseFormSetValue, Control, useWatch } from 'react-hook-form';
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
 import { EXECUTIVE_RECOMMENDATION_OPTIONS } from '../constants/firConstants';
-import SearchableSelectUI from '@/components/ui/SearchableSelect';
+import { MultiSearchableSelect } from './shared/MultiSearchableSelect';
 
 interface SectionProps {
   register: UseFormRegister<FieldIntelligenceReport>;
@@ -10,6 +10,7 @@ interface SectionProps {
   setValue: UseFormSetValue<FieldIntelligenceReport>;
   control: Control<FieldIntelligenceReport>;
   watch: (name: keyof FieldIntelligenceReport) => any;
+  isDraftMode?: boolean;
 }
 
 type ScoreKey =
@@ -108,7 +109,9 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
   setValue,
   control,
   watch,
+  isDraftMode = false,
 }) => {
+  const req = (msg: string) => (isDraftMode ? false : msg) as string | false;
   const { errors } = formState;
 
   const scores = {
@@ -121,8 +124,8 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
   };
 
   useEffect(() => {
-    register('executiveRecommendation', { required: 'Executive Recommendation is required' });
-  }, [register]);
+    register('executiveRecommendation', { required: req('Executive Recommendation is required') });
+  }, [register, isDraftMode]);
 
   return (
     <div className="card p-6 mb-6 border-2 border-indigo-100 bg-indigo-50/20">
@@ -148,7 +151,11 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
       {/* Score sliders */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <ScoreSlider
-          label={<>Follow-up Urgency <span className="text-red-500">*</span></>}
+          label={
+            <>
+              Follow-up Urgency <span className="text-red-500">*</span>
+            </>
+          }
           value={Number(scores.followupUrgencyScore)}
           onChange={v => setValue('followupUrgencyScore', v)}
           lowLabel="Routine"
@@ -156,35 +163,55 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
           danger
         />
         <ScoreSlider
-          label={<>Dealer / Customer Confidence <span className="text-red-500">*</span></>}
+          label={
+            <>
+              Dealer / Customer Confidence <span className="text-red-500">*</span>
+            </>
+          }
           value={Number(scores.dealerConfidence)}
           onChange={v => setValue('dealerConfidence', v)}
           lowLabel="Very Low"
           highLabel="Very High"
         />
         <ScoreSlider
-          label={<>Payment Reliability <span className="text-red-500">*</span></>}
+          label={
+            <>
+              Payment Reliability <span className="text-red-500">*</span>
+            </>
+          }
           value={Number(scores.paymentReliability)}
           onChange={v => setValue('paymentReliability', v)}
           lowLabel="Risky"
           highLabel="100% Reliable"
         />
         <ScoreSlider
-          label={<>Relationship Strength <span className="text-red-500">*</span></>}
+          label={
+            <>
+              Relationship Strength <span className="text-red-500">*</span>
+            </>
+          }
           value={Number(scores.relationshipStrength)}
           onChange={v => setValue('relationshipStrength', v)}
           lowLabel="New Contact"
           highLabel="Strong Bond"
         />
         <ScoreSlider
-          label={<>Technical Capability Level <span className="text-red-500">*</span></>}
+          label={
+            <>
+              Technical Capability Level <span className="text-red-500">*</span>
+            </>
+          }
           value={Number(scores.technicalCapability)}
           onChange={v => setValue('technicalCapability', v)}
           lowLabel="No Technical Team"
           highLabel="Expert Team"
         />
         <ScoreSlider
-          label={<>Long-Term Potential <span className="text-red-500">*</span></>}
+          label={
+            <>
+              Long-Term Potential <span className="text-red-500">*</span>
+            </>
+          }
           value={Number(scores.longTermPotential)}
           onChange={v => setValue('longTermPotential', v)}
           lowLabel="One-Time"
@@ -193,30 +220,59 @@ export const ManagementIntelligenceSection: React.FC<SectionProps> = ({
       </div>
 
       {/* Hidden inputs for RHF */}
-      <input type="hidden" {...register('followupUrgencyScore', { required: 'Follow-up Urgency is required', valueAsNumber: true })} />
-      <input type="hidden" {...register('dealerConfidence', { required: 'Dealer Confidence is required', valueAsNumber: true })} />
-      <input type="hidden" {...register('paymentReliability', { required: 'Payment Reliability is required', valueAsNumber: true })} />
-      <input type="hidden" {...register('relationshipStrength', { required: 'Relationship Strength is required', valueAsNumber: true })} />
-      <input type="hidden" {...register('technicalCapability', { required: 'Technical Capability is required', valueAsNumber: true })} />
-      <input type="hidden" {...register('longTermPotential', { required: 'Long-Term Potential is required', valueAsNumber: true })} />
+      <input
+        type="hidden"
+        {...register('followupUrgencyScore', {
+          required: req('Follow-up Urgency is required'),
+          valueAsNumber: true,
+        })}
+      />
+      <input
+        type="hidden"
+        {...register('dealerConfidence', {
+          required: req('Dealer Confidence is required'),
+          valueAsNumber: true,
+        })}
+      />
+      <input
+        type="hidden"
+        {...register('paymentReliability', {
+          required: req('Payment Reliability is required'),
+          valueAsNumber: true,
+        })}
+      />
+      <input
+        type="hidden"
+        {...register('relationshipStrength', {
+          required: req('Relationship Strength is required'),
+          valueAsNumber: true,
+        })}
+      />
+      <input
+        type="hidden"
+        {...register('technicalCapability', {
+          required: req('Technical Capability is required'),
+          valueAsNumber: true,
+        })}
+      />
+      <input
+        type="hidden"
+        {...register('longTermPotential', {
+          required: req('Long-Term Potential is required'),
+          valueAsNumber: true,
+        })}
+      />
 
       {/* Executive Recommendation */}
-      <SearchableSelectUI<string>
+      <MultiSearchableSelect
         label="Executive Recommendation"
-        options={['N/A', ...EXECUTIVE_RECOMMENDATION_OPTIONS].map(opt => ({
-          id: opt,
-          label: opt,
-          value: opt,
-        }))}
-        value={watch('executiveRecommendation') || undefined}
-        onChange={v => setValue('executiveRecommendation', v || '', { shouldValidate: true })}
-        placeholder="Select Executive Recommendation..."
-        creatable
-        allowCustomValue
-        allowCustom
-        onCreateNew={customRec =>
-          setValue('executiveRecommendation', customRec, { shouldValidate: true })
+        options={EXECUTIVE_RECOMMENDATION_OPTIONS}
+        value={(watch('executiveRecommendation') || '').split(',').filter(Boolean)}
+        onChange={arr =>
+          setValue('executiveRecommendation', arr.join(','), { shouldValidate: true })
         }
+        placeholder="Select Executive Recommendations..."
+        allowCustom
         required
         error={errors.executiveRecommendation?.message}
       />

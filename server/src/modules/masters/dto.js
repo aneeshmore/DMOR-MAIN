@@ -65,6 +65,7 @@ export class CustomerDTO {
     this.SalesPersonID = customer.salesPersonId || customer.sales_person_id;
     this.SalesPersonName = customer.salesPersonName;
     this.CustomerTypeID = customer.customerTypeId || customer.customer_type_id;
+    this.CustomerTypeName = customer.customerTypeName || customer.customer_type_name || '';
     this.IsActive = customer.isActive ?? customer.is_active ?? true;
     this.CurrentBalance = customer.currentBalance || customer.current_balance || 0;
     this.CreatedBy = customer.createdBy;

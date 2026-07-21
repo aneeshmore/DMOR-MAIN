@@ -121,12 +121,59 @@ export const fieldIntelligenceApi = {
     return response.data.data;
   },
 
-  linkCustomer: async (payload: { customerId: number; customerName: string }) => {
-    const response = await apiClient.post<{
-      success: boolean;
-      customerId: number;
-      updatedCount: number;
-    }>('/field-intelligence/link-customer', payload);
-    return response.data;
+  chatWithCopilot: async (
+    id: string,
+    messages: { role: string; content: string }[],
+    abortSignal?: AbortSignal
+  ): Promise<Response> => {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+    const token = localStorage.getItem('morex_auth_token');
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return fetch(`${baseUrl}/field-intelligence/${id}/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ messages }),
+      credentials: 'include',
+      signal: abortSignal,
+    });
+  },
+
+  chatWithCompanyCopilot: async (
+    customerName: string,
+    customerId: number | undefined,
+    messages: { role: string; content: string }[],
+    abortSignal?: AbortSignal
+  ): Promise<Response> => {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+    const token = localStorage.getItem('morex_auth_token');
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return fetch(`${baseUrl}/field-intelligence/company/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ customerName, customerId, messages }),
+      credentials: 'include',
+      signal: abortSignal,
+    });
+  },
+
+  getReportAiInsights: async (id: string) => {
+    const response = await apiClient.get<{ success: boolean; data: any }>(
+      `/field-intelligence/${id}/ai-insights`
+    );
+    return response.data.data;
   },
 };

@@ -33,6 +33,7 @@ export class FieldIntelligenceReportDTO {
     this.state = report.state;
     this.pinCode = mapNA(report.pinCode);
     this.businessCategory = report.businessCategory;
+    this.dynamicFields = report.dynamicFields ?? {};
     this.monthlyConsumption = mapNA(report.monthlyConsumption);
     this.currentSupplier = mapNA(report.currentSupplier);
     this.paintRequirementTypes = report.paintRequirementTypes;
@@ -58,7 +59,12 @@ export class FieldIntelligenceReportDTO {
     this.hiddenOpportunity = mapNA(report.hiddenOpportunity);
     this.riskFactors = mapNA(report.riskFactors);
     this.immediateRequirement = mapNA(report.immediateRequirement);
-    this.expectedOrderDate = report.expectedOrderDate !== null && report.expectedOrderDate !== undefined ? (report.expectedOrderDate instanceof Date ? report.expectedOrderDate.toISOString() : report.expectedOrderDate) : 'N/A';
+    this.expectedOrderDate =
+      report.expectedOrderDate !== null && report.expectedOrderDate !== undefined
+        ? report.expectedOrderDate instanceof Date
+          ? report.expectedOrderDate.toISOString()
+          : report.expectedOrderDate
+        : 'N/A';
     this.expectedOrderQuantity = mapNA(report.expectedOrderQuantity);
     this.trialApproved = report.trialApproved;
     this.sampleGiven = report.sampleGiven;
@@ -75,6 +81,21 @@ export class FieldIntelligenceReportDTO {
     this.createdBy = report.createdBy;
     this.createdAt = report.createdAt;
     this.updatedAt = report.updatedAt;
+
+    // Copy dynamic/custom fields dynamically to DTO
+    if (report.dynamicFields && typeof report.dynamicFields === 'object') {
+      Object.entries(report.dynamicFields).forEach(([k, v]) => {
+        if (!(k in this)) {
+          this[k] = v;
+        }
+      });
+    }
+    // Also copy other non-declared flat fields that might be on the report object
+    Object.entries(report).forEach(([k, v]) => {
+      if (!(k in this) && k !== 'dynamicFields') {
+        this[k] = v;
+      }
+    });
   }
 }
 
@@ -89,6 +110,8 @@ export class FollowupDTO {
     this.reportId = followup.reportId;
     this.followupDate = followup.followupDate;
     this.notes = mapNA(followup.notes);
+    this.actionType = mapNA(followup.actionType);
+    this.followupMode = mapNA(followup.followupMode);
     this.status = followup.status;
     this.companyId = followup.companyId;
     this.tenantId = followup.tenantId;

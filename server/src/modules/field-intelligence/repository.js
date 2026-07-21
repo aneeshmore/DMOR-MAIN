@@ -1,4 +1,4 @@
-import { eq, and, or, like, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, or, like, desc, asc, sql, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
   fieldIntelligenceReports,
@@ -76,6 +76,10 @@ export class FieldIntelligenceRepository {
       .limit(1);
 
     if (!report) return null;
+
+    if (report.dynamicFields) {
+      Object.assign(report, report.dynamicFields);
+    }
 
     const followups = await db
       .select()
@@ -166,7 +170,13 @@ export class FieldIntelligenceRepository {
       query.offset(filters.offset);
     }
 
-    return await query;
+    const reports = await query;
+    reports.forEach(r => {
+      if (r && r.dynamicFields) {
+        Object.assign(r, r.dynamicFields);
+      }
+    });
+    return reports;
   }
 
   async batchInsertCompetitors(competitorsData, tx) {
@@ -582,6 +592,52 @@ export class FieldIntelligenceRepository {
     ).length;
     const draftCount = reports.filter(r => r.status === 'Draft').length;
 
+    // Relationship age
+    const oldestDate = new Date(oldest.visitDate);
+    const diffTime = Math.abs(new Date().getTime() - oldestDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffMonths = Math.ceil(diffDays / 30);
+    const relationshipAgeText =
+      diffMonths > 0 ? `${diffMonths} month${diffMonths > 1 ? 's' : ''}` : 'Less than a month';
+
+    // Followups compliance & missed
+    const reportIds = reports.map(r => r.id);
+    const allFollowups =
+      reportIds.length > 0
+        ? await db
+            .select()
+            .from(fieldIntelligenceFollowups)
+            .where(inArray(fieldIntelligenceFollowups.reportId, reportIds))
+        : [];
+    const totalFollowups = allFollowups.length;
+    const completedFollowups = allFollowups.filter(f => f.status === 'Completed').length;
+    const followupComplianceVal =
+      totalFollowups > 0 ? `${Math.round((completedFollowups / totalFollowups) * 100)}%` : '100%';
+    const missedFollowupsVal = allFollowups.filter(
+      f => f.status === 'Missed' || (f.status === 'Open' && new Date(f.followupDate) < new Date())
+    ).length;
+
+    // Competitors detail list
+    const competitorRows =
+      reportIds.length > 0
+        ? await db
+            .select()
+            .from(fieldIntelligenceCompetitors)
+            .where(inArray(fieldIntelligenceCompetitors.reportId, reportIds))
+        : [];
+
+    // Sales Activity Trend calculation
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const recentCount = reports.filter(r => new Date(r.visitDate) >= thirtyDaysAgo).length;
+    const priorCount = reports.filter(r => {
+      const d = new Date(r.visitDate);
+      return d >= sixtyDaysAgo && d < thirtyDaysAgo;
+    }).length;
+    const salesActivityTrend =
+      recentCount > priorCount ? 'Increasing' : recentCount < priorCount ? 'Declining' : 'Stable';
+
     return {
       profile: {
         customerId,
@@ -606,6 +662,10 @@ export class FieldIntelligenceRepository {
         avgGapDays,
         avgConversionProbability: avgConversion,
         visitFrequency: avgGapDays > 0 ? `Every ${avgGapDays} days` : 'Single visit',
+        relationshipAge: relationshipAgeText,
+        followupCompliance: followupComplianceVal,
+        missedFollowups: missedFollowupsVal,
+        salesActivityTrend,
       },
       sales: {
         currentSupplier: unique(reports.map(r => r.currentSupplier)).join(', '),
@@ -628,6 +688,7 @@ export class FieldIntelligenceRepository {
         ),
       },
       visits: reports,
+      competitorsDetail: competitorRows,
     };
   }
 
@@ -646,23 +707,5 @@ export class FieldIntelligenceRepository {
       .from(fieldIntelligenceReports)
       .where(and(...conditions))
       .orderBy(desc(fieldIntelligenceReports.visitDate));
-  }
-
-  async linkCustomerBulk(customerId, customerName, companyId, tenantId, userContext = null) {
-    const conditions = [
-      eq(fieldIntelligenceReports.customerName, customerName),
-      sql`customer_id IS NULL`,
-      eq(fieldIntelligenceReports.companyId, companyId),
-      eq(fieldIntelligenceReports.tenantId, tenantId),
-    ];
-    if (userContext && !isAdmin(userContext)) {
-      conditions.push(eq(fieldIntelligenceReports.createdBy, userContext.employeeId));
-    }
-    const res = await db
-      .update(fieldIntelligenceReports)
-      .set({ customerId, updatedAt: new Date() })
-      .where(and(...conditions))
-      .returning();
-    return res;
   }
 }
