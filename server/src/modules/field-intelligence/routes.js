@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { FieldIntelligenceController } from './controller.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { validateCreateReport, validateUpdateReport } from './validators.js';
+import { rcaMiddleware } from './rcaDebug.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -106,6 +107,12 @@ const validateUuidParam = (req, res, next) => {
 
 const router = Router();
 const controller = new FieldIntelligenceController();
+
+// ── [TEMPORARY] RCA Diagnostic Middleware ────────────────────────────────────
+// Initialises a per-request AsyncLocalStorage context (correlation ID + timer).
+// Only active when DEBUG_RCA=true in .env. Remove this line after investigation.
+router.use(rcaMiddleware);
+// ─────────────────────────────────────────────────────────────────────────────
 
 router.get(
   '/dashboard',

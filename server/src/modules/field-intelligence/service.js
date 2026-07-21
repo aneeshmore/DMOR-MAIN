@@ -12,6 +12,7 @@ import {
 import { AiProviderService } from './ai-provider.service.js';
 import { MastersService } from '../masters/service.js';
 import logger from '../../config/logger.js';
+import { rca } from './rcaDebug.js';
 
 export class FieldIntelligenceService {
   constructor() {
@@ -968,8 +969,27 @@ export class FieldIntelligenceService {
   }
 
   async getReportsList(filters, userContext, companyId, tenantId) {
+    rca.queryEnter('getReportsList', 'repository.getReportsList', {
+      companyId,
+      tenantId,
+      role: userContext?.role,
+      employeeId: userContext?.employeeId,
+      filters,
+    });
     const reports = await this.repository.getReportsList(filters, companyId, tenantId, userContext);
-    return reports.map(r => new CompleteReportDTO(r));
+    rca.queryResult('getReportsList', 'repository.getReportsList', reports);
+    const dtos = [];
+    for (let i = 0; i < reports.length; i++) {
+      rca.dtoInput('getReportsList', i, reports[i]);
+      try {
+        dtos.push(new CompleteReportDTO(reports[i]));
+      } catch (err) {
+        rca.dtoCrash('getReportsList', i, reports[i], err);
+        throw err;
+      }
+    }
+    rca.checkpoint('getReportsList', 'all DTOs built', { count: dtos.length });
+    return dtos;
   }
 
   async getDashboardSummary(companyId, tenantId, userContext) {
@@ -1099,19 +1119,59 @@ export class FieldIntelligenceService {
 
   async getCustomerHistory(customerId, companyId, tenantId, userContext = null) {
     const id = parseInt(customerId, 10);
+    rca.checkpoint('getCustomerHistory', 'service ENTER', {
+      raw: customerId,
+      parsed: id,
+      companyId,
+      tenantId,
+      role: userContext?.role,
+      employeeId: userContext?.employeeId,
+    });
     if (isNaN(id)) throw new AppError('Invalid customerId', 400);
-    return await this.repository.getCustomerVisitHistory(id, companyId, tenantId, userContext);
+    rca.queryEnter('getCustomerHistory', 'repository.getCustomerVisitHistory', {
+      customerId: id,
+      companyId,
+      tenantId,
+      employeeId: userContext?.employeeId,
+    });
+    const result = await this.repository.getCustomerVisitHistory(
+      id,
+      companyId,
+      tenantId,
+      userContext
+    );
+    rca.queryResult('getCustomerHistory', 'repository.getCustomerVisitHistory', result);
+    return result;
   }
 
   async getCustomerDashboard(customerId, companyId, tenantId, userContext = null) {
     const id = parseInt(customerId, 10);
+    rca.checkpoint('getCustomerDashboard', 'service ENTER', {
+      raw: customerId,
+      parsed: id,
+      companyId,
+      tenantId,
+      role: userContext?.role,
+      employeeId: userContext?.employeeId,
+    });
     if (isNaN(id)) throw new AppError('Invalid customerId', 400);
 
     // 1. Get all reports globally for this customer (no employee filter) to check existence
+    rca.queryEnter(
+      'getCustomerDashboard',
+      'repository.getCustomerVisitHistory (all, no user filter)',
+      { customerId: id, companyId, tenantId }
+    );
     const allReports = await this.repository.getCustomerVisitHistory(id, companyId, tenantId, null);
+    rca.queryResult('getCustomerDashboard', 'repository.getCustomerVisitHistory (all)', allReports);
     if (allReports.length === 0) {
       // Check if customer exists in Customer Master
+      rca.queryEnter('getCustomerDashboard', 'db.customers (existence check)', { customerId: id });
       const [cust] = await db.select().from(customers).where(eq(customers.customerId, id)).limit(1);
+      rca.checkpoint('getCustomerDashboard', 'customer lookup result', {
+        found: !!cust,
+        customerId: id,
+      });
 
       if (!cust) {
         throw new AppError('Customer record not found', 404);
@@ -1147,20 +1207,34 @@ export class FieldIntelligenceService {
 
     // 2. Enforce ownership access check for non-admins
     const isUserAdmin = userContext ? isAdmin(userContext) : false;
+    rca.checkpoint('getCustomerDashboard', 'ownership check', {
+      isUserAdmin,
+      userEmployeeId: userContext?.employeeId,
+    });
     if (userContext && !isUserAdmin) {
       const hasOwnedReport = allReports.some(r => r.createdBy === userContext.employeeId);
+      rca.checkpoint('getCustomerDashboard', 'ownership result', { hasOwnedReport });
       if (!hasOwnedReport) {
         throw new AppError('Access denied. You do not have permission to view this customer.', 403);
       }
     }
 
     // 3. Retrieve aggregated dashboard data scoped to the user
+    rca.queryEnter('getCustomerDashboard', 'repository.getCustomerDashboardData', {
+      customerId: id,
+      companyId,
+      tenantId,
+      employeeId: userContext?.employeeId,
+    });
     const data = await this.repository.getCustomerDashboardData(
       id,
       companyId,
       tenantId,
       userContext
     );
+    rca.checkpoint('getCustomerDashboard', 'getCustomerDashboardData returned', {
+      hasData: !!data,
+    });
     if (!data) throw new AppError('Customer record not found', 404);
     return data;
   }
