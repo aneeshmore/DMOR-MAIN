@@ -87,6 +87,7 @@ export const fieldIntelligenceReports = appSchema.table('field_intelligence_repo
   technicalCapability: integer('technical_capability').default(0),
   longTermPotential: integer('long_term_potential').default(0),
   executiveRecommendation: text('executive_recommendation'),
+  dynamicFields: jsonb('dynamic_fields').default({}),
   status: varchar('status', { length: 50 }).default('Draft').notNull(),
   companyId: integer('company_id')
     .notNull()
@@ -106,6 +107,8 @@ export const fieldIntelligenceFollowups = appSchema.table('field_intelligence_fo
     .references(() => fieldIntelligenceReports.id, { onDelete: 'cascade' }),
   followupDate: timestamp('followup_date', { withTimezone: true }).notNull(),
   notes: text('notes'),
+  actionType: varchar('action_type', { length: 100 }),
+  followupMode: varchar('followup_mode', { length: 50 }),
   status: varchar('status', { length: 50 }).default('Open').notNull(),
   companyId: integer('company_id')
     .notNull()

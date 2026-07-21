@@ -221,7 +221,7 @@ const NewVisitPage = lazy(() =>
   import('@/features/crm/pages').then(m => ({ default: m.NewVisitPage }))
 );
 
-// Field Intelligence
+// SMART CRM
 const FieldIntelligenceDashboard = lazy(
   () => import('@/modules/field-intelligence/FieldIntelligenceDashboardPage')
 );
@@ -952,11 +952,6 @@ export const routeRegistry: RouteNode[] = [
             route: '/field-intelligence/customer-unlinked-history',
             method: 'GET',
             label: 'View Customer Unlinked History',
-          },
-          {
-            route: '/field-intelligence/link-customer',
-            method: 'POST',
-            label: 'Link Customer Reports',
           },
         ],
         children: [
