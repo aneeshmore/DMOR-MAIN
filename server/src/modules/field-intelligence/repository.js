@@ -27,8 +27,13 @@ export class FieldIntelligenceRepository {
 
   async updateReport(id, reportData, companyId, tenantId, userContext = null, tx = null) {
     const client = tx || db;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const idCondition = isUuid
+      ? eq(fieldIntelligenceReports.id, id)
+      : eq(fieldIntelligenceReports.reportNumber, id);
+
     const conditions = [
-      eq(fieldIntelligenceReports.id, id),
+      idCondition,
       eq(fieldIntelligenceReports.companyId, companyId),
       eq(fieldIntelligenceReports.tenantId, tenantId),
     ];
@@ -45,8 +50,13 @@ export class FieldIntelligenceRepository {
 
   async deleteReport(id, companyId, tenantId, userContext = null, tx = null) {
     const client = tx || db;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const idCondition = isUuid
+      ? eq(fieldIntelligenceReports.id, id)
+      : eq(fieldIntelligenceReports.reportNumber, id);
+
     const conditions = [
-      eq(fieldIntelligenceReports.id, id),
+      idCondition,
       eq(fieldIntelligenceReports.companyId, companyId),
       eq(fieldIntelligenceReports.tenantId, tenantId),
     ];
@@ -61,8 +71,13 @@ export class FieldIntelligenceRepository {
   }
 
   async getReportById(id, companyId, tenantId, userContext = null) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const idCondition = isUuid
+      ? eq(fieldIntelligenceReports.id, id)
+      : eq(fieldIntelligenceReports.reportNumber, id);
+
     const conditions = [
-      eq(fieldIntelligenceReports.id, id),
+      idCondition,
       eq(fieldIntelligenceReports.companyId, companyId),
       eq(fieldIntelligenceReports.tenantId, tenantId),
     ];
@@ -82,31 +97,33 @@ export class FieldIntelligenceRepository {
       Object.assign(report, report.dynamicFields);
     }
 
+    const targetId = report.id;
+
     const followups = await db
       .select()
       .from(fieldIntelligenceFollowups)
-      .where(eq(fieldIntelligenceFollowups.reportId, id))
+      .where(eq(fieldIntelligenceFollowups.reportId, targetId))
       .orderBy(asc(fieldIntelligenceFollowups.followupDate));
 
     const competitors = await db
       .select()
       .from(fieldIntelligenceCompetitors)
-      .where(eq(fieldIntelligenceCompetitors.reportId, id));
+      .where(eq(fieldIntelligenceCompetitors.reportId, targetId));
 
     const uploads = await db
       .select()
       .from(fieldIntelligenceUploads)
-      .where(eq(fieldIntelligenceUploads.reportId, id));
+      .where(eq(fieldIntelligenceUploads.reportId, targetId));
 
     const insights = await db
       .select()
       .from(fieldIntelligenceAiInsights)
-      .where(eq(fieldIntelligenceAiInsights.reportId, id));
+      .where(eq(fieldIntelligenceAiInsights.reportId, targetId));
 
     const logs = await db
       .select()
       .from(fieldIntelligenceActivityLog)
-      .where(eq(fieldIntelligenceActivityLog.reportId, id))
+      .where(eq(fieldIntelligenceActivityLog.reportId, targetId))
       .orderBy(desc(fieldIntelligenceActivityLog.createdAt));
 
     return {

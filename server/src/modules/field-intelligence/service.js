@@ -2,9 +2,10 @@ import { FieldIntelligenceRepository } from './repository.js';
 import { CompleteReportDTO } from './dto.js';
 import { AppError } from '../../utils/AppError.js';
 import { db } from '../../db/index.js';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, gte, lte } from 'drizzle-orm';
 import { customers } from '../../db/schema/sales/customers.js';
 import {
+  fieldIntelligenceReports,
   fieldIntelligenceCompetitors,
   fieldIntelligenceFollowups,
   fieldIntelligenceUploads,
@@ -238,18 +239,52 @@ export class FieldIntelligenceService {
     return insights;
   }
 
-  // Generate clean Report Number: CRM-YYYYMMDD-XXXX
-  generateReportNumber() {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return `CRM-${dateStr}-${rand}`;
+  // Helper to extract up to 3 uppercase initials from company name
+  getCompanyInitials(name) {
+    if (!name || typeof name !== 'string') return 'DMO';
+    const clean = name.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+    if (!clean) return 'DMO';
+    const words = clean.split(/\s+/).filter(Boolean);
+    if (words.length >= 3) {
+      return (words[0][0] + words[1][0] + words[2][0]).toUpperCase();
+    } else if (words.length === 2) {
+      return (words[0].slice(0, 2) + words[1][0]).toUpperCase();
+    } else if (words.length === 1 && words[0].length >= 3) {
+      return words[0].slice(0, 3).toUpperCase();
+    }
+    return clean.slice(0, 3).toUpperCase() || 'DMO';
+  }
+
+  // Format: [CompanyName Initials]-CRM-[YYYYMMDD]-[visitno]
+  async generateReportNumber(userContext, companyId, tenantId, tx = null) {
+    const client = tx || db;
+    const rawCompanyName = userContext?.companyName || 'DMOR';
+    const initials = this.getCompanyInitials(rawCompanyName);
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const [result] = await client
+      .select({ count: sql`count(*)` })
+      .from(fieldIntelligenceReports)
+      .where(
+        and(
+          eq(fieldIntelligenceReports.companyId, companyId),
+          gte(fieldIntelligenceReports.createdAt, startOfDay),
+          lte(fieldIntelligenceReports.createdAt, endOfDay)
+        )
+      );
+
+    const visitNo = parseInt(result?.count || 0, 10) + 1;
+    return `${initials}-CRM-${dateStr}-${visitNo}`;
   }
 
   async createReport(data, userContext, companyId, tenantId) {
-    const reportNum = this.generateReportNumber();
-
     return await this.repository.runTransaction(async tx => {
+      const reportNum = await this.generateReportNumber(userContext, companyId, tenantId, tx);
       // 1. Create primary report record
       const schemaColumns = [
         'id',

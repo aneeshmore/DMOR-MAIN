@@ -22,17 +22,22 @@ const NAVIGABLE_PATHS = new Set(
 // Friendly labels for URL segments whose slug differs from the product name.
 // (Route folders/paths keep their internal slug; only the breadcrumb label changes.)
 const SEGMENT_LABELS: Record<string, string> = {
+  'smart-crm': 'Smart CRM',
   'field-intelligence': 'Smart CRM',
 };
 
 // Detect id-like segments (UUIDs or numeric ids) so breadcrumbs show a friendly
 // label instead of a raw/"random" id.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const REPORT_NUM_RE = /^[A-Z0-9]{2,10}-CRM-\d{8}-\d+$/i;
+const LEGACY_REP_RE = /^REP-[A-Z0-9]+-\d+-\d+$/i;
 
 const formatSegmentLabel = (segment: string): string => {
-  if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
-  if (UUID_RE.test(segment) || /^\d+$/.test(segment)) return 'Details';
-  return segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
+  const decoded = decodeURIComponent(segment);
+  if (SEGMENT_LABELS[decoded]) return SEGMENT_LABELS[decoded];
+  if (UUID_RE.test(decoded) || /^\d+$/.test(decoded)) return 'Details';
+  if (REPORT_NUM_RE.test(decoded) || LEGACY_REP_RE.test(decoded)) return decoded;
+  return decoded.charAt(0).toUpperCase() + decoded.slice(1).replace(/-/g, ' ');
 };
 
 interface HeaderProps {
