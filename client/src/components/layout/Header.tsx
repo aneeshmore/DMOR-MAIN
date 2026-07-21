@@ -7,6 +7,7 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { cn } from '@/utils/cn';
 import { NotificationDropdown } from '@/features/notifications/components';
 import { routeRegistry, flattenRoutes } from '@/config/routeRegistry';
+import { confirmDialog } from '@/components/ui';
 
 // Set of real, navigable (non-dynamic) route paths. A breadcrumb segment is only
 // linked if its cumulative path is a registered page — this prevents dead links

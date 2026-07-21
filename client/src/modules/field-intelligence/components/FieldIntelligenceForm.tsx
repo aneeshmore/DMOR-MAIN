@@ -23,6 +23,7 @@ import { getSectionsForVisitType } from '../constants/firConstants';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
+import { confirmDialog } from '@/components/ui';
 
 interface FormProps {
   initialData?: FieldIntelligenceReport;

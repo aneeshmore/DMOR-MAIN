@@ -41,13 +41,10 @@ export const createMasterProductSchema = z.object({
     z.number().min(0).max(100).nullable().optional()
   ),
 
-  // Mandatory for new products (FG, RM, and PM)
+  // Optional for new products (FG, RM, and PM), but once provided it must be a valid 4/6/8 digit HSN code.
   HSNCode: z.preprocess(
-    val => (typeof val === 'string' ? val.trim() : val),
-    z
-      .string({ required_error: 'HSN Code is required' })
-      .min(1, 'HSN Code is required')
-      .regex(HSN_CODE_REGEX, HSN_CODE_MESSAGE)
+    val => (typeof val === 'string' && val.trim() === '' ? null : typeof val === 'string' ? val.trim() : val),
+    z.string().regex(HSN_CODE_REGEX, HSN_CODE_MESSAGE).nullable().optional()
   ),
 });
 

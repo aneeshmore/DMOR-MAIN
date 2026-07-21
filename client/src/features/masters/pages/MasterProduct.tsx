@@ -151,13 +151,9 @@ const MasterProduct = () => {
       return;
     }
 
-    // HSN Code validation: mandatory for all products
+    // HSN Code validation: optional, but if entered must be a 4, 6, or 8 digit number
     const trimmedHsn = hsnCode.trim();
-    if (trimmedHsn === '') {
-      showToast.error('HSN Code is required');
-      return;
-    }
-    if (!/^(\d{4}|\d{6}|\d{8})$/.test(trimmedHsn)) {
+    if (trimmedHsn !== '' && !/^(\d{4}|\d{6}|\d{8})$/.test(trimmedHsn)) {
       showToast.error('HSN Code must be a 4, 6, or 8 digit number');
       return;
     }
@@ -474,7 +470,6 @@ const MasterProduct = () => {
                 }
               }}
               placeholder="Enter HSN Code (4, 6, or 8 digits)"
-              required
             />
 
             <Input
