@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { FILE_TYPES } from '../constants/firConstants';
+import { showToast } from '@/utils/toast';
 
 export interface MediaFile {
   id: string;
@@ -356,13 +357,12 @@ export const MediaUploadSection: React.FC<MediaUploadSectionProps> = ({
         </div>
         <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-gray-200">
           <div
-            className={`h-full transition-all duration-300 ${
-              totalSize / STORAGE_LIMIT > 0.9
+            className={`h-full transition-all duration-300 ${totalSize / STORAGE_LIMIT > 0.9
                 ? 'bg-red-500'
                 : totalSize / STORAGE_LIMIT > 0.7
                   ? 'bg-amber-500'
                   : 'bg-green-500'
-            }`}
+              }`}
             style={{ width: `${Math.min(100, (totalSize / STORAGE_LIMIT) * 100)}%` }}
           />
         </div>
@@ -402,11 +402,10 @@ export const MediaUploadSection: React.FC<MediaUploadSectionProps> = ({
                   key={type}
                   type="button"
                   onClick={() => setSelectedFileType(type)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                    selectedFileType === type
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${selectedFileType === type
                       ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
                       : 'bg-white text-gray-600 border-gray-200 hover:border-[var(--primary)]'
-                  }`}
+                    }`}
                 >
                   {type}
                 </button>
@@ -595,9 +594,8 @@ export const MediaUploadSection: React.FC<MediaUploadSectionProps> = ({
 
               <div className="absolute top-1.5 left-1.5">
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    file.previewUrl ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
-                  }`}
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${file.previewUrl ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                    }`}
                 >
                   {file.previewUrl ? 'Local' : 'Saved'}
                 </span>

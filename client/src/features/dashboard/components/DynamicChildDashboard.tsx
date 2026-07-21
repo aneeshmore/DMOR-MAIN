@@ -30,6 +30,7 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { confirmDialog } from '@/components/ui';
 
 interface DynamicChildDashboardProps {
   parentPath: string;
@@ -477,8 +478,15 @@ export const DynamicChildDashboard: React.FC<DynamicChildDashboardProps> = ({
     setIsEditing(false);
   };
 
-  const handleReset = () => {
-    if (confirm('Reset tabs to default order?')) {
+  const handleReset = async () => {
+    if (
+      await confirmDialog({
+        title: 'Reset Tabs',
+        message: 'Reset tabs to default order?',
+        confirmLabel: 'Continue',
+        variant: 'warning',
+      })
+    ) {
       localStorage.removeItem(storageKey);
       setItems(visibleRoutes);
       setIsEditing(false);

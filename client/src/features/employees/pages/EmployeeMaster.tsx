@@ -9,6 +9,7 @@ import { Input, Button, Select, Modal } from '@/components/ui';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { showToast } from '@/utils/toast';
 import { Edit2, Trash2, Eye, X, Plus, RefreshCw } from 'lucide-react';
+import { confirmDialog } from '@/components/ui';
 
 const EmployeeForm = ({
   item,
@@ -1424,9 +1425,12 @@ export default function EmployeeMaster() {
 
       // Confirmation dialog for editing
       if (exists) {
-        const confirmed = window.confirm(
-          `Are you sure you want to save changes to ${item.FirstName} ${item.LastName}?`
-        );
+        const confirmed = await confirmDialog({
+          title: 'Save Changes',
+          message: `Are you sure you want to save changes to ${item.FirstName} ${item.LastName}?`,
+          confirmLabel: 'Save',
+          variant: 'info',
+        });
         if (!confirmed) {
           setSaving(false);
           return; // User cancelled
@@ -1468,9 +1472,12 @@ export default function EmployeeMaster() {
       const action = newStatus === 'Inactive' ? 'hide' : 'restore';
 
       // Confirmation dialog
-      const confirmed = window.confirm(
-        `Are you sure you want to ${action} employee "${employee.FirstName} ${employee.LastName}"?`
-      );
+      const confirmed = await confirmDialog({
+        title: 'Change Employee Status',
+        message: `Are you sure you want to ${action} employee "${employee.FirstName} ${employee.LastName}"?`,
+        confirmLabel: 'Continue',
+        variant: 'warning',
+      });
 
       if (!confirmed) {
         return; // User cancelled

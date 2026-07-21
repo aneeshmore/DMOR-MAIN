@@ -145,11 +145,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
         <td className="py-4 px-3">
           <div>
             <p
-              className={`font-semibold text-sm leading-tight ${
-                !isUnlinked && customer.customerId
+              className={`font-semibold text-sm leading-tight ${!isUnlinked && customer.customerId
                   ? 'text-gray-800 hover:text-[var(--primary)] cursor-pointer'
                   : 'text-gray-800'
-              }`}
+                }`}
               onClick={() => {
                 if (!isUnlinked && customer.customerId) {
                   onOpenDashboard(customer.customerId);
@@ -247,11 +246,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
                         {/* Visit Date — first one in orange/primary */}
                         <td className="py-2.5 px-4">
                           <span
-                            className={`text-sm ${
-                              visit === visits[0]
+                            className={`text-sm ${visit === visits[0]
                                 ? 'text-orange-500 font-semibold'
                                 : 'text-gray-600'
-                            }`}
+                              }`}
                           >
                             {formatDate(visit.visitDate)}
                           </span>
@@ -278,9 +276,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
                         {/* Status badge */}
                         <td className="py-2.5 px-4">
                           <span
-                            className={`text-xs font-medium ${
-                              STATUS_BADGE[visit.status] || 'text-gray-500 text-xs'
-                            }`}
+                            className={`text-xs font-medium ${STATUS_BADGE[visit.status] || 'text-gray-500 text-xs'
+                              }`}
                           >
                             {visit.status}
                           </span>
@@ -317,14 +314,14 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
                               (visit.status === 'Draft' &&
                                 (Number(visit.executiveId) === Number(user?.EmployeeID) ||
                                   Number(visit.createdBy) === Number(user?.EmployeeID)))) && (
-                              <button
-                                onClick={() => handleDeleteVisit(visit.id)}
-                                className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
+                                <button
+                                  onClick={() => handleDeleteVisit(visit.id)}
+                                  className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
                           </div>
                         </td>
                       </tr>
@@ -667,7 +664,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
                   key={`unlinked-${customer.customerName}`}
                   customer={customer}
                   isUnlinked
-                  onOpenDashboard={() => {}}
+                  onOpenDashboard={() => { }}
                   onRefreshNeeded={() => fetchCustomers()}
                 />
               ))}

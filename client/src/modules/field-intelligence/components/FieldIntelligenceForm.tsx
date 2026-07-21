@@ -41,9 +41,9 @@ const deserializeOrderStatus = (
     const statusesStr = match[1].trim();
     const statuses = statusesStr
       ? statusesStr
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter(Boolean)
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean)
       : [];
     const cleanNotes = notes.replace(markerRegex, '');
     return { cleanNotes, statuses };
@@ -406,8 +406,15 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
   // Drafts are now persisted to the database via the "Save Draft" button.
   // The form will never pre-populate from localStorage on a fresh "New Report" open.
 
-  const clearDraft = () => {
-    if (window.confirm('Clear all entered data and start fresh?')) {
+  const clearDraft = async () => {
+    if (
+      await confirmDialog({
+        title: 'Clear Form',
+        message: 'Clear all entered data and start fresh?',
+        confirmLabel: 'Continue',
+        variant: 'warning',
+      })
+    ) {
       reset(DEFAULT_VALUES);
       setSelectedStatuses([]);
     }
@@ -602,9 +609,9 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
           IsActive: true,
           OpeningBalance:
             data.openingBalance !== undefined &&
-            data.openingBalance !== null &&
-            String(data.openingBalance).trim() !== '' &&
-            !isNaN(Number(data.openingBalance))
+              data.openingBalance !== null &&
+              String(data.openingBalance).trim() !== '' &&
+              !isNaN(Number(data.openingBalance))
               ? Number(data.openingBalance)
               : 0,
         };

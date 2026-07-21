@@ -69,8 +69,13 @@ export const Header: React.FC<HeaderProps> = ({ onThemeToggle, user, onLogout })
     };
   }, []);
 
-  const handleLogout = () => {
-    const confirmed = confirm('Are you sure you want to logout?');
+  const handleLogout = async () => {
+    const confirmed = await confirmDialog({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      confirmLabel: 'Logout',
+      variant: 'warning',
+    });
     if (confirmed && onLogout) {
       setShowUserMenu(false);
       onLogout();

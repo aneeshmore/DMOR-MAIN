@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Download, FileText, Save, X, Trash2 } from 'lucide-react';
-import { toPng } from 'html-to-image';
+import { toJpeg } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { ColumnDef } from '@tanstack/react-table';
 
@@ -35,6 +35,7 @@ const INITIAL_DATA: QuotationData = {
   quotationNo: '',
   date: format(new Date(), 'dd-MMM-yy'),
   paymentTerms: '30 Days',
+  validTillDays: '',
   buyerRef: '',
   otherRef: '',
   dispatchThrough: '',
@@ -147,6 +148,9 @@ interface QuotationMakerProps {
   isModal?: boolean;
   onClose?: () => void;
   onUpdate?: () => void;
+  autoDownload?: boolean;
+  isInvoice?: boolean;
+  hiddenRender?: boolean;
 }
 
 const QuotationMaker: React.FC<QuotationMakerProps> = ({
@@ -154,6 +158,9 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
   isModal = false,
   onClose,
   onUpdate,
+  autoDownload = false,
+  isInvoice: propsIsInvoice = false,
+  hiddenRender = false,
 }) => {
   const [data, setData] = useState<QuotationData>(initialData || INITIAL_DATA);
   const [products, setProducts] = useState<Product[]>([]);
@@ -189,12 +196,33 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
   const printRef = useRef<HTMLDivElement>(null);
 
   const [isPdfMode, setIsPdfMode] = useState(false);
+
+  // ---------------------------------------------------------------------
+  // Multi-page PDF rendering state.
+  //
+  // The print template is captured as a raster image, one capture per PDF
+  // page. While a capture is in progress these three values tell the template
+  // which slice of the item list to render, what serial number that slice
+  // starts at, and whether the closing sections (totals, declaration, bank
+  // details, signature) belong on this page.
+  //
+  // Outside PDF generation pdfPageItems stays null and the template renders
+  // exactly as before — the on-screen editor is unaffected.
+  // ---------------------------------------------------------------------
+  const [pdfPageItems, setPdfPageItems] = useState<QuotationItem[] | null>(null);
+  const [pdfItemOffset, setPdfItemOffset] = useState(0);
+  const [pdfShowTrailing, setPdfShowTrailing] = useState(true);
+  // Full quotation header (logo, company, buyer, quotation info) prints on the
+  // first page only. Continuation pages start straight at the table header,
+  // matching standard ERP invoice output.
+  const [pdfShowHeader, setPdfShowHeader] = useState(true);
+
   const [quotationsList, setQuotationsList] = useState<any[]>([]);
-  const [autoDownloadPending, setAutoDownloadPending] = useState(false);
+  const [autoDownloadPending, setAutoDownloadPending] = useState(autoDownload);
   const [shouldAutoClose, setShouldAutoClose] = useState(false);
   const [isEditMode, setIsEditMode] = useState(!!initialData); // Auto-set edit mode if initialData provided
   const [editQuotationId, setEditQuotationId] = useState<number | null>(null);
-  const [isInvoice, setIsInvoice] = useState(false); // New state for Invoice mode
+  const [isInvoice, setIsInvoice] = useState(propsIsInvoice); // New state for Invoice mode
 
   // Quotation Modal State
   const [showQuotationModal, setShowQuotationModal] = useState(false);
@@ -571,6 +599,64 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
   const isMobile = () =>
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+  // -----------------------------------------------------------------------
+  // PDF pagination
+  //
+  // Row capacities are tuned to the existing approved A4 layout (210x297mm,
+  // 15mm/12mm padding, 8.5pt table text). Each page type has a different amount
+  // of vertical space available for product rows:
+  //
+  //   SINGLE      page 1 carries both the full header AND the closing sections
+  //   FIRST       page 1 of a multi-page document: full header, no closing
+  //   CONTINUATION  no header, no closing - just the table, so it fits the most
+  //   LAST        no header, but must fit totals/declaration/bank/signature
+  //
+  // These are deliberate, tunable estimates rather than measured values. If a
+  // page ever still overflows, the capture is scaled to fit rather than
+  // clipped, so content can never be lost - see handleDownloadPDF.
+  // -----------------------------------------------------------------------
+  const PDF_ROWS_SINGLE_PAGE = 8;
+  const PDF_ROWS_FIRST_PAGE = 18;
+  const PDF_ROWS_CONTINUATION_PAGE = 30;
+  const PDF_ROWS_LAST_PAGE = 20;
+
+  const buildPdfPages = (items: QuotationItem[]): QuotationItem[][] => {
+    // Small quotations keep the existing single-page output untouched.
+    if (items.length <= PDF_ROWS_SINGLE_PAGE) return [items];
+
+    const pages: QuotationItem[][] = [];
+    let remaining = items;
+
+    // Page 1 carries the full quotation header, so it holds fewer rows.
+    pages.push(remaining.slice(0, PDF_ROWS_FIRST_PAGE));
+    remaining = remaining.slice(PDF_ROWS_FIRST_PAGE);
+
+    // Continuation pages have no header at all and hold the most rows. Keep
+    // emitting them while more rows remain than the final page can hold
+    // alongside the closing sections.
+    while (remaining.length > PDF_ROWS_LAST_PAGE) {
+      pages.push(remaining.slice(0, PDF_ROWS_CONTINUATION_PAGE));
+      remaining = remaining.slice(PDF_ROWS_CONTINUATION_PAGE);
+    }
+
+    // Whatever is left goes on the final page with the totals and signature.
+    pages.push(remaining);
+
+    // The loop above can leave the final page with no rows at all (for example
+    // 18 items exactly fill one page, pushing an empty second page that would
+    // show a header and an empty table above the totals). Rebalance by pulling
+    // roughly half of the previous page forward, capped at what the final page
+    // can hold alongside the closing sections.
+    if (pages.length > 1 && pages[pages.length - 1].length === 0) {
+      const previous = pages[pages.length - 2];
+      const moved = Math.min(Math.ceil(previous.length / 2), PDF_ROWS_LAST_PAGE);
+      pages[pages.length - 1] = previous.slice(previous.length - moved);
+      pages[pages.length - 2] = previous.slice(0, previous.length - moved);
+    }
+
+    return pages;
+  };
+
   const handleDownloadPDF = async (autoClose = false) => {
     if (!printRef.current) return;
 
@@ -584,33 +670,10 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
       // 1. Toggle to "PDF Mode" (Static Text)
       setIsPdfMode(true);
 
-      // 2. Wait for React to render the text version
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const element = printRef.current;
-
-      // 3. Don't change width - keep it at 210mm for proper A4 proportions
-      // The element is already styled to 210mm width in the render
-
-      const dataUrl = await toPng(element, {
-        quality: 1.0,
-        pixelRatio: 2, // High quality
-        width: 794, // Force A4 width in pixels (approx 210mm @ 96dpi)
-        style: {
-          margin: '0', // Remove margins during capture to prevent centering issues
-          boxShadow: 'none', // Remove shadow
-        },
-        backgroundColor: '#ffffff',
-        filter: node => {
-          // Exclude elements with 'no-print' class
-          if (node instanceof HTMLElement && node.classList.contains('no-print')) {
-            return false;
-          }
-          return true;
-        },
-      });
-
-      // Restore original width immediately after capture
-      element.style.width = originalWidth;
+      // 2. Split the items across pages. Each page is rendered and captured
+      //    separately so that the header and table header repeat naturally and
+      //    no row is ever cut in half by a page boundary.
+      const pages = buildPdfPages(data.items || []);
 
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -618,19 +681,84 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
         format: 'a4',
       });
 
-      const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
 
-      // Always use full page width and maintain aspect ratio
-      // Height will extend beyond one page if needed, which is acceptable
-      const finalWidth = pdfWidth;
-      const finalHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+        const isLastPage = pageIndex === pages.length - 1;
 
-      pdf.addImage(dataUrl, 'PNG', 0, 0, finalWidth, finalHeight);
+        // Serial numbers must continue across pages, so offset by the number
+        // of rows already printed.
+        const itemOffset = pages
+          .slice(0, pageIndex)
+          .reduce((count, pageRows) => count + pageRows.length, 0);
+
+        // 3. Tell the template what to render for this page. The full header
+        //    prints on page 1 only; continuation pages start at the table
+        //    header so no vertical space is wasted repeating company details.
+        setPdfPageItems(pages[pageIndex]);
+        setPdfItemOffset(itemOffset);
+        setPdfShowTrailing(isLastPage);
+        setPdfShowHeader(pageIndex === 0);
+
+        // 4. Wait for React to commit this page's DOM before capturing.
+        //    The first page waits longer to allow fonts/logo to settle.
+        await new Promise(resolve => setTimeout(resolve, pageIndex === 0 ? 500 : 250));
+
+        const element = printRef.current;
+        if (!element) break;
+
+        // 5. Don't change width - keep it at 210mm for proper A4 proportions
+        // The element is already styled to 210mm width in the render
+        const dataUrl = await toJpeg(element, {
+          quality: 0.9,
+          pixelRatio: 2, // High quality
+          width: 794, // Force A4 width in pixels (approx 210mm @ 96dpi)
+          style: {
+            margin: '0', // Remove margins during capture to prevent centering issues
+            boxShadow: 'none', // Remove shadow
+          },
+          backgroundColor: '#ffffff',
+          filter: node => {
+            // Exclude elements with 'no-print' class
+            if (node instanceof HTMLElement && node.classList.contains('no-print')) {
+              return false;
+            }
+            return true;
+          },
+        });
+
+        const imgProps = pdf.getImageProperties(dataUrl);
+
+        // Full page width, preserving aspect ratio.
+        let finalWidth = pdfWidth;
+        let finalHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+        // Safety net: a page's capture must never be taller than the sheet,
+        // because jsPDF silently clips anything past the page edge. If a page
+        // still overflows (e.g. unusually long product descriptions wrapping
+        // onto extra lines), scale it down to fit instead of losing content.
+        if (finalHeight > pdfHeight) {
+          finalWidth = (imgProps.width * pdfHeight) / imgProps.height;
+          finalHeight = pdfHeight;
+        }
+
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+
+        // Centre horizontally in case the safety scale-down was applied.
+        pdf.addImage(dataUrl, 'JPEG', (pdfWidth - finalWidth) / 2, 0, finalWidth, finalHeight, undefined, 'FAST');
+      }
+
+      // Restore original width after all captures
+      if (printRef.current) printRef.current.style.width = originalWidth;
 
       const prefix = isInvoice ? 'Invoice' : 'Quotation';
       const customerName = (data.buyerName || 'Customer').replace(/[^a-z0-9]/gi, '_');
 
+      // Draws the page frame, "Generated by Morex Technologies ERP" and
+      // "Page X of Y" on every page (already multi-page aware).
       addPdfFooter(pdf);
       pdf.save(`${prefix}_${customerName}.pdf`);
 
@@ -649,15 +777,31 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
       // Ensure width is restored on error
       if (printRef.current) printRef.current.style.width = originalWidth;
     } finally {
+      // Always return the template to its normal, un-paginated editing state.
+      setPdfPageItems(null);
+      setPdfItemOffset(0);
+      setPdfShowTrailing(true);
+      setPdfShowHeader(true);
       setIsPdfMode(false); // Revert back to editable mode
       setIsGenerating(false);
+
+      if (hiddenRender && onClose) {
+        // Small delay to ensure the browser has completely processed the file download save prompt
+        setTimeout(() => {
+          onClose();
+        }, 1000);
+      }
     }
   };
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {};
+    const newErrors: any = {};
+
+    if (!data.validTillDays || isNaN(Number(data.validTillDays)) || Number(data.validTillDays) <= 0 || !Number.isInteger(Number(data.validTillDays))) {
+      newErrors.validTillDays = 'Valid Till must be a positive integer';
+    }
 
     // Phone validation (10 digits)
     if (data.companyPhone && !/^\d{10}$/.test(data.companyPhone.replace(/\D/g, ''))) {
@@ -977,7 +1121,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
 
   // Preview Mode
   return (
-    <div className="p-6 max-w-[1250px] mx-auto relative bg-[var(--background)]">
+    <div className={hiddenRender ? "" : "p-6 max-w-[1250px] mx-auto relative bg-[var(--background)]"}>
       {/* Full-screen loading overlay - blocks all interactions during PDF generation */}
       {(autoDownloadPending || isGenerating || (isMobile() && downloadDone)) && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
@@ -1041,7 +1185,8 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
           </div>
         </div>
       )}
-      <div className="flex justify-between items-center mb-6 no-print">
+      {!hiddenRender && (
+        <div className="flex justify-between items-center mb-6 no-print">
         <div className="flex items-center gap-4">
           {/* Hide Edit button if in auto-close/download mode */}
 
@@ -1094,8 +1239,9 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
           )}
         </div>
       </div>
+      )}
 
-      <div className="overflow-x-auto bg-[var(--background)] p-8 rounded-xl shadow-inner border border-[var(--border)] w-full">
+      <div className={hiddenRender ? "" : "overflow-x-auto bg-[var(--background)] p-8 rounded-xl shadow-inner border border-[var(--border)] w-full"}>
         <div
           ref={printRef}
           id="quotation-print-area"
@@ -1108,6 +1254,10 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
             boxSizing: 'border-box',
           }}
         >
+          {/* Quotation header block. During PDF generation this renders on
+              page 1 only — continuation pages begin at the table header. */}
+          {pdfShowHeader && (
+            <>
           {/* Header Title */}
           <div className="text-center font-bold text-[14pt] mb-2 uppercase text-black">
             {isInvoice ? 'TAX INVOICE' : 'QUOTATION'}
@@ -1368,10 +1518,37 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                       className="min-h-[50px]"
                     />
                   </div>
+
+                  {/* NEW: Valid Till */}
+                  <div className="mt-2 group relative">
+                    {!isPdfMode && (
+                      <>
+                        <span className="font-bold block text-[8pt]">Valid Till *</span>
+                        <div className="flex items-center gap-1">
+                          <EditableInput
+                            isPdfMode={false}
+                            readOnly={false}
+                            value={data.validTillDays ?? ''}
+                            onChange={v => {
+                               const val = v.trim();
+                               if (val === '' || /^[1-9]\d*$/.test(val)) {
+                                 updateField('validTillDays', val);
+                               }
+                            }}
+                            className="w-8 !border-b !border-dashed !border-gray-300"
+                            type="text"
+                          />
+                          <span className="text-[8pt] font-semibold pt-1">Days</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+            </>
+          )}
 
           <div className="border-t border-black">
             <table className="w-full text-[8.5pt] border border-black">
@@ -1388,7 +1565,8 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-black">
-                {data.items.map((item, index) => {
+                {/* During PDF generation only this page's slice is rendered. */}
+                {(pdfPageItems ?? data.items).map((item, index) => {
                   // Filter out already selected products for this row
                   const _selectedProducts = data.items
                     .filter(i => i.id !== item.id && i.description)
@@ -1398,7 +1576,8 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
 
                   return (
                     <tr key={item.id} className="divide-x divide-black group">
-                      <td className="p-1 text-center align-top">{index + 1}</td>
+                      {/* Offset keeps serial numbers continuous across pages */}
+                      <td className="p-1 text-center align-top">{pdfItemOffset + index + 1}</td>
                       <td className="p-1 align-top relative">
                         <EditableTextArea
                           isPdfMode={isPdfMode}
@@ -1487,6 +1666,10 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
               </tbody>
             </table>
 
+            {/* Closing sections. During PDF generation these render on the
+                final page only, so they never appear mid-document. */}
+            {pdfShowTrailing && (
+              <>
             {/* Totals Section */}
             <div className="border border-black text-[8.5pt]">
               <div className="grid grid-cols-[1fr_144px] divide-x divide-black border-b border-black">
@@ -1556,8 +1739,14 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                 </span>
               </div>
             </div>
+              </>
+            )}
           </div>
 
+          {/* Closing sections, continued. Same final-page-only rule as above;
+              these blocks sit outside the item-table container. */}
+          {pdfShowTrailing && (
+            <>
           {/* Amount in words */}
           <div className="border border-black p-2 text-[8.5pt]">
             <span className="font-normal">Amount Chargeable (in words)</span>
@@ -1584,7 +1773,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                 We declare that this invoice shows the actual price of the goods described and that
                 all particulars are true and correct.
               </p>
-              {!isInvoice && (
+              {!isInvoice && data.validTillDays && (
                 <p className="text-[8pt] mt-2 font-semibold text-blue-700">
                   ✓ This quotation is valid from{' '}
                   {new Date().toLocaleDateString('en-IN', {
@@ -1593,7 +1782,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
                     year: 'numeric',
                   })}{' '}
                   to{' '}
-                  {new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
+                  {new Date(Date.now() + Number(data.validTillDays) * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
                     day: '2-digit',
                     month: 'short',
                     year: 'numeric',
@@ -1646,6 +1835,8 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({
               <div className="text-right w-full">Authorized Signatory</div>
             </div>
           </div>
+            </>
+          )}
         </div>
 
         <div className="text-center text-[8pt] text-gray-500 mt-2">

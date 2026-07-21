@@ -4,6 +4,7 @@ import { NavItem } from '@/config/routeRegistry';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/utils/cn';
+import { confirmDialog } from '@/components/ui';
 
 interface SidebarProps {
   items: NavItem[];
@@ -64,8 +65,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
     }
   };
 
-  const handleLogout = () => {
-    const confirmed = confirm('Are you sure you want to logout?');
+  const handleLogout = async () => {
+    const confirmed = await confirmDialog({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      confirmLabel: 'Logout',
+      variant: 'warning',
+    });
     if (confirmed && onLogout) {
       onLogout();
     }
@@ -182,12 +188,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
               <img src="/morex-logo.png" alt="Morex Logo" className="w-full h-full object-contain" />
             </div>
             {!isCollapsed && (
-              <div className="flex flex-col">
-                <span className="font-bold tracking-tight text-base text-[var(--sidebar-text-active)]">
-                  MOREX TECH
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold tracking-tight text-sm text-[var(--sidebar-text-active)] whitespace-nowrap truncate">
+                  MOREX TECHNOLOGIES
                 </span>
                 <span className="text-[11px] text-[var(--sidebar-text)] uppercase tracking-wider font-medium">
-                  OMS
+                  ERP
                 </span>
               </div>
             )}

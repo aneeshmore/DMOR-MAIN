@@ -1,16 +1,28 @@
 import React, { useMemo, useState } from 'react';
-import { useAllNotifications, useDeleteNotification } from '../hooks';
+import { useAllNotifications, useNotifications, useDeleteNotification } from '../hooks';
 import { AlertTriangle, AlertCircle, Trash2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/utils/cn';
 import { decodeHtml } from '@/utils/stringUtils';
+import { confirmDialog } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const AlertsTicker = () => {
   const [isTickerModalOpen, setIsTickerModalOpen] = useState(false);
+  const { user } = useAuth();
 
-  // Use All Notifications for the Ticker to ensure system-wide alerts are seen
-  const { data: notifications = [] } = useAllNotifications(true);
+  // [ROLE-BASED VISIBILITY] Only admins may use the system-wide view;
+  // everyone else sees their own notifications in the ticker.
+  const canViewAllNotifications = useMemo(() => {
+    if (!user) return false;
+    return ['Admin', 'SuperAdmin', 'Administrator'].includes(user.Role);
+  }, [user]);
+
+  // Admins: system-wide feed. Others: personal feed (recipient-filtered by the backend).
+  const { data: allNotifications = [] } = useAllNotifications(canViewAllNotifications);
+  const { data: myNotifications = [] } = useNotifications();
+  const notifications = canViewAllNotifications ? allNotifications : myNotifications;
   const deleteNotification = useDeleteNotification();
 
   // Ticker Content Logic
@@ -41,8 +53,15 @@ export const AlertsTicker = () => {
     return items;
   }, [notifications]);
 
-  const handleDelete = (id: number) => {
-    if (confirm('Delete notification?')) {
+  const handleDelete = async (id: number) => {
+    if (
+      await confirmDialog({
+        title: 'Delete Notification',
+        message: 'Delete notification?',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      })
+    ) {
       deleteNotification.mutate(id);
     }
   };

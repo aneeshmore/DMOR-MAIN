@@ -8,6 +8,8 @@ export interface Option<T = any> {
   subLabel?: string;
   value: T;
   className?: string;
+  searchValue?: string;
+  alwaysVisible?: boolean;
 }
 
 interface SearchableSelectProps<T = any> {
@@ -27,6 +29,7 @@ interface SearchableSelectProps<T = any> {
   error?: string;
   name?: string;
   customLabel?: string; // Human-readable custom label (e.g. newly created customer name)
+  emptyMessage?: React.ReactNode;
 }
 
 const SearchableSelect = <T = any,>({
@@ -46,6 +49,7 @@ const SearchableSelect = <T = any,>({
   error,
   name,
   customLabel,
+  emptyMessage = 'No results found',
 }: SearchableSelectProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,8 +77,10 @@ const SearchableSelect = <T = any,>({
 
   const filteredOptions = options.filter(
     option =>
-      (option.label && option.label.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (option.subLabel && option.subLabel.toLowerCase().includes(searchTerm.toLowerCase()))
+      option.alwaysVisible ||
+      (option.label && option.label.toLowerCase().includes(searchTerm.toLowerCase().trim())) ||
+      (option.subLabel && option.subLabel.toLowerCase().includes(searchTerm.toLowerCase().trim())) ||
+      (option.searchValue && option.searchValue.toLowerCase().includes(searchTerm.toLowerCase().trim()))
   );
 
   // Check if search term exactly matches any option
@@ -261,7 +267,7 @@ const SearchableSelect = <T = any,>({
               <span className="font-medium">✨ Create new: &ldquo;{searchTerm}&rdquo;</span>
             </div>
           ) : (
-            <div className="px-4 py-2 text-sm text-[var(--text-secondary)]">No results found</div>
+            <div className="px-4 py-2 text-sm text-[var(--text-secondary)]">{emptyMessage}</div>
           )}
         </div>
       )}

@@ -23,9 +23,10 @@ export const getUserNotifications = async (req, res, next) => {
 
 export const getAllNotifications = async (req, res, next) => {
   try {
-    // Optional: Check if user is Admin here if needed, but RBAC usually handles route protection
-    const { employeeId } = req.user;
-    const notifications = await service.getAllSystemNotifications(employeeId);
+    // [ROLE-BASED VISIBILITY] Pass role so the service can restrict the
+    // system-wide view to admins.
+    const { employeeId, role } = req.user;
+    const notifications = await service.getAllSystemNotifications(employeeId, { role });
 
     res.json({
       success: true,

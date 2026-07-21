@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
-import { Button, Modal, Input, SearchableSelect } from '@/components/ui';
+import { Button, Modal, Input, SearchableSelect, confirmDialog } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye, Trash2, Plus, X, Download } from 'lucide-react';
@@ -745,7 +745,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
   }, []);
 
   const handleDelete = useCallback(async (po: PurchaseOrder) => {
-    if (!window.confirm(`Delete PO ${po.poNumber}? This cannot be undone.`)) return;
+    if (
+      !(await confirmDialog({
+        title: 'Delete Purchase Order',
+        message: `Delete PO ${po.poNumber}? This cannot be undone.`,
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      }))
+    )
+      return;
     try {
       await purchaseOrdersApi.delete(po.purchaseOrderId);
       setPurchaseOrders(prev => prev.filter(p => p.purchaseOrderId !== po.purchaseOrderId));
@@ -991,7 +999,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
         })
         .join('');
 
-      const taxRowsHtmlList: string[] = [];
+      const taxRowsHtmlList: string[] = [
+        `
+          <tr style="font-size: 10px;">
+            <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td colspan="5" style="border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic;">Sub Total</td>
+            <td style="text-align: right; border-bottom: 1px solid #000; padding: 4px 6px;">${taxableAmount.toFixed(2)}</td>
+          </tr>
+        `
+      ];
       Object.entries(taxGroups).forEach(([rateStr, amount]) => {
         const rate = Number(rateStr);
         const taxVal = amount * (rate / 100);
@@ -1001,38 +1017,26 @@ const CreatePurchaseOrderPage: React.FC = () => {
           totalCGST += cgst;
           totalSGST += sgst;
           taxRowsHtmlList.push(`
-            <tr>
-              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 55%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input CGST @ ${rate / 2}%</td>
-              <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate / 2}%</td>
-              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 3%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 10%; text-align: right; padding: 4px 6px; font-weight: bold;">${cgst.toFixed(2)}</td>
+            <tr style="font-size: 10px;">
+              <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td colspan="5" style="border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic;">CGST ${rate / 2}%</td>
+              <td style="text-align: right; border-bottom: 1px solid #000; padding: 4px 6px;">${cgst.toFixed(2)}</td>
             </tr>
           `);
           taxRowsHtmlList.push(`
-            <tr>
-              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 55%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input SGST @ ${rate / 2}%</td>
-              <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate / 2}%</td>
-              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 3%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 10%; text-align: right; padding: 4px 6px; font-weight: bold;">${sgst.toFixed(2)}</td>
+            <tr style="font-size: 10px;">
+              <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td colspan="5" style="border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic;">SGST ${rate / 2}%</td>
+              <td style="text-align: right; border-bottom: 1px solid #000; padding: 4px 6px;">${sgst.toFixed(2)}</td>
             </tr>
           `);
         } else {
           totalIGST += taxVal;
           taxRowsHtmlList.push(`
-            <tr>
-              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 55%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Input IGST @ ${rate}%</td>
-              <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-weight: bold;">${rate}%</td>
-              <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 3%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-              <td style="width: 10%; text-align: right; padding: 4px 6px; font-weight: bold;">${taxVal.toFixed(2)}</td>
+            <tr style="font-size: 10px;">
+              <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+              <td colspan="5" style="border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic;">IGST ${rate}%</td>
+              <td style="text-align: right; border-bottom: 1px solid #000; padding: 4px 6px;">${taxVal.toFixed(2)}</td>
             </tr>
           `);
         }
@@ -1044,14 +1048,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
       if (roundingOff !== 0) {
         taxRowsHtmlList.push(`
-          <tr>
-            <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-            <td style="width: 55%; border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic; font-weight: bold;">Rounding Off</td>
-            <td style="width: 12%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-            <td style="width: 10%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-            <td style="width: 5%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-            <td style="width: 3%; border-right: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
-            <td style="width: 10%; text-align: right; padding: 4px 6px; font-weight: bold;">${roundingOff.toFixed(2)}</td>
+          <tr style="font-size: 10px;">
+            <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px;">&nbsp;</td>
+            <td colspan="5" style="border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic;">Rounding Off</td>
+            <td style="text-align: right; border-bottom: 1px solid #000; padding: 4px 6px;">${roundingOff.toFixed(2)}</td>
           </tr>
         `);
       }
@@ -1191,7 +1191,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
                 </thead>
                 <tbody>
                   ${itemRowsHtml}
-                  ${taxRowsHtml}
                   <tr style="height: ${spacerHeight}px;">
                     <td style="width: 5%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
                     <td style="width: 55%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
@@ -1201,14 +1200,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
                     <td style="width: 3%; border-right: 1px solid #000; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
                     <td style="width: 10%; border-bottom: 1px solid #000; height: ${spacerHeight}px;">&nbsp;</td>
                   </tr>
-                  <tr style="font-weight: bold; border-bottom: 2px solid #000; font-size: 10px;">
-                    <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
-                    <td style="width: 55%; border-right: 1px solid #000; text-align: right; padding: 6px;">Total</td>
-                    <td style="width: 12%; border-right: 1px solid #000; text-align: right; padding: 6px; white-space: nowrap;">${Number(totalQuantity) % 1 === 0 ? totalQuantity.toString() : totalQuantity.toFixed(4).replace(/\.?0+$/, '')} ${full.items?.[0]?.unit || ''}</td>
-                    <td style="width: 10%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
-                    <td style="width: 5%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
-                    <td style="width: 3%; border-right: 1px solid #000; padding: 6px;">&nbsp;</td>
-                    <td style="width: 10%; text-align: right; padding: 6px;">₹ ${finalTotal.toFixed(2)}</td>
+                  ${taxRowsHtml}
+                  <tr style="font-weight: bold; font-size: 10px;">
+                    <td style="width: 5%; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 2px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 55%; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 2px solid #000; text-align: right; padding: 6px;">Total</td>
+                    <td style="width: 12%; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 2px solid #000; text-align: right; padding: 6px; white-space: nowrap;">${Number(totalQuantity) % 1 === 0 ? totalQuantity.toString() : totalQuantity.toFixed(4).replace(/\.?0+$/, '')} ${full.items?.[0]?.unit || ''}</td>
+                    <td style="width: 10%; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 2px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 5%; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 2px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 3%; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 2px solid #000; padding: 6px;">&nbsp;</td>
+                    <td style="width: 10%; border-top: 1px solid #000; border-bottom: 2px solid #000; text-align: right; padding: 6px;">₹ ${finalTotal.toFixed(2)}</td>
                   </tr>
                 </tbody>
               </table>

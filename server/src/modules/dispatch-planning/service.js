@@ -24,7 +24,8 @@ export class DispatchPlanningService {
     return vehicles.map(v => ({
       id: v.id,
       vehicleNumber: v.vehicleNumber,
-      driverName: v.driverName || 'N/A',
+      vehicleModel: v.vehicleModel || '',
+      driverName: v.driverName || '',
       capacity: v.capacity ? parseFloat(v.capacity) : 0,
       isAvailable: v.isAvailable,
     }));
@@ -35,6 +36,7 @@ export class DispatchPlanningService {
     // duplicate-safe and whitespace-trimmed
     const vehicle = await this.repository.ensureVehicleExists({
       vehicleNumber: payload.vehicleNumber,
+      vehicleModel: payload.vehicleModel,
       driverName: payload.driverName,
       capacity: payload.capacity,
     });
@@ -47,7 +49,8 @@ export class DispatchPlanningService {
     return {
       id: vehicle.vehicleId,
       vehicleNumber: vehicle.vehicleNumber,
-      driverName: vehicle.driverName || 'N/A',
+      vehicleModel: vehicle.vehicleModel || '',
+      driverName: vehicle.driverName || '',
       capacity: vehicle.capacity ? parseFloat(vehicle.capacity) : 0,
       isAvailable: vehicle.isAvailable,
     };
@@ -77,6 +80,7 @@ export class DispatchPlanningService {
     const { capacity } = payload;
     await this.repository.ensureVehicleExists({
       vehicleNumber: vehicleNo,
+      vehicleModel,
       driverName,
       capacity,
     });

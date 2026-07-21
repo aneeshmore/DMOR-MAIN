@@ -18,7 +18,6 @@ import {
   Check,
   Download,
   X,
-  FileText,
   GripVertical,
   ChevronDown,
   ChevronUp,
@@ -53,6 +52,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { confirmDialog } from '@/components/ui';
 
 interface SelectedProduct {
   orderId: number;
@@ -1286,7 +1286,16 @@ export default function ScheduleBatchPage() {
   };
 
   const handleCancelBatch = async (batchId: number) => {
-    if (!window.confirm('Are you sure you want to cancel this batch?')) return;
+    if (
+      !(await confirmDialog({
+        title: 'Cancel Batch',
+        message: 'Are you sure you want to cancel this batch?',
+        confirmLabel: 'Cancel Batch',
+        cancelLabel: 'Keep Batch',
+        variant: 'danger',
+      }))
+    )
+      return;
     try {
       await productionManagerApi.cancelBatch(batchId, 'User cancelled');
       showToast.success('Batch cancelled');
@@ -3042,7 +3051,7 @@ export default function ScheduleBatchPage() {
                                 className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                 title="View Batch Chart"
                               >
-                                <FileText size={18} />
+                                <Download size={18} />
                               </button>
                               {batch.status === 'Completed' && (
                                 <button
@@ -3057,7 +3066,7 @@ export default function ScheduleBatchPage() {
                                   className="p-2 text-purple-500 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
                                   title="View Completion Report"
                                 >
-                                  <FileText size={18} />
+                                  <Download size={18} />
                                 </button>
                               )}
                             </div>

@@ -21,6 +21,7 @@ export interface QuotationData {
   otherRef: string;
   dispatchThrough: string;
   destination: string;
+  validTillDays?: string | number;
 
   companyName: string;
   companyLogo?: string;

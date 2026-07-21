@@ -11,6 +11,7 @@ import {
   masterProductFG,
   masterProductRM,
   masterProductPM,
+  dispatches,
 } from '../../db/schema/index.js';
 import logger from '../../config/logger.js';
 // Data access layer for orders

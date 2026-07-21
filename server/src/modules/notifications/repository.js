@@ -1,7 +1,7 @@
 import db from '../../db/index.js';
 import { notifications } from '../../db/schema/auth/notifications.js';
 import { notificationRules } from '../../db/schema/auth/notification-rules.js';
-// import { employeeRoles } from '../../db/schema/auth/employee-roles.js';
+import { orders, customers, products } from '../../db/schema/index.js';
 import { eq, and, desc, or, count, sql, inArray } from 'drizzle-orm';
 
 export class NotificationsRepository {
@@ -166,8 +166,15 @@ export class NotificationsRepository {
     const roleNames = Array.isArray(roles) ? roles : [roles];
     if (roleNames.length === 0) return [];
 
-    // Use inArray helper from Drizzle if possible, but maintaining the raw SQL approach consistency
-    // Fixing syntax to be safe
+    // [FIX 22P02] Bind role names as an IN list. Interpolating a JS array into
+    // ANY(...) can send a plain-text param that Postgres rejects
+    // ("Array value must start with {"), which aborts recipient resolution
+    // and prevents notification rows from being created.
+    const roleList = sql.join(
+      roleNames.map(name => sql`${name}`),
+      sql`, `
+    );
+
     const result = await db.execute(sql`
         SELECT DISTINCT
             e.employee_id as "employeeId",
@@ -177,10 +184,93 @@ export class NotificationsRepository {
         FROM app.employees e
         INNER JOIN app.employee_roles er ON e.employee_id = er.employee_id
         INNER JOIN app.roles r ON er.role_id = r.role_id
-        WHERE r.role_name = ANY(${roleNames})
+        WHERE r.role_name IN (${roleList})
     `);
 
     return result.rows;
+  }
+
+  /**
+   * Order → salesperson/customer lookup used to scope order-based notifications
+   * (e.g. Dispatch) to the employee responsible for each order.
+   */
+  async getOrderSalespersons(orderIds) {
+    if (!Array.isArray(orderIds) || orderIds.length === 0) return [];
+    const numericIds = orderIds.map(Number).filter(id => !Number.isNaN(id));
+    if (numericIds.length === 0) return [];
+
+    return await db
+      .select({
+        orderId: orders.orderId,
+        orderNumber: orders.orderNumber,
+        salespersonId: orders.salespersonId,
+        customerName: customers.companyName,
+      })
+      .from(orders)
+      .leftJoin(customers, eq(orders.customerId, customers.customerId))
+      .where(inArray(orders.orderId, numericIds));
+  }
+
+  /**
+   * [LIVE SHORTAGE REFRESH] Current stock for a set of material ids.
+   * FG SKUs live in app.products; RM/PM stock lives in master_product_rm/pm.
+   * Returns Map<materialId, availableQty>.
+   */
+  async getCurrentStockLevels(materialIds) {
+    const ids = [...new Set((materialIds || []).map(Number).filter(id => !Number.isNaN(id)))];
+    const stockMap = new Map();
+    if (ids.length === 0) return stockMap;
+
+    // FG (products table)
+    const fgRows = await db
+      .select({ id: products.productId, qty: products.availableQuantity })
+      .from(products)
+      .where(inArray(products.productId, ids));
+    fgRows.forEach(r => stockMap.set(Number(r.id), parseFloat(r.qty || 0)));
+
+    // RM/PM (master product detail tables) — only ids not already resolved as FG
+    const remaining = ids.filter(id => !stockMap.has(id));
+    if (remaining.length > 0) {
+      const idList = sql.join(
+        remaining.map(id => sql`${id}`),
+        sql`, `
+      );
+      const result = await db.execute(sql`
+        SELECT mp.master_product_id AS id,
+               COALESCE(rm.available_qty, pm.available_qty, 0) AS qty
+        FROM app.master_products mp
+        LEFT JOIN app.master_product_rm rm ON rm.master_product_id = mp.master_product_id
+        LEFT JOIN app.master_product_pm pm ON pm.master_product_id = mp.master_product_id
+        WHERE mp.master_product_id IN (${idList})
+      `);
+      (result.rows || []).forEach(r => stockMap.set(Number(r.id), parseFloat(r.qty || 0)));
+    }
+
+    return stockMap;
+  }
+
+  /**
+   * [LOW STOCK] Is there already an active (not deleted) low-stock notification
+   * for this product? Prevents one row per inventory transaction.
+   */
+  async hasActiveLowStockNotification(productId, productType) {
+    const matchObj = { materialId: Number(productId) };
+    if (productType) {
+      matchObj.productType = productType;
+    }
+    const matchCriteria = JSON.stringify([matchObj]);
+    const [row] = await db
+      .select({ notificationId: notifications.notificationId })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.type, 'MaterialShortage'),
+          sql`${notifications.data}->>'lowStock' = 'true'`,
+          sql`(${notifications.data}->'shortages')::jsonb @> ${matchCriteria}::jsonb`
+        )
+      )
+      .limit(1);
+    return !!row;
   }
 
   async deleteByMaterialId(productId) {

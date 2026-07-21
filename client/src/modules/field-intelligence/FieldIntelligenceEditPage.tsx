@@ -55,7 +55,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
         setReport(data);
       } catch (err) {
         console.error('Failed to retrieve report details', err);
-        alert('Could not retrieve report data.');
+        showToast.error('Could not retrieve report data.');
         navigate('/operations/field-intelligence');
       } finally {
         setLoading(false);

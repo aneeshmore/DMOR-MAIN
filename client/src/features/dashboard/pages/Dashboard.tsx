@@ -38,6 +38,7 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { confirmDialog } from '@/components/ui';
 
 // Define Card Interface
 interface DashboardCard {
@@ -489,8 +490,15 @@ export const Dashboard: React.FC = () => {
     setIsEditing(false);
   };
 
-  const handleReset = () => {
-    if (confirm('Reset dashboard cards to default order?')) {
+  const handleReset = async () => {
+    if (
+      await confirmDialog({
+        title: 'Reset Dashboard',
+        message: 'Reset dashboard cards to default order?',
+        confirmLabel: 'Continue',
+        variant: 'warning',
+      })
+    ) {
       localStorage.removeItem(storageKey);
       setItems(rawVisibleCards);
       setIsEditing(false);

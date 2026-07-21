@@ -101,33 +101,34 @@ export class AdminAccountsService {
     await this.repository.updateAccount(orderId, accountData);
     await this.repository.updateOrder(orderId, orderData);
 
-    // Only perform Production checks/notifications if fully Factory Approved
-    if (newStatus === 'Factory Approved') {
-      // Check for material shortages after payment clearance
-      await this.checkMaterialRequirements(orderId);
+    // Check for material shortages as soon as the order enters the production
+    // pipeline (on every accounts approval, not only the final transition)
+    await this.checkMaterialRequirements(orderId);
 
-      // Send Notification
-      try {
-        const full = await this.repository.findById(orderId);
-        const { customers: customer, employees: salesperson, orders: order } = full;
-        const customerName = customer ? customer.companyName : 'Customer';
+    // [STATUS NOTIFICATION FIX] Send the notification for BOTH transitions.
+    // Previously gated on newStatus === 'Factory Approved', so the accounts-approval
+    // step (-> 'Pending Factory Approval') never generated a notification and the
+    // "Order approved by accounts / Pending Factory Approval" section stayed empty.
+    try {
+      const full = await this.repository.findById(orderId);
+      const { customers: customer, employees: salesperson, orders: order } = full;
+      const customerName = customer ? customer.companyName : 'Customer';
 
-        // Notify Customer Creator (Priority) or Order Salesperson (Fallback)
-        const recipientId = customer?.createdBy || salesperson?.employeeId;
+      // Notify the salesperson assigned to the order
+      const recipientId = order?.salespersonId || salesperson?.employeeId;
 
-        await this.notificationsService.createOrderStatusNotification(
-          orderId,
-          customerName,
-          'Factory Approved',
-          recipientId,
-          order?.orderNumber
-        );
+      await this.notificationsService.createOrderStatusNotification(
+        orderId,
+        customerName,
+        newStatus,
+        recipientId,
+        order?.orderNumber
+      );
 
-        // Clean up 'NewOrder' notifications
-        await this.notificationsService.clearNotificationsForOrder(orderId, ['NewOrder']);
-      } catch (err) {
-        console.error('Failed to send notification in acceptOrder:', err);
-      }
+      // Clean up 'NewOrder' notifications once the order leaves accounts approval
+      await this.notificationsService.clearNotificationsForOrder(orderId, ['NewOrder']);
+    } catch (err) {
+      console.error('Failed to send notification in acceptOrder:', err);
     }
 
     // Fetch full data again for DTO

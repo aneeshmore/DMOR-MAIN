@@ -28,8 +28,20 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
   const { data: alerts = [] } = useNotifications({ type: 'MaterialShortage' });
   const markAsRead = useMarkAsRead();
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<number>>(new Set());
-  const [dismissedLowStock, setDismissedLowStock] = useState<Set<number>>(new Set());
+  const [dismissedLowStock, setDismissedLowStock] = useState<Set<string>>(new Set());
+
+  // FG rows use product_id while RM/PM rows use master_product_id (overlapping
+  // numeric spaces), so dismissal keys must be qualified by product type.
+  const lowStockKey = (p: any) => `${p.productType || 'FG'}-${p.productId}`;
   const [isExpanded, setIsExpanded] = useState(false);
+  const [lowStockTypeFilter, setLowStockTypeFilter] = useState<'All' | 'FG' | 'RM' | 'PM'>('All');
+
+  // Badge colors per product type (matches Product Master type badges)
+  const typeBadgeClass: Record<string, string> = {
+    FG: 'bg-blue-100 text-blue-700',
+    RM: 'bg-green-100 text-green-700',
+    PM: 'bg-purple-100 text-purple-700',
+  };
 
   const { hasPermission, loading: authLoading, user } = useAuth();
 
@@ -49,7 +61,7 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
   );
 
   // Filter low stock products that haven't been dismissed
-  const activeLowStock = lowStockProducts.filter((p: any) => !dismissedLowStock.has(p.productId));
+  const activeLowStock = lowStockProducts.filter((p: any) => !dismissedLowStock.has(lowStockKey(p)));
 
   // Group order-based alerts by material name
   const groupedShortages = useMemo(() => {
@@ -91,7 +103,7 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
     // Add low stock products (not order-related)
     activeLowStock.forEach((p: any) => {
       const matName = p.productName || 'Unknown Product';
-      const key = `lowstock-${p.productId}`;
+      const key = `lowstock-${lowStockKey(p)}`;
       if (!groups[key]) {
         groups[key] = {
           materialName: matName,
@@ -113,6 +125,20 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
   const orderShortages = groupedShortages.filter(g => g.type === 'order');
   const lowStockShortages = groupedShortages.filter(g => g.type === 'lowstock');
 
+  // Per-type breakdown for the low stock section (FG / RM / PM shown separately)
+  const lowStockTypeCounts = lowStockShortages.reduce(
+    (acc: Record<string, number>, g) => {
+      const t = g.productType || 'FG';
+      acc[t] = (acc[t] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+  const visibleLowStock =
+    lowStockTypeFilter === 'All'
+      ? lowStockShortages
+      : lowStockShortages.filter(g => (g.productType || 'FG') === lowStockTypeFilter);
+
   if (groupedShortages.length === 0) {
     return null;
   }
@@ -124,7 +150,7 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
     }
     // Dismiss all low stock
     activeLowStock.forEach((p: any) => {
-      setDismissedLowStock(prev => new Set(prev).add(p.productId));
+      setDismissedLowStock(prev => new Set(prev).add(lowStockKey(p)));
     });
     showToast.success('All alerts cleared');
   };
@@ -134,7 +160,7 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
       setDismissedAlerts(prev => new Set(prev).add(alert.notificationId));
     });
     activeLowStock.forEach((p: any) => {
-      setDismissedLowStock(prev => new Set(prev).add(p.productId));
+      setDismissedLowStock(prev => new Set(prev).add(lowStockKey(p)));
     });
   };
 
@@ -157,14 +183,22 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
           >
             <AlertTriangle className="w-4 h-4 text-[var(--error,#dc2626)] flex-shrink-0" />
             <span className="font-medium text-[var(--error,#dc2626)] text-sm">Stock Alerts</span>
+            {/* Hiding Order badge as requested
             {orderShortages.length > 0 && (
               <span className="text-xs bg-[var(--error,#dc2626)] text-white px-1.5 py-0.5 rounded">
                 {orderShortages.length} Order
               </span>
             )}
+            */}
             {lowStockShortages.length > 0 && (
-              <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded">
+              <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded whitespace-nowrap">
                 {lowStockShortages.length} Low Stock
+                {lowStockTypeCounts.RM || lowStockTypeCounts.PM
+                  ? ` (${(['FG', 'RM', 'PM'] as const)
+                      .filter(t => lowStockTypeCounts[t])
+                      .map(t => `${lowStockTypeCounts[t]}${t}`)
+                      .join('·')})`
+                  : ''}
               </span>
             )}
 
@@ -215,6 +249,7 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
         {isExpanded && (
           <div className="mt-2 pt-2 border-t border-[var(--error-border,#fecaca)]">
             {/* Order-based shortages */}
+            {/* Hiding Order Material Shortages as requested
             {orderShortages.length > 0 && (
               <div className="mb-2">
                 <div className="text-xs font-medium text-[var(--error,#dc2626)] mb-1">
@@ -248,17 +283,48 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
                 </div>
               </div>
             )}
+            */}
 
             {/* Low stock products */}
             {lowStockShortages.length > 0 && (
               <div>
-                <div className="text-xs font-medium text-orange-600 mb-1">
-                  Low Stock (Below Minimum):
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-xs font-medium text-orange-600">
+                    Low Stock (Below Minimum):
+                  </span>
+                  {/* FG / RM / PM filter chips — same row, no extra height */}
+                  <button
+                    onClick={() => setLowStockTypeFilter('All')}
+                    className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded border transition-colors',
+                      lowStockTypeFilter === 'All'
+                        ? 'bg-orange-500 text-white border-orange-500'
+                        : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-orange-300'
+                    )}
+                  >
+                    All {lowStockShortages.length}
+                  </button>
+                  {(['FG', 'RM', 'PM'] as const).map(t =>
+                    lowStockTypeCounts[t] ? (
+                      <button
+                        key={t}
+                        onClick={() => setLowStockTypeFilter(prev => (prev === t ? 'All' : t))}
+                        className={cn(
+                          'text-[10px] px-1.5 py-0.5 rounded border transition-colors',
+                          lowStockTypeFilter === t
+                            ? `${typeBadgeClass[t]} border-current font-semibold`
+                            : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-orange-300'
+                        )}
+                      >
+                        {t} {lowStockTypeCounts[t]}
+                      </button>
+                    ) : null
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {lowStockShortages.map(group => (
+                  {visibleLowStock.map(group => (
                     <div
-                      key={`lowstock-${group.materialName}`}
+                      key={`lowstock-${group.productType || 'FG'}-${group.materialName}`}
                       className="bg-[var(--surface)] rounded px-2 py-1.5 border border-orange-200 text-xs flex items-center gap-2"
                     >
                       <Package size={12} className="text-orange-500" />
@@ -269,11 +335,15 @@ export const TopAlertBanner: React.FC<TopAlertBannerProps> = ({ className }) => 
                         {Number(group.totalAvailable || 0).toFixed(0)}/
                         {Number(group.totalRequired || 0).toFixed(0)} {group.unit}
                       </span>
-                      {group.productType && (
-                        <span className="text-[var(--text-secondary)] text-[10px] bg-gray-100 px-1 rounded">
-                          {group.productType}
-                        </span>
-                      )}
+                      <span
+                        className={cn(
+                          'text-[10px] px-1 rounded font-medium',
+                          typeBadgeClass[group.productType || 'FG'] ||
+                            'bg-gray-100 text-[var(--text-secondary)]'
+                        )}
+                      >
+                        {group.productType || 'FG'}
+                      </span>
                     </div>
                   ))}
                 </div>

@@ -3,6 +3,7 @@ import { UseFormRegister, FormState, UseFormSetValue, useWatch, Control } from '
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
 import { VISIT_PURPOSES, VISIT_TYPES } from '../constants/firConstants';
 import SearchableSelect from './shared/SearchableSelect';
+import { showToast } from '@/utils/toast';
 
 interface SectionProps {
   register: UseFormRegister<FieldIntelligenceReport>;
@@ -68,11 +69,11 @@ export const VisitDetailsSection: React.FC<SectionProps> = ({
         },
         error => {
           console.error('Error detecting location', error);
-          alert('Could not detect location. Please enter manually.');
+          showToast.error('Could not detect location. Please enter manually.');
         }
       );
     } else {
-      alert('Geolocation is not supported by your browser.');
+      showToast.error('Geolocation is not supported by your browser.');
     }
   };
 
