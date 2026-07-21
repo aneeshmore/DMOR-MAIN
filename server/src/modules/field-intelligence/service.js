@@ -13,6 +13,12 @@ import { AiProviderService } from './ai-provider.service.js';
 import { MastersService } from '../masters/service.js';
 import logger from '../../config/logger.js';
 import { rca } from './rcaDebug.js';
+import {
+  safeString,
+  safeLocalDate,
+  sanitizeCsvCell,
+  normalizeReportData,
+} from './utils/legacyNormalizer.js';
 
 export class FieldIntelligenceService {
   constructor() {
@@ -1038,7 +1044,8 @@ export class FieldIntelligenceService {
   }
 
   async exportToCsv(companyId, tenantId, userContext = null) {
-    const reports = await this.repository.getReportsList({}, companyId, tenantId, userContext);
+    const rawReports = await this.repository.getReportsList({}, companyId, tenantId, userContext);
+    const reports = rawReports.map(r => normalizeReportData(r));
 
     const headers = [
       'Report Number',
@@ -1056,18 +1063,18 @@ export class FieldIntelligenceService {
     ];
 
     const rows = reports.map(r => [
-      r.reportNumber,
-      r.customerName,
-      r.visitDate ? new Date(r.visitDate).toLocaleDateString() : '',
-      r.executiveName,
-      r.status,
-      r.potentialBusinessValue,
-      r.expectedMonthlyBusiness,
-      r.conversionProbability,
-      r.city,
-      r.state,
-      r.currentSupplier,
-      (r.discussionNotes || '').replace(/\r?\n/g, ' '),
+      sanitizeCsvCell(r.reportNumber, '-'),
+      sanitizeCsvCell(r.customerName, '-'),
+      sanitizeCsvCell(safeLocalDate(r.visitDate, '-'), '-'),
+      sanitizeCsvCell(r.executiveName, '-'),
+      sanitizeCsvCell(r.status, '-'),
+      sanitizeCsvCell(r.potentialBusinessValue, '-'),
+      sanitizeCsvCell(r.expectedMonthlyBusiness, '-'),
+      sanitizeCsvCell(r.conversionProbability, '-'),
+      sanitizeCsvCell(r.city, '-'),
+      sanitizeCsvCell(r.state, '-'),
+      sanitizeCsvCell(r.currentSupplier, '-'),
+      sanitizeCsvCell(r.discussionNotes, '-'),
     ]);
 
     const csvContent = [
