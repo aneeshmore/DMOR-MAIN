@@ -260,6 +260,7 @@ const SplitOrderPage: React.FC = () => {
       },
       {
         accessorKey: 'status',
+        meta: { fitContent: true },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
         cell: ({ row }) => {
           const status = row.getValue('status') as string;
@@ -298,8 +299,14 @@ const SplitOrderPage: React.FC = () => {
               break;
           }
 
+          // Alignment/sizing only — mirrors the Create Order page's status
+          // pill treatment so the badge stays on one line, without touching
+          // the color-mapping logic above.
           return (
-            <Badge className={colorClass} variant="secondary">
+            <Badge
+              className={`${colorClass} whitespace-nowrap leading-none px-4 py-1.5`}
+              variant="secondary"
+            >
               {status}
             </Badge>
           );

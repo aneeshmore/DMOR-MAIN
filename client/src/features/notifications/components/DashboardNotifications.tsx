@@ -270,7 +270,7 @@ export const DashboardNotifications: React.FC<DashboardNotificationsProps> = ({
                             <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                               {decodeHtml(item.message)}
                             </p>
-                            <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
                               <span>{formatDate(item.createdAt)}</span>
                               {item.data?.orderNumber && (
                                 <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">
@@ -278,7 +278,7 @@ export const DashboardNotifications: React.FC<DashboardNotificationsProps> = ({
                                 </span>
                               )}
                               {item.data?.status && (
-                                <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">
+                                <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded whitespace-nowrap">
                                   {item.data.status}
                                 </span>
                               )}
@@ -338,7 +338,7 @@ export const DashboardNotifications: React.FC<DashboardNotificationsProps> = ({
             {/* Status Banner */}
             <div
               className={cn(
-                'px-4 py-2 rounded-lg flex justify-between items-center text-sm font-medium',
+                'px-4 py-2 rounded-lg flex flex-wrap justify-between items-center gap-x-3 gap-y-1 text-sm font-medium',
                 selectedOrderDetails.status === 'Factory Approved' ||
                   selectedOrderDetails.status === 'Accepted'
                   ? 'bg-green-100 text-green-700'
