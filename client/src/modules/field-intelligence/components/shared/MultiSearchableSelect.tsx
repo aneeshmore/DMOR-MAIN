@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 
 interface MultiSearchableSelectProps {
   label: string;
@@ -10,7 +10,33 @@ interface MultiSearchableSelectProps {
   error?: string;
   /** If true, shows a "Create '...'" option when the query doesn't match any existing option */
   allowCustom?: boolean;
+  /**
+   * When set, values created via "Create" are remembered under this key so they
+   * appear in the option list on subsequent uses (each key keeps its own list).
+   */
+  persistKey?: string;
 }
+
+const CUSTOM_OPTS_PREFIX = 'smartcrm:customopts:';
+
+const loadCustomOptions = (key?: string): string[] => {
+  if (!key) return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_OPTS_PREFIX + key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(v => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const persistCustomOptions = (key: string, values: string[]) => {
+  try {
+    localStorage.setItem(CUSTOM_OPTS_PREFIX + key, JSON.stringify(values));
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+};
 
 export const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({
   label,
@@ -21,22 +47,31 @@ export const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({
   required = false,
   error,
   allowCustom = false,
+  persistKey,
 }) => {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [customOptions, setCustomOptions] = useState<string[]>(() => loadCustomOptions(persistKey));
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Base options + any user-created (persisted) options, deduped case-insensitively.
+  const mergedOptions = useMemo(() => {
+    const seen = new Set(options.map(o => o.toLowerCase()));
+    const extra = customOptions.filter(c => c && !seen.has(c.toLowerCase()));
+    return [...options, ...extra];
+  }, [options, customOptions]);
 
   // Filter options based on search query
   const filtered = query
-    ? options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
-    : options;
+    ? mergedOptions.filter(o => o.toLowerCase().includes(query.toLowerCase()))
+    : mergedOptions;
 
   // Show "Create" row when allowCustom is on, there's a query, and it doesn't exactly match any option
   const trimmedQuery = query.trim();
   const showCreateOption =
     allowCustom &&
     trimmedQuery.length > 0 &&
-    !options.some(o => o.toLowerCase() === trimmedQuery.toLowerCase()) &&
+    !mergedOptions.some(o => o.toLowerCase() === trimmedQuery.toLowerCase()) &&
     !value.some(v => v.toLowerCase() === trimmedQuery.toLowerCase());
 
   const handleToggle = (option: string) => {
@@ -51,6 +86,12 @@ export const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({
 
   const handleCreateCustom = () => {
     if (!trimmedQuery) return;
+    // Remember the created value so it appears in the list next time.
+    if (persistKey && !customOptions.some(c => c.toLowerCase() === trimmedQuery.toLowerCase())) {
+      const next = [...customOptions, trimmedQuery];
+      setCustomOptions(next);
+      persistCustomOptions(persistKey, next);
+    }
     const nextValue = [...value, trimmedQuery];
     onChange(nextValue);
     setQuery('');
@@ -86,6 +127,7 @@ export const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
+          autoComplete="off"
         />
         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

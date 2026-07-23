@@ -221,7 +221,7 @@ const NewVisitPage = lazy(() =>
   import('@/features/crm/pages').then(m => ({ default: m.NewVisitPage }))
 );
 
-// Field Intelligence
+// SMART CRM
 const FieldIntelligenceDashboard = lazy(
   () => import('@/modules/field-intelligence/FieldIntelligenceDashboardPage')
 );
@@ -919,7 +919,7 @@ export const routeRegistry: RouteNode[] = [
       },
       {
         id: 'field-intelligence',
-        path: '/operations/field-intelligence',
+        path: '/operations/smart-crm',
         label: 'SMART CRM',
         icon: Cpu,
         component: FieldIntelligenceList,
@@ -953,16 +953,11 @@ export const routeRegistry: RouteNode[] = [
             method: 'GET',
             label: 'View Customer Unlinked History',
           },
-          {
-            route: '/field-intelligence/link-customer',
-            method: 'POST',
-            label: 'Link Customer Reports',
-          },
         ],
         children: [
           {
             id: 'field-intelligence-new',
-            path: '/operations/field-intelligence/new',
+            path: '/operations/smart-crm/new',
             label: 'New Report',
             component: FieldIntelligenceCreate,
             permission: { module: 'field_intelligence' },
@@ -970,7 +965,7 @@ export const routeRegistry: RouteNode[] = [
           },
           {
             id: 'field-intelligence-edit',
-            path: '/operations/field-intelligence/:id/edit',
+            path: '/operations/smart-crm/:id/edit',
             label: 'Edit Report',
             component: FieldIntelligenceEdit,
             permission: { module: 'field_intelligence' },
@@ -978,7 +973,7 @@ export const routeRegistry: RouteNode[] = [
           },
           {
             id: 'field-intelligence-customer-dashboard',
-            path: '/operations/field-intelligence/customer/:customerId',
+            path: '/operations/smart-crm/customer/:customerId',
             label: 'Customer Intelligence Dashboard',
             component: CustomerDashboard,
             permission: { module: 'field_intelligence' },
@@ -986,7 +981,7 @@ export const routeRegistry: RouteNode[] = [
           },
           {
             id: 'field-intelligence-view',
-            path: '/operations/field-intelligence/:id',
+            path: '/operations/smart-crm/:id',
             label: 'View Report',
             component: FieldIntelligenceView,
             permission: { module: 'field_intelligence' },
@@ -994,7 +989,7 @@ export const routeRegistry: RouteNode[] = [
           },
           {
             id: 'field-intelligence-dashboard',
-            path: '/operations/field-intelligence/dashboard',
+            path: '/operations/smart-crm/dashboard',
             label: 'Dashboard',
             component: FieldIntelligenceDashboard,
             permission: { module: 'field_intelligence' },

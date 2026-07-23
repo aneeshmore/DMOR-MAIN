@@ -514,7 +514,7 @@ const SalespersonRevenueReport: React.FC = () => {
                   <td className="p-3 px-4 text-[var(--text-primary)]">{order.customerName}</td>
                   <td className="p-3 px-4">
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap ${
                         order.status === 'Completed' || order.status === 'Delivered'
                           ? 'bg-green-50 text-green-700 ring-green-600/20'
                           : 'bg-yellow-50 text-yellow-800 ring-yellow-600/20'

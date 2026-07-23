@@ -511,7 +511,6 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                         const selectedName = value || '';
                         updateItem(idx, 'itemDescription', selectedName);
 
-                        // Auto-populate matching unit if defaultUnitId exists
                         const mp = masterProducts.find(p => p.masterProductName === selectedName);
                         if (mp) {
                           // Auto-populate GST
@@ -521,20 +520,26 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                             mp.gst !== undefined && mp.gst !== null ? mp.gst : ''
                           );
 
+                          // Auto-populate Unit from Product Master (always reset first)
                           if (mp.defaultUnitId) {
                             const matchingUnit = unitsList.find(
-                              u => (u.UnitID ?? u.unitId) === mp.defaultUnitId
+                              u => String(u.UnitID ?? u.unitId) === String(mp.defaultUnitId)
                             );
-                            if (matchingUnit) {
-                              updateItem(
-                                idx,
-                                'unit',
-                                matchingUnit.UnitName ?? matchingUnit.unitName ?? ''
-                              );
-                            }
+                            updateItem(
+                              idx,
+                              'unit',
+                              matchingUnit
+                                ? (matchingUnit.UnitName ?? matchingUnit.unitName ?? '')
+                                : ''
+                            );
+                          } else {
+                            // No defaultUnitId configured — clear the unit field
+                            updateItem(idx, 'unit', '');
                           }
                         } else {
+                          // Custom / unrecognised product — clear auto-filled fields
                           updateItem(idx, 'gst', '');
+                          updateItem(idx, 'unit', '');
                         }
                       }}
                       placeholder="Select product…"
@@ -568,29 +573,43 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                     )}
                   </td>
                   <td className="p-2 w-24">
-                    <select
-                      className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                      value={item.unit || ''}
-                      onChange={e => updateItem(idx, 'unit', e.target.value)}
-                    >
-                      <option value="">Unit…</option>
-                      {item.unit &&
-                        !unitsList.some(u => (u.UnitName ?? u.unitName) === item.unit) && (
-                          <option value={item.unit}>{item.unit}</option>
-                        )}
-                      {unitsList.map(u => {
-                        const uName = u.UnitName ?? u.unitName ?? '';
-                        const uId = u.UnitID ?? u.unitId ?? 0;
-                        return (
-                          <option key={uId} value={uName}>
-                            {uName}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    {errors[`item_unit_${idx}`] && (
-                      <p className="text-xs text-red-500 mt-0.5">{errors[`item_unit_${idx}`]}</p>
-                    )}
+                    {(() => {
+                      const isKnownProduct = masterProducts.some(
+                        p => p.masterProductName === item.itemDescription
+                      );
+                      return (
+                        <>
+                          <select
+                            className={
+                              isKnownProduct
+                                ? 'w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-highlight)] text-[var(--text-secondary)] text-sm focus:outline-none cursor-not-allowed opacity-80'
+                                : 'w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]'
+                            }
+                            value={item.unit || ''}
+                            onChange={e => updateItem(idx, 'unit', e.target.value)}
+                            disabled={isKnownProduct}
+                          >
+                            <option value="">Unit…</option>
+                            {item.unit &&
+                              !unitsList.some(u => (u.UnitName ?? u.unitName) === item.unit) && (
+                                <option value={item.unit}>{item.unit}</option>
+                              )}
+                            {unitsList.map(u => {
+                              const uName = u.UnitName ?? u.unitName ?? '';
+                              const uId = u.UnitID ?? u.unitId ?? 0;
+                              return (
+                                <option key={uId} value={uName}>
+                                  {uName}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {errors[`item_unit_${idx}`] && (
+                            <p className="text-xs text-red-500 mt-0.5">{errors[`item_unit_${idx}`]}</p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </td>
                   <td className="p-2 w-24">
                     <input

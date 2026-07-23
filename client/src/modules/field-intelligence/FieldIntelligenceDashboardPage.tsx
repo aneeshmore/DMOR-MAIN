@@ -113,7 +113,7 @@ export const FieldIntelligenceDashboardPage: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => navigate('/operations/field-intelligence/new')}
+          onClick={() => navigate('/operations/smart-crm/new')}
           className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] px-4 py-2.5 shadow-md flex items-center justify-center gap-2 font-semibold w-full sm:w-auto text-sm min-h-[44px]"
         >
           + Create Visit Report
@@ -127,7 +127,9 @@ export const FieldIntelligenceDashboardPage: React.FC = () => {
             <p className="text-[10px] sm:text-xs font-semibold text-gray-550 uppercase tracking-wider">
               Total Customer Visits
             </p>
-            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">{data.totalVisits}</h3>
+            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">
+              {data.totalVisits}
+            </h3>
             <p className="text-[9px] sm:text-[11px] text-green-500 font-semibold mt-1 flex items-center gap-1">
               <TrendingUp className="h-3 w-3" />
               Active conversion tracking
@@ -143,7 +145,9 @@ export const FieldIntelligenceDashboardPage: React.FC = () => {
             <p className="text-[10px] sm:text-xs font-semibold text-gray-555 uppercase tracking-wider">
               Avg. Conversion Probability
             </p>
-            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">{data.conversionRate}%</h3>
+            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">
+              {data.conversionRate}%
+            </h3>
             <p className="text-[9px] sm:text-[11px] text-gray-500 font-semibold mt-1">
               Weighted conversion forecast
             </p>
@@ -175,7 +179,9 @@ export const FieldIntelligenceDashboardPage: React.FC = () => {
             <p className="text-[10px] sm:text-xs font-semibold text-gray-550 uppercase tracking-wider">
               Action Items Overdue
             </p>
-            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">{data.followupsMissed}</h3>
+            <h3 className="text-xl sm:text-3xl font-extrabold text-gray-800 mt-1 sm:mt-2">
+              {data.followupsMissed}
+            </h3>
             <p className="text-[9px] sm:text-[11px] text-red-500 font-semibold mt-1 flex items-center gap-1">
               <TrendingDown className="h-3 w-3" />
               Requires action

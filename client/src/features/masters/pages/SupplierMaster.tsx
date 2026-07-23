@@ -20,7 +20,7 @@ const normalize = (v: string | undefined | null): string => (v || '').trim().toL
 const validateSupplierName = (name: string) => {
   if (!name) return '';
   if (name.trim().length < 2 || name.trim().length > 255)
-    return 'Supplier name must be between 2 and 255 characters';
+    return 'Supplier company name must be between 2 and 255 characters';
   return '';
 };
 
@@ -148,11 +148,11 @@ const SupplierForm = ({
       // Uniqueness check
       const dup = val.trim()
         ? existingSuppliers.find(
-            s =>
-              ((s.mobileNo && s.mobileNo === val.trim()) ||
-                (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
-              s.supplierId !== item?.supplierId
-          )
+          s =>
+            ((s.mobileNo && s.mobileNo === val.trim()) ||
+              (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
+            s.supplierId !== item?.supplierId
+        )
         : null;
       if (dup) {
         setFieldError('mobileNo', `Mobile number already used by another ${dup.supplierName}`);
@@ -169,11 +169,11 @@ const SupplierForm = ({
       // Uniqueness check
       const dup = val.trim()
         ? existingSuppliers.find(
-            s =>
-              ((s.mobileNo && s.mobileNo === val.trim()) ||
-                (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
-              s.supplierId !== item?.supplierId
-          )
+          s =>
+            ((s.mobileNo && s.mobileNo === val.trim()) ||
+              (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
+            s.supplierId !== item?.supplierId
+        )
         : null;
       if (dup) {
         setFieldError('mobileNo2', `Mobile number already used by another ${dup.supplierName}`);
@@ -190,11 +190,11 @@ const SupplierForm = ({
       // Uniqueness check
       const dup = val.trim()
         ? existingSuppliers.find(
-            s =>
-              s.gstNo &&
-              s.gstNo.toUpperCase() === val.trim().toUpperCase() &&
-              s.supplierId !== item?.supplierId
-          )
+          s =>
+            s.gstNo &&
+            s.gstNo.toUpperCase() === val.trim().toUpperCase() &&
+            s.supplierId !== item?.supplierId
+        )
         : null;
       if (dup) {
         setFieldError('gstNo', `GST already used by another ${dup.supplierName}`);
@@ -372,14 +372,14 @@ const SupplierForm = ({
     <div>
       {/* Form fields in a responsive 3-column grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Supplier Name */}
+        {/* Supplier Company Name */}
         <div>
           <Input
             ref={inputRef}
-            label="Supplier Name"
+            label="Supplier Company Name"
             value={formData.supplierName || ''}
             onChange={handleField('supplierName')}
-            placeholder="Enter supplier name"
+            placeholder="Enter supplier company name"
             required
             autoFocus
             error={errors.supplierName}
@@ -389,7 +389,7 @@ const SupplierForm = ({
         {/* Contact Person */}
         <div>
           <Input
-            label="Contact Person"
+            label="Contact Person Name"
             value={formData.contactPerson || ''}
             onChange={handleField('contactPerson')}
             placeholder="Enter contact person name"
@@ -660,7 +660,7 @@ export default function SupplierMaster() {
     },
     {
       accessorKey: 'supplierName',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier Name" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier Company Name" />,
       cell: ({ row }) => <span className="font-medium">{row.original.supplierName}</span>,
     },
     {
@@ -752,9 +752,9 @@ export default function SupplierMaster() {
               editingSupplier
                 ? initiateUpdate
                 : item => {
-                    setPendingItem(item);
-                    setIsAddConfirmModalOpen(true);
-                  }
+                  setPendingItem(item);
+                  setIsAddConfirmModalOpen(true);
+                }
             }
             onCancel={() => {
               setEditingSupplier(null);
@@ -786,7 +786,7 @@ export default function SupplierMaster() {
               <p>{pendingItem?.supplierId}</p>
             </div>
             <div>
-              <span className="font-semibold text-[var(--text-secondary)]">Supplier Name:</span>
+              <span className="font-semibold text-[var(--text-secondary)]">Supplier Company Name:</span>
               <p>{pendingItem?.supplierName}</p>
             </div>
             {pendingItem?.contactPerson && (
@@ -848,7 +848,7 @@ export default function SupplierMaster() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="col-span-2">
-              <span className="font-semibold text-[var(--text-secondary)]">Supplier Name:</span>
+              <span className="font-semibold text-[var(--text-secondary)]">Supplier Company Name:</span>
               <p>{pendingItem?.supplierName}</p>
             </div>
             {pendingItem?.contactPerson && (

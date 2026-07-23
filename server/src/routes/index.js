@@ -59,6 +59,9 @@ router.get('/health', (req, res) => {
   });
 });
 
+// Serve static uploads before authentication so they can be accessed publicly via <img> tags
+router.use('/uploads', express.static(path.resolve('uploads')));
+
 // ============================================
 // PROTECTED ROUTES (All require authentication)
 // ============================================
@@ -98,6 +101,5 @@ router.use('/purchase-orders', purchaseOrdersRoutes);
 router.use('/inward-from-po', inwardFromPoRoutes);
 router.use('/field-intelligence', fieldIntelligenceRoutes);
 router.use('/test-certificates', testCertificateRoutes);
-router.use('/uploads', express.static(path.resolve('uploads')));
 
 export default router;

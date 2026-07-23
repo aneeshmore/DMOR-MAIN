@@ -108,13 +108,49 @@ export class InventoryRepository {
   }
 
   async getLowStockProducts() {
-    // Use raw SQL query to compare columns properly
+    // FG stock lives in app.products; RM/PM stock lives in master_product_rm/pm
+    // with min_stock_level on app.master_products. UNION ALL keeps a uniform
+    // column shape so ProductDTO maps every row identically.
     const result = await db.execute(sql`
-      SELECT * FROM app.products 
-      WHERE is_active = true 
-        AND min_stock_level IS NOT NULL 
-        AND min_stock_level > 0 
-        AND available_quantity < min_stock_level
+      SELECT p.product_id,
+             p.product_name,
+             p.master_product_id,
+             p.available_quantity,
+             p.min_stock_level,
+             'FG' AS product_type
+      FROM app.products p
+      WHERE p.is_active = true
+        AND p.min_stock_level IS NOT NULL
+        AND p.min_stock_level > 0
+        AND p.available_quantity < p.min_stock_level
+      UNION ALL
+      SELECT mp.master_product_id AS product_id,
+             mp.master_product_name AS product_name,
+             mp.master_product_id AS master_product_id,
+             COALESCE(rm.available_qty, 0) AS available_quantity,
+             mp.min_stock_level,
+             mp.product_type
+      FROM app.master_products mp
+      JOIN app.master_product_rm rm ON rm.master_product_id = mp.master_product_id
+      WHERE mp.product_type = 'RM'
+        AND mp.is_active = true
+        AND mp.min_stock_level IS NOT NULL
+        AND mp.min_stock_level > 0
+        AND COALESCE(rm.available_qty, 0) < mp.min_stock_level
+      UNION ALL
+      SELECT mp.master_product_id AS product_id,
+             mp.master_product_name AS product_name,
+             mp.master_product_id AS master_product_id,
+             COALESCE(pm.available_qty, 0) AS available_quantity,
+             mp.min_stock_level,
+             mp.product_type
+      FROM app.master_products mp
+      JOIN app.master_product_pm pm ON pm.master_product_id = mp.master_product_id
+      WHERE mp.product_type = 'PM'
+        AND mp.is_active = true
+        AND mp.min_stock_level IS NOT NULL
+        AND mp.min_stock_level > 0
+        AND COALESCE(pm.available_qty, 0) < mp.min_stock_level
     `);
     return result.rows || result;
   }

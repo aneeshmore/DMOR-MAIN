@@ -18,6 +18,8 @@
     "db:seed:reset": "node src/db/scripts/seed.js --reset",
     "db:seed:excel": "node src/db/scripts/seed-excel.js",
     "db:clear": "node src/db/scripts/clear-seed-data.js",
+    "db:seed:crm": "node src/db/scripts/seed-crm.js",
+    "db:clear:crm": "node src/db/scripts/seed-crm.js --clear",
     "db:resetTables": "node src/db/scripts/resetTables.js",
     "db:drop": "node src/db/scripts/dropSchema.js",
     "db:init": "node src/db/scripts/dropSchema.js && drizzle-kit push --force && node src/db/scripts/seed.js --reset",

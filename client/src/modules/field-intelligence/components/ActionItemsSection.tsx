@@ -9,6 +9,7 @@ import {
 } from 'react-hook-form';
 import { FieldIntelligenceReport } from '../types/fieldIntelligence.types';
 import VoiceInput from './shared/VoiceInput';
+import { FOLLOWUP_ACTION_TYPES, FOLLOWUP_TYPES } from '../constants/firConstants';
 
 interface SectionProps {
   control: Control<FieldIntelligenceReport>;
@@ -16,6 +17,7 @@ interface SectionProps {
   formState?: FormState<FieldIntelligenceReport>;
   setValue: UseFormSetValue<FieldIntelligenceReport>;
   watch: (name: any) => any;
+  isDraftMode?: boolean;
 }
 
 export const ActionItemsSection: React.FC<SectionProps> = ({
@@ -24,7 +26,9 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
   formState,
   setValue,
   watch,
+  isDraftMode = false,
 }) => {
+  const req = (msg: string) => (isDraftMode ? false : msg) as string | false;
   const { errors } = formState || {};
   const { fields, append, remove } = useFieldArray({
     control,
@@ -43,7 +47,7 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
         return true;
       },
     });
-  }, [register, isFollowupVisitType]);
+  }, [register, isFollowupVisitType, isDraftMode]);
 
   return (
     <div id="followups-section" className="card p-6 mb-6">
@@ -63,7 +67,15 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
         </h3>
         <button
           type="button"
-          onClick={() => append({ followupDate: '', notes: '', status: 'Open' })}
+          onClick={() =>
+            append({
+              followupDate: '',
+              notes: '',
+              status: 'Open',
+              actionType: '',
+              followupMode: '',
+            })
+          }
           className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] px-3 py-1.5 text-xs font-semibold"
         >
           + Add Action Item
@@ -106,21 +118,76 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
                 </svg>
               </button>
 
-              <div className="md:col-span-1">
-                <label
-                  className={`block text-xs font-semibold mb-1 ${errors?.followups?.[index]?.followupDate ? 'text-red-500' : 'text-gray-700'}`}
-                >
-                  Followup Date <span className="text-red-500">*</span>
-                </label>
-                {(() => {
-                  const followupError = errors?.followups?.[index] as any;
-                  return (
-                    <>
+              {(() => {
+                const followupError = errors?.followups?.[index] as any;
+                return (
+                  <>
+                    {/* Action Type */}
+                    <div className="md:col-span-1">
+                      <label
+                        className={`block text-xs font-semibold mb-1 ${followupError?.actionType ? 'text-red-500' : 'text-gray-700'}`}
+                      >
+                        Action Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        className={`input text-xs py-1.5 ${followupError?.actionType ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/10' : ''}`}
+                        {...register(`followups.${index}.actionType` as const, {
+                          required: req('Action Type is required'),
+                        })}
+                      >
+                        <option value="">Select Action...</option>
+                        {FOLLOWUP_ACTION_TYPES.map(type => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                      {followupError?.actionType && (
+                        <p className="text-red-500 text-[10px] mt-1">
+                          {followupError.actionType.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Follow-up Mode */}
+                    <div className="md:col-span-1">
+                      <label
+                        className={`block text-xs font-semibold mb-1 ${followupError?.followupMode ? 'text-red-500' : 'text-gray-700'}`}
+                      >
+                        Follow-up Mode <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        className={`input text-xs py-1.5 ${followupError?.followupMode ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/10' : ''}`}
+                        {...register(`followups.${index}.followupMode` as const, {
+                          required: req('Follow-up Mode is required'),
+                        })}
+                      >
+                        <option value="">Select Mode...</option>
+                        {FOLLOWUP_TYPES.map(mode => (
+                          <option key={mode} value={mode}>
+                            {mode}
+                          </option>
+                        ))}
+                      </select>
+                      {followupError?.followupMode && (
+                        <p className="text-red-500 text-[10px] mt-1">
+                          {followupError.followupMode.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Follow-up Date */}
+                    <div className="md:col-span-1">
+                      <label
+                        className={`block text-xs font-semibold mb-1 ${followupError?.followupDate ? 'text-red-500' : 'text-gray-700'}`}
+                      >
+                        Followup Date <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="datetime-local"
                         className={`input text-xs py-1.5 ${followupError?.followupDate ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/10' : ''}`}
                         {...register(`followups.${index}.followupDate` as const, {
-                          required: 'Follow-up Date is required',
+                          required: req('Follow-up Date is required'),
                         })}
                       />
                       {followupError?.followupDate && (
@@ -131,16 +198,10 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
                           {followupError.followupDate.message}
                         </p>
                       )}
-                    </>
-                  );
-                })()}
-              </div>
+                    </div>
 
-              <div className="md:col-span-2 pr-6">
-                {(() => {
-                  const followupError = errors?.followups?.[index] as any;
-                  return (
-                    <>
+                    {/* Notes (Voice Input spanning full width) */}
+                    <div className="sm:col-span-2 lg:col-span-3 pr-6">
                       <VoiceInput
                         label="Task / Action Notes"
                         value={watch(`followups.${index}.notes`) || ''}
@@ -156,13 +217,13 @@ export const ActionItemsSection: React.FC<SectionProps> = ({
                       <input
                         type="hidden"
                         {...register(`followups.${index}.notes` as const, {
-                          required: 'Follow-up Notes are required',
+                          required: req('Follow-up Notes are required'),
                         })}
                       />
-                    </>
-                  );
-                })()}
-              </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Status hidden input */}
               <input type="hidden" {...register(`followups.${index}.status` as const)} />

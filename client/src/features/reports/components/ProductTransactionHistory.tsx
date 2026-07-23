@@ -53,6 +53,8 @@ const useDebouncedValue = <T,>(value: T, delay = 300) => {
 interface ProductTransactionHistoryProps {
   productId: string;
   productType: string;
+  /** Human-readable product name shown in the PDF header */
+  productName?: string;
   endDate?: string;
   reportCache?: Map<
     string,
@@ -69,6 +71,7 @@ interface ProductTransactionHistoryProps {
 const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
   productId,
   productType,
+  productName,
   endDate,
   reportCache,
 }) => {
@@ -285,11 +288,24 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     }
 
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text(`Transaction History: ${productType}`, 14, 20);
+    const pageWidth = doc.internal.pageSize.getWidth();
 
+    // ── Title: center-aligned ─────────────────────────────────────────────
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    const titleText = `Transaction History: ${productType}`;
+    doc.text(titleText, pageWidth / 2, 20, { align: 'center' });
+
+    // ── Sub-header lines: left-aligned ────────────────────────────────────
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+
+    // Product name line: use passed productName; fall back to 'All Products'
+    const displayProductName = productName || 'All Products';
+    doc.text(`Product : ${displayProductName}`, 14, 30);
+
+    doc.text(`Generated : ${new Date().toLocaleString()}`, 14, 37);
+
     const periodLabel =
       historyPeriod === 'MONTHLY'
         ? 'Monthly'
@@ -299,9 +315,9 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
             ? 'Custom'
             : 'Till Date';
     doc.text(
-      `Period (${periodLabel}): ${effectiveStartDate || 'Beginning'} to ${effectiveEndDate || 'Today'}`,
+      `Period : ${effectiveStartDate || 'Beginning'} \u2013 ${effectiveEndDate || 'Today'}  (${periodLabel})`,
       14,
-      36
+      44
     );
 
     const tableColumn = ['Date', 'Details', 'Type', 'Inward', 'Outward', 'Balance'];
@@ -317,7 +333,7 @@ const ProductTransactionHistory: React.FC<ProductTransactionHistoryProps> = ({
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 50,
+      startY: 52,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [71, 85, 105] },
     });

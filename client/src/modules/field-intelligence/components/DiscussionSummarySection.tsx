@@ -11,6 +11,7 @@ interface SectionProps {
   setValue: UseFormSetValue<FieldIntelligenceReport>;
   control: Control<FieldIntelligenceReport>;
   watch: (name: keyof FieldIntelligenceReport) => any;
+  isDraftMode?: boolean;
 }
 
 export const DiscussionSummarySection: React.FC<SectionProps> = ({
@@ -19,6 +20,7 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
   setValue,
   control,
   watch,
+  isDraftMode,
 }) => {
   const { errors } = formState;
   const discussionNotes = watch('discussionNotes') || '';
@@ -148,10 +150,7 @@ export const DiscussionSummarySection: React.FC<SectionProps> = ({
               error={errors.hiddenOpportunity?.message}
               name="hiddenOpportunity"
             />
-            <input
-              type="hidden"
-              {...register('hiddenOpportunity', { required: false })}
-            />
+            <input type="hidden" {...register('hiddenOpportunity', { required: false })} />
           </div>
         </div>
 

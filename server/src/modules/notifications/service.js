@@ -87,24 +87,51 @@ export class NotificationsService {
    * Creates rules for common notification types targeting appropriate roles
    */
   async seedDefaultRules() {
-    const defaultRules = [
-      // Material Shortage - notify Production Manager, Inventory Manager
-      { notificationType: 'MaterialShortage', targetType: 'ROLE', targetId: 3 }, // Production Manager
-      { notificationType: 'MaterialShortage', targetType: 'ROLE', targetId: 6 }, // Inventory Manager
-
-      // New Order - notify Admin
-      { notificationType: 'NewOrder', targetType: 'ROLE', targetId: 2 }, // Admin
-
-      // Order Update - notify Admin, Sales Manager, Production Manager
-      { notificationType: 'OrderUpdate', targetType: 'ROLE', targetId: 2 }, // Admin
-      { notificationType: 'OrderUpdate', targetType: 'ROLE', targetId: 3 }, // Production Manager
-      { notificationType: 'OrderUpdate', targetType: 'ROLE', targetId: 4 }, // Sales Manager
+    // Map of notificationType → role names that should receive it by default.
+    // Resolved by role NAME (not hardcoded IDs) so seeding works regardless of
+    // the order roles were created in.
+    const defaultRoleRules = [
+      // New Order — accounts approval queue
+      { notificationType: 'NewOrder', roleName: 'SuperAdmin' },
+      { notificationType: 'NewOrder', roleName: 'Admin' },
+      { notificationType: 'NewOrder', roleName: 'Accounts Manager' },
+      // Order Update — every status change
+      { notificationType: 'OrderUpdate', roleName: 'SuperAdmin' },
+      { notificationType: 'OrderUpdate', roleName: 'Admin' },
+      { notificationType: 'OrderUpdate', roleName: 'Sales Person' },
+      { notificationType: 'OrderUpdate', roleName: 'Production Manager' },
+      // Material Shortage — low stock / shortage alerts
+      { notificationType: 'MaterialShortage', roleName: 'SuperAdmin' },
+      { notificationType: 'MaterialShortage', roleName: 'Admin' },
+      { notificationType: 'MaterialShortage', roleName: 'Accounts Manager' },
+      { notificationType: 'MaterialShortage', roleName: 'Production Manager' },
+      // Dispatch — dispatched / delivered orders
+      { notificationType: 'Dispatch', roleName: 'SuperAdmin' },
+      { notificationType: 'Dispatch', roleName: 'Admin' },
+      { notificationType: 'Dispatch', roleName: 'Sales Person' },
     ];
 
+    const { AuthorityRepository } = await import('../authority/repository.js');
+    const authRepo = new AuthorityRepository();
+    const allRoles = await authRepo.getAllRoles();
+
+    const roleByName = new Map(
+      allRoles.map(r => [(r.roleName || r.RoleName || '').toLowerCase(), r.roleId || r.RoleID])
+    );
+
     let seeded = 0;
-    for (const rule of defaultRules) {
+    for (const rule of defaultRoleRules) {
+      const roleId = roleByName.get(rule.roleName.toLowerCase());
+      if (!roleId) {
+        console.warn(`[SeedRules] Role '${rule.roleName}' not found — skipping.`);
+        continue;
+      }
       try {
-        await this.createRule(rule);
+        await this.createRule({
+          notificationType: rule.notificationType,
+          targetType: 'ROLE',
+          targetId: roleId,
+        });
         seeded++;
       } catch (error) {
         // Ignore duplicate errors (unique constraint)
@@ -114,7 +141,7 @@ export class NotificationsService {
       }
     }
 
-    return { seeded, total: defaultRules.length };
+    return { seeded, total: defaultRoleRules.length };
   }
 
   /**
@@ -132,11 +159,15 @@ export class NotificationsService {
       `[NotificationService] Processing material shortage notifications for order ${orderId}`
     );
 
-    // DYNAMIC RECIPIENTS
+    // [ROLE-BASED VISIBILITY] Shortage alerts go to subscribers configured in
+    // Notification Settings (Accounts Manager + Production Manager by default).
     const recipients = await this.getRecipients('MaterialShortage');
 
-    // Fallback/Safety: If no rules, user might miss critical alerts.
-    // In production, we'd want a failsafe. For now, we trust the System Designer (ME) to seed rules.
+    // [ADMIN VISIBILITY] If no employee holds the target roles, record the event as
+    // a single unassigned row (recipientId: null) so the admin /all view still shows
+    // it. NULL never matches an employee's personal feed, so delivery is unchanged.
+    const effectiveRecipients = recipients.length > 0 ? recipients : [{ employeeId: null }];
+
     console.log(
       `[NotificationService] Sending 'MaterialShortage' to ${recipients.length} recipients.`
     );
@@ -161,7 +192,7 @@ export class NotificationsService {
           ? `${displayCustomer} requires ${shortage.materialName}. Required: ${shortage.requiredQty} ${shortage.unit}, Available: ${shortage.availableQty} ${shortage.unit}. Immediate procurement needed.`
           : `${displayCustomer} requires ${shortage.materialName}. Required: ${shortage.requiredQty} ${shortage.unit}, Available: ${shortage.availableQty} ${shortage.unit}. Plan procurement soon.`;
 
-      for (const recipient of recipients) {
+      for (const recipient of effectiveRecipients) {
         const notification = await this.createNotification({
           recipientId: recipient.employeeId,
           type: 'MaterialShortage',
@@ -172,7 +203,7 @@ export class NotificationsService {
             orderNumber,
             customerName,
             shortages: [shortage],
-            link: '/operations/pm-inward',
+            link: '/operations/purchase-orders',
           },
           priority,
           isRead: false,
@@ -182,6 +213,47 @@ export class NotificationsService {
       }
     }
     return notifications;
+  }
+
+  /**
+   * [LOW STOCK] Threshold-based low stock notification (not tied to an order).
+   * Recipients: MaterialShortage subscribers (Accounts Manager + Production
+   * Manager by default; admins see all via /all). Uses the MaterialShortage
+   * type/data shape so every existing UI surface (Low Stock tab, ticker,
+   * banner, grouping, restock cleanup) works unchanged.
+   */
+  async createLowStockNotification({ productId, productName, availableQty, minLevel, unit = '', productType }) {
+    const recipients = await this.getRecipients('MaterialShortage');
+    const effectiveRecipients = recipients.length > 0 ? recipients : [{ employeeId: null }];
+
+    const title = `Low Stock: ${productName}`;
+    const message = `Low stock detected for ${productName} — Available: ${availableQty}${unit ? ` ${unit}` : ''}, Minimum: ${minLevel}${unit ? ` ${unit}` : ''}. Procurement/Production action required.`;
+
+    for (const recipient of effectiveRecipients) {
+      await this.createNotification({
+        recipientId: recipient.employeeId,
+        type: 'MaterialShortage',
+        title,
+        message,
+        data: {
+          lowStock: true,
+          shortages: [
+            {
+              materialId: Number(productId),
+              productType: productType || 'FG',
+              materialName: productName,
+              requiredQty: minLevel,
+              availableQty,
+              unit,
+            },
+          ],
+          link: '/operations/purchase-orders',
+        },
+        priority: availableQty <= 0 ? 'critical' : 'high',
+        isRead: false,
+        isAcknowledged: false,
+      });
+    }
   }
 
   async createOrderStatusNotification(
@@ -211,41 +283,101 @@ export class NotificationsService {
       message = `${displayId} for ${customerName} status updated to ${status}.`;
     }
 
-    // 1. Always notify the relevant Salesperson (Direct Logic remains)
-    if (salesPersonId) {
+    const priority = status === 'Rejected' || status === 'On Hold' ? 'high' : 'normal';
+    // customerName included so the frontend (e.g. alert ticker) can display it directly
+    const data = { orderId, orderNumber, customerName, status };
+
+    // -----------------------------------------------------------------------
+    // RECIPIENT RESOLUTION — matches the designed workflow:
+    //
+    // Pending Factory Approval → Salesperson + Production Manager
+    // Factory Approved         → Salesperson only (PM acted, no self-notify)
+    // Scheduled for Production → Salesperson only
+    // Ready for Dispatch       → Salesperson only
+    // On Hold / Rejected       → Salesperson + rule-based subscribers
+    //
+    // Salespersons must only receive updates for their OWN orders, so other
+    // rule-subscribed salespersons are excluded below.
+    // -----------------------------------------------------------------------
+
+    const ruleRecipients = await this.getRecipients('OrderUpdate');
+    const ruleRecipientIds = new Set(ruleRecipients.map(r => r.employeeId));
+
+    // Non-critical: if the role lookup fails, continue without salesperson scoping
+    // rather than losing the notification entirely.
+    let allSalespersons = [];
+    try {
+      allSalespersons = await this.repository.getEmployeesByRole(['Sales Person']);
+    } catch (err) {
+      console.error('[NotificationService] Salesperson role lookup failed:', err);
+    }
+    const salespersonIds = new Set(allSalespersons.map(r => r.employeeId));
+
+    const employeeRecipients = new Set(); // track notified employee IDs to avoid duplication
+
+    // 1. Notify the order's Salesperson for statuses they care about, IF subscribed
+    const salespersonStatuses = [
+      'Pending Factory Approval',
+      'Factory Approved',
+      'Scheduled for Production',
+      'Ready for Dispatch',
+      'On Hold',
+      'Rejected',
+      // Legacy status names (existing orders)
+      'Verified',
+      'Accepted',
+    ];
+    if (
+      salesPersonId &&
+      salespersonStatuses.includes(status) &&
+      ruleRecipientIds.has(salesPersonId)
+    ) {
       await this.createNotification({
         recipientId: salesPersonId,
         type: 'OrderUpdate',
         title,
         message,
-        data: { orderId, status },
-        priority: status === 'Rejected' || status === 'On Hold' ? 'high' : 'normal',
+        data,
+        priority,
         isRead: false,
       });
+      employeeRecipients.add(salesPersonId);
     }
 
-    // 2. Dynamic Rules for other stakeholders
-    if (['Factory Approved', 'Accepted', 'On Hold', 'Rejected'].includes(status)) {
-      const recipients = await this.getRecipients('OrderUpdate'); // General subscribers
+    // 2. Notify other rule-based subscribers for all order updates
+    for (const user of ruleRecipients) {
+      // Prevent spamming salespersons with updates for orders they don't own
+      if (salespersonIds.has(user.employeeId) && user.employeeId !== salesPersonId) {
+        continue;
+      }
 
-      // We might want to filter contextually (e.g., Accountants only care about X).
-      // For now, the Rule System is "If you sub to OrderUpdate, you get OrderUpdates".
-      // Users can refine via UI later if we add 'event_subtype' to rules.
-
-      // Dedup against salesperson
-      const uniqueRecipients = recipients.filter(r => r.employeeId !== salesPersonId);
-
-      for (const user of uniqueRecipients) {
+      if (!employeeRecipients.has(user.employeeId)) {
         await this.createNotification({
           recipientId: user.employeeId,
           type: 'OrderUpdate',
           title,
           message,
-          data: { orderId, orderNumber, status },
-          priority: status === 'Factory Approved' || status === 'Accepted' ? 'normal' : 'high',
+          data,
+          priority,
           isRead: false,
         });
+        employeeRecipients.add(user.employeeId);
       }
+    }
+
+    // [ADMIN VISIBILITY] If no recipient row was created (e.g. order has no salesperson
+    // and no matching role employees), record one unassigned row so the admin /all
+    // view still shows the event. Invisible to employee personal feeds.
+    if (employeeRecipients.size === 0) {
+      await this.createNotification({
+        recipientId: null,
+        type: 'OrderUpdate',
+        title,
+        message,
+        data,
+        priority,
+        isRead: false,
+      });
     }
   }
 
@@ -260,9 +392,14 @@ export class NotificationsService {
     const title = `Pending Order: ${customerName}`;
     const message = `New order from ${customerName} (₹${totalAmount}) by ${salesPersonName}. Check payment.`;
 
+    // [ROLE-BASED VISIBILITY] New orders pending accounts approval go to the
+    // Accounts Manager subscribers. Admins see all events via the /all view.
     const recipients = await this.getRecipients('NewOrder');
 
-    for (const recipient of recipients) {
+    // [ADMIN VISIBILITY] Fall back to one unassigned row when no subscribers exist
+    const effectiveRecipients = recipients.length > 0 ? recipients : [{ employeeId: null }];
+
+    for (const recipient of effectiveRecipients) {
       await this.createNotification({
         recipientId: recipient.employeeId,
         type: 'NewOrder',
@@ -277,17 +414,97 @@ export class NotificationsService {
 
   async createDispatchNotification(dispatchId, vehicleNo, orderIds, driverName) {
     const title = `Vehicle Dispatched: ${vehicleNo}`;
-    const message = `Dispatch #${dispatchId} initiated. Driver: ${driverName}. Orders: ${orderIds.join(', ')}`;
 
-    const recipients = await this.getRecipients('OrderUpdate');
+    // [ROLE-BASED VISIBILITY] Dispatch notifications are driven by Notification
+    // Settings ('Dispatch' rules). Salespersons only see dispatches for their own
+    // orders; other subscribers (e.g. Admin/PM) get the full order list.
+    const ruleRecipients = await this.getRecipients('Dispatch');
+    const ruleRecipientIds = new Set(ruleRecipients.map(r => r.employeeId));
 
-    for (const recipient of recipients) {
+    // Non-critical: if the role lookup fails, continue without salesperson scoping
+    let allSalespersons = [];
+    try {
+      allSalespersons = await this.repository.getEmployeesByRole(['Sales Person']);
+    } catch (err) {
+      console.error('[NotificationService] Salesperson role lookup failed:', err);
+    }
+    const salespersonIds = new Set(allSalespersons.map(r => r.employeeId));
+
+    const employeeRecipients = new Set();
+    const orderOwners = await this.repository.getOrderSalespersons(orderIds);
+
+    const ordersBySalesperson = new Map();
+    for (const owner of orderOwners) {
+      if (!owner.salespersonId) continue;
+      if (!ordersBySalesperson.has(owner.salespersonId)) {
+        ordersBySalesperson.set(owner.salespersonId, []);
+      }
+      ordersBySalesperson.get(owner.salespersonId).push(owner);
+    }
+
+    // Helper: display strings for a set of orders (order numbers + customer names)
+    const describeOrders = list => {
+      const orderLabels = list.map(o => o.orderNumber || `#${o.orderId}`);
+      const customerNames = [...new Set(list.map(o => o.customerName).filter(Boolean))];
+      return { orderLabels, customerNames };
+    };
+    const buildMessage = (orderLabels, customerNames) => {
+      const customerSuffix = customerNames.length > 0 ? ` for ${customerNames.join(', ')}` : '';
+      return `Dispatch #${dispatchId} initiated. Driver: ${driverName}. Orders: ${
+        orderLabels.length > 0 ? orderLabels.join(', ') : orderIds.join(', ')
+      }${customerSuffix}`;
+    };
+
+    // 1. Each salesperson: only their own orders, only if subscribed
+    for (const [salespersonId, ownOrders] of ordersBySalesperson) {
+      if (!ruleRecipientIds.has(salespersonId)) continue; // enforce privilege
+
+      const { orderLabels, customerNames } = describeOrders(ownOrders);
       await this.createNotification({
-        recipientId: recipient.employeeId,
-        type: 'OrderUpdate',
+        recipientId: salespersonId,
+        type: 'Dispatch',
         title,
-        message,
-        data: { dispatchId, orderIds },
+        message: buildMessage(orderLabels, customerNames),
+        data: {
+          dispatchId,
+          orderIds: ownOrders.map(o => o.orderId),
+          orderNumbers: orderLabels,
+          customerNames,
+        },
+        priority: 'normal',
+        isRead: false,
+      });
+      employeeRecipients.add(salespersonId);
+    }
+
+    // 2. Other rule-based subscribers (non-salespersons) get the full list
+    for (const user of ruleRecipients) {
+      if (salespersonIds.has(user.employeeId)) continue; // no cross-order dispatches for salespeople
+      if (employeeRecipients.has(user.employeeId)) continue;
+
+      const { orderLabels, customerNames } = describeOrders(orderOwners);
+      await this.createNotification({
+        recipientId: user.employeeId,
+        type: 'Dispatch',
+        title,
+        message: buildMessage(orderLabels, customerNames),
+        data: { dispatchId, orderIds, orderNumbers: orderLabels, customerNames },
+        priority: 'normal',
+        isRead: false,
+      });
+      employeeRecipients.add(user.employeeId);
+    }
+
+    // [ADMIN VISIBILITY] No recipient row created — record one unassigned row so
+    // the admin /all view still shows the dispatch event.
+    if (employeeRecipients.size === 0) {
+      const { orderLabels, customerNames } = describeOrders(orderOwners);
+      await this.createNotification({
+        recipientId: null,
+        type: 'Dispatch',
+        title,
+        message: buildMessage(orderLabels, customerNames),
+        data: { dispatchId, orderIds, orderNumbers: orderLabels, customerNames },
         priority: 'normal',
         isRead: false,
       });
@@ -300,10 +517,15 @@ export class NotificationsService {
 
     const recipients = await this.getRecipients('OrderUpdate');
 
-    for (const u of recipients) {
+    // [ADMIN VISIBILITY] Fall back to one unassigned row when no subscribers exist
+    const effectiveRecipients = recipients.length > 0 ? recipients : [{ employeeId: null }];
+
+    for (const u of effectiveRecipients) {
       await this.createNotification({
         recipientId: u.employeeId,
-        type: 'OrderUpdate',
+        // [TYPE FIX] The Accepted tab filters on type 'ProductionComplete';
+        // 'OrderUpdate' without a status never surfaced there
+        type: 'ProductionComplete',
         title,
         message,
         data: { batchId, batchCode },
@@ -320,10 +542,14 @@ export class NotificationsService {
 
     const recipients = await this.getRecipients('OrderUpdate');
 
-    for (const u of recipients) {
+    // [ADMIN VISIBILITY] Fall back to one unassigned row when no subscribers exist
+    const effectiveRecipients = recipients.length > 0 ? recipients : [{ employeeId: null }];
+
+    for (const u of effectiveRecipients) {
       await this.createNotification({
         recipientId: u.employeeId,
-        type: 'OrderUpdate',
+        // [TYPE FIX] The Dispatch tab filters on type 'Delivery' for delivered dispatches
+        type: 'Delivery',
         title,
         message,
         data: { dispatchId, orderIds },
@@ -333,7 +559,88 @@ export class NotificationsService {
     }
   }
 
-  // --- Read/Query Methods (Unchanged mostly) ---
+  // --- Read/Query Methods ---
+
+  /**
+   * [CUSTOMER NAME ENRICHMENT] Older Dispatch/Delivery rows were created without
+   * customerNames/orderNumbers in data. Resolve them at read time from the orders
+   * table so the UI (ticker/cards) can always show the customer's company name.
+   * Response-only — stored rows are not modified.
+   */
+  async enrichDispatchCustomerNames(notificationList) {
+    const needing = notificationList.filter(
+      n =>
+        (n.type === 'Dispatch' || n.type === 'Delivery') &&
+        n.data &&
+        Array.isArray(n.data.orderIds) &&
+        n.data.orderIds.length > 0 &&
+        (!Array.isArray(n.data.customerNames) || n.data.customerNames.length === 0)
+    );
+    if (needing.length === 0) return notificationList;
+
+    try {
+      const allIds = [...new Set(needing.flatMap(n => n.data.orderIds.map(Number)))];
+      const owners = await this.repository.getOrderSalespersons(allIds);
+      const byId = new Map(owners.map(o => [o.orderId, o]));
+
+      for (const n of needing) {
+        const infos = n.data.orderIds.map(id => byId.get(Number(id))).filter(Boolean);
+        const customerNames = [...new Set(infos.map(i => i.customerName).filter(Boolean))];
+        const orderNumbers = infos.map(i => i.orderNumber).filter(Boolean);
+        if (customerNames.length > 0 || orderNumbers.length > 0) {
+          n.data = { ...n.data, customerNames, orderNumbers };
+        }
+      }
+    } catch (err) {
+      console.error('Failed to enrich dispatch notifications with customer names:', err);
+    }
+    return notificationList;
+  }
+
+  /**
+   * [LIVE SHORTAGE REFRESH] Shortage notifications store a stock snapshot from
+   * creation time. Refresh availableQty/shortfall against current stock at read
+   * time so banners/cards show the real remaining shortage (response-only).
+   */
+  async refreshShortageAvailability(notificationList) {
+    const rows = notificationList.filter(
+      n =>
+        n.type === 'MaterialShortage' &&
+        Array.isArray(n.data?.shortages) &&
+        n.data.shortages.length > 0
+    );
+    if (rows.length === 0) return notificationList;
+
+    try {
+      const ids = [
+        ...new Set(
+          rows.flatMap(n =>
+            n.data.shortages.map(s => Number(s.materialId)).filter(id => !Number.isNaN(id))
+          )
+        ),
+      ];
+      const stockMap = await this.repository.getCurrentStockLevels(ids);
+
+      for (const n of rows) {
+        n.data = {
+          ...n.data,
+          shortages: n.data.shortages.map(s => {
+            const live = stockMap.get(Number(s.materialId));
+            if (live === undefined) return s;
+            const requiredQty = Number(s.requiredQty) || 0;
+            return {
+              ...s,
+              availableQty: live,
+              shortfall: Math.max(0, requiredQty - live),
+            };
+          }),
+        };
+      }
+    } catch (err) {
+      console.error('Failed to refresh shortage availability:', err);
+    }
+    return notificationList;
+  }
 
   async getUserNotifications(employeeId, { limit = 50, offset = 0, isRead, priority, type } = {}) {
     const notifications = await this.repository.findByRecipient(employeeId, {
@@ -344,38 +651,42 @@ export class NotificationsService {
       type,
     });
 
-    return notifications.map(n => new NotificationDTO(n));
+    await this.enrichDispatchCustomerNames(notifications);
+    await this.refreshShortageAvailability(notifications);
+
+    // [LATEST PER ORDER] Employees see only the most recent lifecycle notification
+    // for each order. Applies to 'OrderUpdate' rows only (status progression);
+    // NewOrder, MaterialShortage, Dispatch etc. are left untouched.
+    // Rows arrive sorted by createdAt DESC, so the first row per order wins.
+    const seenOrderIds = new Set();
+    const latestPerOrder = notifications.filter(n => {
+      if (n.type !== 'OrderUpdate' || n.data?.orderId == null) return true;
+      if (seenOrderIds.has(n.data.orderId)) return false;
+      seenOrderIds.add(n.data.orderId);
+      return true;
+    });
+
+    return latestPerOrder.map(n => new NotificationDTO(n));
   }
 
-  async getAllSystemNotifications(employeeId, { limit = 100, offset = 0 } = {}) {
+  async getAllSystemNotifications(employeeId, { limit = 100, offset = 0, role } = {}) {
+    // [ROLE-BASED VISIBILITY] The system-wide view is admin-only. Employee
+    // personal feeds already deliver everything each role should see.
+    const isAdminViewer = ['Admin', 'SuperAdmin', 'Administrator', 'administrator'].includes(role);
+    if (!isAdminViewer) {
+      throw new AppError('Access denied: Admin view only', 403);
+    }
+
     const notifications = await this.repository.findAll({ limit, offset });
 
-    try {
-      // Fetch user permissions for dynamic filtering
-      const { AuthorityRepository } = await import('../authority/repository.js');
-      const authorityRepository = new AuthorityRepository();
-      const permissions = await authorityRepository.getUserPermissions(employeeId);
+    await this.enrichDispatchCustomerNames(notifications);
+    await this.refreshShortageAvailability(notifications);
 
-      // Define capability checks
-      const canViewInward = permissions.some(
-        p => p.permissionName === 'inward' && p.grantedActions.includes('view')
-      );
-      const canViewProduction = permissions.some(
-        p => p.permissionName === 'production' && p.grantedActions.includes('view')
-      );
-      const canViewStock = canViewInward || canViewProduction;
-
-      // Filter
-      return notifications
-        .filter(n => {
-          if (n.type === 'MaterialShortage' && !canViewStock) return false;
-          return true;
-        })
-        .map(n => new NotificationDTO(n));
-    } catch (error) {
-      console.error('[NotificationsService] Error fetching permissions for filtering:', error);
-      return notifications.map(n => new NotificationDTO(n));
-    }
+    // [ADMIN VISIBILITY] The caller is a verified admin (gate above), so no further
+    // per-type filtering. The old 'inward'/'production' permission filter silently
+    // stripped every MaterialShortage (Low Stock) row from the admin monitoring
+    // view whenever the admin's permission set lacked those exact names.
+    return notifications.map(n => new NotificationDTO(n));
   }
 
   async markAsRead(notificationId, employeeId, userRole) {

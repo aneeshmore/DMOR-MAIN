@@ -558,7 +558,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
-              Supplier Name <span className="text-red-500">*</span>
+              Supplier Company Name <span className="text-red-500">*</span>
             </label>
             <SearchableSelect
               options={suppliers.map(s => ({

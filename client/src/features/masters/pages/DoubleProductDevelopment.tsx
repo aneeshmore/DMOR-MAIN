@@ -1063,17 +1063,36 @@ const DoubleProductDevelopment = () => {
                       </td>
                       <td className="px-4 py-2">
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           value={
                             focusedPercentId === item.id
                               ? item.percentage
                               : formatDisplayPercentage(item.percentage)
                           }
-                          onFocus={() => setFocusedPercentId(item.id)}
-                          onBlur={() => setFocusedPercentId(null)}
-                          onChange={e =>
-                            handleUpdateItem(item.id, 'percentage', e.target.value, isHardener)
-                          }
+                          onFocus={() => !isHardener && setFocusedPercentId(item.id)}
+                          onBlur={e => {
+                            setFocusedPercentId(null);
+                            const value = e.target.value;
+                            if (value && !isNaN(parseFloat(value))) {
+                              const formatted = parseFloat(value).toFixed(3);
+                              handleUpdateItem(item.id, 'percentage', formatted, isHardener);
+                            } else if (value === '') {
+                              handleUpdateItem(item.id, 'percentage', '', isHardener);
+                            }
+                          }}
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (value === '') {
+                              handleUpdateItem(item.id, 'percentage', value, isHardener);
+                            } else if (/^\d*\.?\d*$/.test(value)) {
+                              const parts = value.split('.');
+                              if (parts[1] && parts[1].length > 3) {
+                                return;
+                              }
+                              handleUpdateItem(item.id, 'percentage', value, isHardener);
+                            }
+                          }}
                           onKeyDown={e => {
                             handleInputKeyDown(
                               e,

@@ -556,6 +556,23 @@ export const FOLLOWUP_TYPES = [
   'Document Submission',
 ] as const;
 
+export const FOLLOWUP_ACTION_TYPES = [
+  'Rate Negotiation',
+  'Sample Delivery',
+  'Product Demo',
+  'Trial Follow-up',
+  'Scheme Discussion',
+  'Payment Collection',
+  'Order Procurement',
+  'Technical Support',
+  'Shade Approval',
+  'Document Submission',
+  'Relationship Visit',
+  'Complaint Resolution',
+  'Specification Pitch',
+  'Dealer Feedback Collection',
+] as const;
+
 export const PRIORITY_OPTIONS = [
   { value: 'Critical', label: '🔴 Critical' },
   { value: 'High', label: '🟠 High' },

@@ -441,7 +441,7 @@ export class MastersService {
     return new CustomerDTO(enrichedCustomer);
   }
 
-  async createCustomer(customerData) {
+  async createCustomer(customerData, tx = null) {
     try {
       console.log('Service - Received customer data:', JSON.stringify(customerData, null, 2));
 
@@ -480,7 +480,7 @@ export class MastersService {
       // Check if any of the mobile numbers already exist
       for (const mobile of mobileNumbers) {
         if (!mobile) continue;
-        const existingCustomer = await this.repository.findCustomerByMobileNo(mobile);
+        const existingCustomer = await this.repository.findCustomerByMobileNo(mobile, null, tx);
         if (existingCustomer) {
           throw new ConflictError(
             `Mobile number ${mobile} is already registered to ${existingCustomer.companyName}`
@@ -490,7 +490,11 @@ export class MastersService {
 
       // Check if GST Number is unique (if provided)
       if (customerData.GSTNumber) {
-        const existingCustomer = await this.repository.findCustomerByGST(customerData.GSTNumber);
+        const existingCustomer = await this.repository.findCustomerByGST(
+          customerData.GSTNumber,
+          null,
+          tx
+        );
         if (existingCustomer) {
           throw new ConflictError(
             `GST Number ${customerData.GSTNumber} is already registered to ${existingCustomer.companyName}`
@@ -516,7 +520,7 @@ export class MastersService {
         currentBalance: customerData.OpeningBalance || 0, // Set initial balance
       };
       console.log('Service - Transformed to DB format:', JSON.stringify(dbData, null, 2));
-      const customer = await this.repository.createCustomer(dbData);
+      const customer = await this.repository.createCustomer(dbData, tx);
       logger.info('Customer created', { id: customer.customerId, createdBy: dbData.createdBy });
       return new CustomerDTO(customer);
     } catch (error) {

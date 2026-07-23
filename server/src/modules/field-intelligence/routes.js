@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { FieldIntelligenceController } from './controller.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { validateCreateReport, validateUpdateReport } from './validators.js';
+import { rcaMiddleware } from './rcaDebug.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -91,8 +92,25 @@ const handleUploadMiddleware = (req, res, next) => {
   });
 };
 
+const validateReportIdParam = (req, res, next) => {
+  const { id } = req.params;
+  if (!id || typeof id !== 'string' || !id.trim()) {
+    return res.status(404).json({
+      success: false,
+      message: 'Field report not found',
+    });
+  }
+  next();
+};
+
 const router = Router();
 const controller = new FieldIntelligenceController();
+
+// ── [TEMPORARY] RCA Diagnostic Middleware ────────────────────────────────────
+// Initialises a per-request AsyncLocalStorage context (correlation ID + timer).
+// Only active when DEBUG_RCA=true in .env. Remove this line after investigation.
+router.use(rcaMiddleware);
+// ─────────────────────────────────────────────────────────────────────────────
 
 router.get(
   '/dashboard',
@@ -137,24 +155,50 @@ router.get(
 );
 
 router.post(
-  '/link-customer',
-  requirePermission('POST:/field-intelligence/link-customer'),
-  controller.linkCustomer
+  '/company/chat',
+  requirePermission('POST:/field-intelligence'),
+  controller.chatWithCompanyCopilot
 );
 
-router.get('/:id', requirePermission('GET:/field-intelligence/:id'), controller.getReportDetails);
+router.post(
+  '/:id/chat',
+  validateReportIdParam,
+  requirePermission('POST:/field-intelligence'),
+  controller.chatWithCopilot
+);
+
+router.get(
+  '/:id/ai-insights',
+  validateReportIdParam,
+  requirePermission('GET:/field-intelligence/:id'),
+  controller.getReportAiInsights
+);
+
+router.get(
+  '/:id',
+  validateReportIdParam,
+  requirePermission('GET:/field-intelligence/:id'),
+  controller.getReportDetails
+);
 
 router.patch(
   '/:id',
+  validateReportIdParam,
   requirePermission('PATCH:/field-intelligence/:id'),
   validateUpdateReport,
   controller.updateReport
 );
 
-router.delete('/:id', requirePermission('DELETE:/field-intelligence/:id'), controller.deleteReport);
+router.delete(
+  '/:id',
+  validateReportIdParam,
+  requirePermission('DELETE:/field-intelligence/:id'),
+  controller.deleteReport
+);
 
 router.post(
   '/:id/upload',
+  validateReportIdParam,
   requirePermission('POST:/field-intelligence/:id/upload'),
   handleUploadMiddleware,
   controller.handleFileUpload
