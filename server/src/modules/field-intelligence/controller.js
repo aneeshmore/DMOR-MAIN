@@ -4,6 +4,7 @@ import { company } from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import logger from '../../config/logger.js';
+import { rca } from './rcaDebug.js';
 
 // Generate valid UUID deterministically from companyId instead of companyName hashing
 function getTenantIdFromCompanyId(companyId) {
@@ -172,7 +173,9 @@ export class FieldIntelligenceController {
 
   getReportsList = async (req, res, next) => {
     try {
+      rca.request('getReportsList', req);
       const context = await getTenantContext(req);
+      rca.tenantContext('getReportsList', context);
       if (!context) {
         return res
           .status(403)
@@ -189,18 +192,26 @@ export class FieldIntelligenceController {
         offset: req.query.offset ? parseInt(req.query.offset, 10) : undefined,
       };
 
+      rca.userContext('getReportsList', 'before service call', req.user);
       const reports = await this.service.getReportsList(
         filters,
         req.user,
         context.companyId,
         context.tenantId
       );
+      rca.checkpoint('getReportsList', 'service returned', { count: reports?.length });
 
       res.status(200).json({
         success: true,
         data: reports,
       });
     } catch (error) {
+      rca.crash('getReportsList', 'controller catch', error, {
+        path: req.originalUrl,
+        customerId: req.params?.customerId,
+        employeeId: req.user?.employeeId,
+        role: req.user?.role,
+      });
       next(error);
     }
   };
@@ -376,36 +387,59 @@ export class FieldIntelligenceController {
 
   getCustomerHistory = async (req, res, next) => {
     try {
+      rca.request('getCustomerHistory', req);
       const context = await getTenantContext(req);
+      rca.tenantContext('getCustomerHistory', context);
       if (!context) return res.status(403).json({ success: false, message: 'Forbidden' });
 
+      rca.userContext('getCustomerHistory', 'before service call', req.user);
       const visits = await this.service.getCustomerHistory(
         req.params.customerId,
         context.companyId,
         context.tenantId,
         req.user
       );
+      rca.checkpoint('getCustomerHistory', 'service returned', { count: visits?.length });
 
       res.status(200).json({ success: true, data: visits });
     } catch (error) {
+      rca.crash('getCustomerHistory', 'controller catch', error, {
+        path: req.originalUrl,
+        customerId: req.params?.customerId,
+        employeeId: req.user?.employeeId,
+        role: req.user?.role,
+      });
       next(error);
     }
   };
 
   getCustomerDashboard = async (req, res, next) => {
     try {
+      rca.request('getCustomerDashboard', req);
       const context = await getTenantContext(req);
+      rca.tenantContext('getCustomerDashboard', context);
       if (!context) return res.status(403).json({ success: false, message: 'Forbidden' });
 
+      rca.userContext('getCustomerDashboard', 'before service call', req.user);
       const dashboard = await this.service.getCustomerDashboard(
         req.params.customerId,
         context.companyId,
         context.tenantId,
         req.user
       );
+      rca.checkpoint('getCustomerDashboard', 'service returned', {
+        hasData: !!dashboard,
+        visitsCount: dashboard?.visits?.length,
+      });
 
       res.status(200).json({ success: true, data: dashboard });
     } catch (error) {
+      rca.crash('getCustomerDashboard', 'controller catch', error, {
+        path: req.originalUrl,
+        customerId: req.params?.customerId,
+        employeeId: req.user?.employeeId,
+        role: req.user?.role,
+      });
       next(error);
     }
   };

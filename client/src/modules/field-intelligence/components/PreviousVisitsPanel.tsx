@@ -105,7 +105,7 @@ export const PreviousVisitsPanel: React.FC<PreviousVisitsPanelProps> = ({ histor
 
                 <div className="flex-shrink-0 self-end md:self-center">
                   <a
-                    href={`/operations/field-intelligence/${visit.id}`}
+                    href={`/operations/smart-crm/${encodeURIComponent(visit.reportNumber || visit.id)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs font-bold border border-indigo-200 rounded-lg px-3 py-1.5 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-600 flex items-center gap-1 transition-colors"

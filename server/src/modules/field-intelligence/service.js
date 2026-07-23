@@ -2,9 +2,10 @@ import { FieldIntelligenceRepository } from './repository.js';
 import { CompleteReportDTO } from './dto.js';
 import { AppError } from '../../utils/AppError.js';
 import { db } from '../../db/index.js';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, gte, lte } from 'drizzle-orm';
 import { customers } from '../../db/schema/sales/customers.js';
 import {
+  fieldIntelligenceReports,
   fieldIntelligenceCompetitors,
   fieldIntelligenceFollowups,
   fieldIntelligenceUploads,
@@ -12,6 +13,13 @@ import {
 import { AiProviderService } from './ai-provider.service.js';
 import { MastersService } from '../masters/service.js';
 import logger from '../../config/logger.js';
+import { rca } from './rcaDebug.js';
+import {
+  safeString,
+  safeLocalDate,
+  sanitizeCsvCell,
+  normalizeReportData,
+} from './utils/legacyNormalizer.js';
 
 export class FieldIntelligenceService {
   constructor() {
@@ -231,18 +239,52 @@ export class FieldIntelligenceService {
     return insights;
   }
 
-  // Generate clean Report Number: CRM-YYYYMMDD-XXXX
-  generateReportNumber() {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return `CRM-${dateStr}-${rand}`;
+  // Helper to extract up to 3 uppercase initials from company name
+  getCompanyInitials(name) {
+    if (!name || typeof name !== 'string') return 'DMO';
+    const clean = name.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+    if (!clean) return 'DMO';
+    const words = clean.split(/\s+/).filter(Boolean);
+    if (words.length >= 3) {
+      return (words[0][0] + words[1][0] + words[2][0]).toUpperCase();
+    } else if (words.length === 2) {
+      return (words[0].slice(0, 2) + words[1][0]).toUpperCase();
+    } else if (words.length === 1 && words[0].length >= 3) {
+      return words[0].slice(0, 3).toUpperCase();
+    }
+    return clean.slice(0, 3).toUpperCase() || 'DMO';
+  }
+
+  // Format: [CompanyName Initials]-CRM-[YYYYMMDD]-[visitno]
+  async generateReportNumber(userContext, companyId, tenantId, tx = null) {
+    const client = tx || db;
+    const rawCompanyName = userContext?.companyName || 'DMOR';
+    const initials = this.getCompanyInitials(rawCompanyName);
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const [result] = await client
+      .select({ count: sql`count(*)` })
+      .from(fieldIntelligenceReports)
+      .where(
+        and(
+          eq(fieldIntelligenceReports.companyId, companyId),
+          gte(fieldIntelligenceReports.createdAt, startOfDay),
+          lte(fieldIntelligenceReports.createdAt, endOfDay)
+        )
+      );
+
+    const visitNo = parseInt(result?.count || 0, 10) + 1;
+    return `${initials}-CRM-${dateStr}-${visitNo}`;
   }
 
   async createReport(data, userContext, companyId, tenantId) {
-    const reportNum = this.generateReportNumber();
-
     return await this.repository.runTransaction(async tx => {
+      const reportNum = await this.generateReportNumber(userContext, companyId, tenantId, tx);
       // 1. Create primary report record
       const schemaColumns = [
         'id',
@@ -968,8 +1010,27 @@ export class FieldIntelligenceService {
   }
 
   async getReportsList(filters, userContext, companyId, tenantId) {
+    rca.queryEnter('getReportsList', 'repository.getReportsList', {
+      companyId,
+      tenantId,
+      role: userContext?.role,
+      employeeId: userContext?.employeeId,
+      filters,
+    });
     const reports = await this.repository.getReportsList(filters, companyId, tenantId, userContext);
-    return reports.map(r => new CompleteReportDTO(r));
+    rca.queryResult('getReportsList', 'repository.getReportsList', reports);
+    const dtos = [];
+    for (let i = 0; i < reports.length; i++) {
+      rca.dtoInput('getReportsList', i, reports[i]);
+      try {
+        dtos.push(new CompleteReportDTO(reports[i]));
+      } catch (err) {
+        rca.dtoCrash('getReportsList', i, reports[i], err);
+        throw err;
+      }
+    }
+    rca.checkpoint('getReportsList', 'all DTOs built', { count: dtos.length });
+    return dtos;
   }
 
   async getDashboardSummary(companyId, tenantId, userContext) {
@@ -1018,7 +1079,8 @@ export class FieldIntelligenceService {
   }
 
   async exportToCsv(companyId, tenantId, userContext = null) {
-    const reports = await this.repository.getReportsList({}, companyId, tenantId, userContext);
+    const rawReports = await this.repository.getReportsList({}, companyId, tenantId, userContext);
+    const reports = rawReports.map(r => normalizeReportData(r));
 
     const headers = [
       'Report Number',
@@ -1036,18 +1098,18 @@ export class FieldIntelligenceService {
     ];
 
     const rows = reports.map(r => [
-      r.reportNumber,
-      r.customerName,
-      r.visitDate ? new Date(r.visitDate).toLocaleDateString() : '',
-      r.executiveName,
-      r.status,
-      r.potentialBusinessValue,
-      r.expectedMonthlyBusiness,
-      r.conversionProbability,
-      r.city,
-      r.state,
-      r.currentSupplier,
-      (r.discussionNotes || '').replace(/\r?\n/g, ' '),
+      sanitizeCsvCell(r.reportNumber, '-'),
+      sanitizeCsvCell(r.customerName, '-'),
+      sanitizeCsvCell(safeLocalDate(r.visitDate, '-'), '-'),
+      sanitizeCsvCell(r.executiveName, '-'),
+      sanitizeCsvCell(r.status, '-'),
+      sanitizeCsvCell(r.potentialBusinessValue, '-'),
+      sanitizeCsvCell(r.expectedMonthlyBusiness, '-'),
+      sanitizeCsvCell(r.conversionProbability, '-'),
+      sanitizeCsvCell(r.city, '-'),
+      sanitizeCsvCell(r.state, '-'),
+      sanitizeCsvCell(r.currentSupplier, '-'),
+      sanitizeCsvCell(r.discussionNotes, '-'),
     ]);
 
     const csvContent = [
@@ -1099,19 +1161,59 @@ export class FieldIntelligenceService {
 
   async getCustomerHistory(customerId, companyId, tenantId, userContext = null) {
     const id = parseInt(customerId, 10);
+    rca.checkpoint('getCustomerHistory', 'service ENTER', {
+      raw: customerId,
+      parsed: id,
+      companyId,
+      tenantId,
+      role: userContext?.role,
+      employeeId: userContext?.employeeId,
+    });
     if (isNaN(id)) throw new AppError('Invalid customerId', 400);
-    return await this.repository.getCustomerVisitHistory(id, companyId, tenantId, userContext);
+    rca.queryEnter('getCustomerHistory', 'repository.getCustomerVisitHistory', {
+      customerId: id,
+      companyId,
+      tenantId,
+      employeeId: userContext?.employeeId,
+    });
+    const result = await this.repository.getCustomerVisitHistory(
+      id,
+      companyId,
+      tenantId,
+      userContext
+    );
+    rca.queryResult('getCustomerHistory', 'repository.getCustomerVisitHistory', result);
+    return result;
   }
 
   async getCustomerDashboard(customerId, companyId, tenantId, userContext = null) {
     const id = parseInt(customerId, 10);
+    rca.checkpoint('getCustomerDashboard', 'service ENTER', {
+      raw: customerId,
+      parsed: id,
+      companyId,
+      tenantId,
+      role: userContext?.role,
+      employeeId: userContext?.employeeId,
+    });
     if (isNaN(id)) throw new AppError('Invalid customerId', 400);
 
     // 1. Get all reports globally for this customer (no employee filter) to check existence
+    rca.queryEnter(
+      'getCustomerDashboard',
+      'repository.getCustomerVisitHistory (all, no user filter)',
+      { customerId: id, companyId, tenantId }
+    );
     const allReports = await this.repository.getCustomerVisitHistory(id, companyId, tenantId, null);
+    rca.queryResult('getCustomerDashboard', 'repository.getCustomerVisitHistory (all)', allReports);
     if (allReports.length === 0) {
       // Check if customer exists in Customer Master
+      rca.queryEnter('getCustomerDashboard', 'db.customers (existence check)', { customerId: id });
       const [cust] = await db.select().from(customers).where(eq(customers.customerId, id)).limit(1);
+      rca.checkpoint('getCustomerDashboard', 'customer lookup result', {
+        found: !!cust,
+        customerId: id,
+      });
 
       if (!cust) {
         throw new AppError('Customer record not found', 404);
@@ -1147,20 +1249,34 @@ export class FieldIntelligenceService {
 
     // 2. Enforce ownership access check for non-admins
     const isUserAdmin = userContext ? isAdmin(userContext) : false;
+    rca.checkpoint('getCustomerDashboard', 'ownership check', {
+      isUserAdmin,
+      userEmployeeId: userContext?.employeeId,
+    });
     if (userContext && !isUserAdmin) {
       const hasOwnedReport = allReports.some(r => r.createdBy === userContext.employeeId);
+      rca.checkpoint('getCustomerDashboard', 'ownership result', { hasOwnedReport });
       if (!hasOwnedReport) {
         throw new AppError('Access denied. You do not have permission to view this customer.', 403);
       }
     }
 
     // 3. Retrieve aggregated dashboard data scoped to the user
+    rca.queryEnter('getCustomerDashboard', 'repository.getCustomerDashboardData', {
+      customerId: id,
+      companyId,
+      tenantId,
+      employeeId: userContext?.employeeId,
+    });
     const data = await this.repository.getCustomerDashboardData(
       id,
       companyId,
       tenantId,
       userContext
     );
+    rca.checkpoint('getCustomerDashboard', 'getCustomerDashboardData returned', {
+      hasData: !!data,
+    });
     if (!data) throw new AppError('Customer record not found', 404);
     return data;
   }

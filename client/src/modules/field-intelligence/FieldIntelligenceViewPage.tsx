@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Trash2,
   Edit,
-  ClipboardList,
   Star,
   Image as ImageIcon,
   Sparkles,
@@ -189,7 +188,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to load report details', err);
       showToast.error('Could not retrieve report data.');
-      navigate('/operations/field-intelligence');
+      navigate('/operations/smart-crm');
     } finally {
       setLoading(false);
     }
@@ -216,7 +215,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
           The report you are looking for does not exist or you do not have permission to view it.
         </p>
         <button
-          onClick={() => navigate('/operations/field-intelligence')}
+          onClick={() => navigate('/operations/smart-crm')}
           className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] px-4 py-2"
         >
           Back to List
@@ -237,7 +236,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
       try {
         await fieldIntelligenceApi.delete(report.id!);
         showToast.success('SMART CRM Visit Report deleted successfully.');
-        navigate('/operations/field-intelligence');
+        navigate('/operations/smart-crm');
       } catch (err) {
         console.error('Failed to delete report', err);
         showToast.error('Deletion failed.');
@@ -291,7 +290,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white p-6 rounded-2xl shadow-sm border">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/operations/field-intelligence')}
+            onClick={() => navigate('/operations/smart-crm')}
             className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 min-w-[44px] min-h-[44px] flex items-center justify-center"
             title="Back to list"
           >
@@ -371,7 +370,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
               Number(report.executiveId) === Number(user?.EmployeeID) ||
               Number(report.createdBy) === Number(user?.EmployeeID)) && (
               <button
-                onClick={() => navigate(`/operations/field-intelligence/${report.id}/edit`)}
+                onClick={() => navigate(`/operations/smart-crm/${report.id}/edit`)}
                 className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2.5 flex items-center justify-center gap-1.5 flex-1 sm:flex-initial text-sm min-h-[44px] w-full sm:w-auto"
               >
                 <Edit className="h-4 w-4" />
@@ -402,7 +401,6 @@ export const FieldIntelligenceViewPage: React.FC = () => {
             { id: 'followups', label: 'Action Followups', icon: Clock },
             { id: 'attachments', label: 'Attachments', icon: ImageIcon },
             { id: 'ai', label: 'Paint OS AI', icon: Sparkles },
-            { id: 'logs', label: 'Activity Logs', icon: ClipboardList },
           ] as const
         ).map(tab => {
           const Icon = tab.icon;
@@ -1021,39 +1019,6 @@ export const FieldIntelligenceViewPage: React.FC = () => {
                 </p>
               )}
             </div>
-          </div>
-        )}
-
-        {/* Activity Logs Tab */}
-        {activeTab === 'logs' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Activity Audit Log</h3>
-            {report.activityLogs && report.activityLogs.length > 0 ? (
-              <div className="relative border-l border-gray-200 pl-6 ml-3 space-y-6 py-2">
-                {report.activityLogs.map((log, idx) => (
-                  <div key={idx} className="relative">
-                    <span className="absolute -left-[31px] top-0 bg-primary-100 text-primary-700 p-1 rounded-full border-2 border-white">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-bold text-gray-800">{log.activityType}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Logged on {new Date(log.createdAt).toLocaleString('en-IN')}
-                      </p>
-                      {log.details && Object.keys(log.details).length > 0 && (
-                        <pre className="text-[11px] bg-gray-50 p-2 rounded border mt-1 font-mono text-gray-600 max-w-lg overflow-x-auto">
-                          {JSON.stringify(log.details, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-gray-500 py-12 bg-gray-50 rounded-xl border border-dashed">
-                No activity audit records registered.
-              </p>
-            )}
           </div>
         )}
       </div>

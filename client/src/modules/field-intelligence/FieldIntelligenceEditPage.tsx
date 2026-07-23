@@ -33,7 +33,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
               ? 'This report is submitted and can no longer be edited.'
               : 'Access denied. You do not have permission to edit this report.';
           showToast.error(msg);
-          navigate('/operations/field-intelligence');
+          navigate('/operations/smart-crm');
           return;
         }
 
@@ -56,7 +56,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
       } catch (err) {
         console.error('Failed to retrieve report details', err);
         showToast.error('Could not retrieve report data.');
-        navigate('/operations/field-intelligence');
+        navigate('/operations/smart-crm');
       } finally {
         setLoading(false);
       }
@@ -76,7 +76,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
 
       await fieldIntelligenceApi.update(id, payload);
       showToast.success('SMART CRM Visit Report updated successfully.');
-      navigate('/operations/field-intelligence');
+      navigate('/operations/smart-crm');
     } catch (err: any) {
       console.error('Failed to update report', err);
       if (err.status === 400 || err.message?.includes('Validation failed')) {
@@ -97,7 +97,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
 
       await fieldIntelligenceApi.update(id, payload);
       showToast.success('SMART CRM Visit Report draft saved successfully.');
-      navigate('/operations/field-intelligence');
+      navigate('/operations/smart-crm');
     } catch (err: any) {
       console.error('Failed to update draft', err);
       if (err.status === 400 || err.message?.includes('Validation failed')) {
@@ -124,7 +124,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
         <h3 className="font-bold text-lg mb-1">Report Not Found</h3>
         <p className="text-sm mb-4">The report you are trying to edit could not be resolved.</p>
         <button
-          onClick={() => navigate('/operations/field-intelligence')}
+          onClick={() => navigate('/operations/smart-crm')}
           className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] px-4 py-2"
         >
           Back to List
