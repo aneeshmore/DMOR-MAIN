@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SearchableSelect } from '@/components/ui';
 import { inventoryApi } from '@/features/inventory/api/inventoryApi';
 import { unitApi } from '@/features/masters/api/unitApi';
 import { inwardApi } from '../api/inwardApi';
-import { suppliersApi, Supplier } from '@/api/suppliersApi';
+import { supplierApi } from '@/features/masters/api/supplierApi';
+import { Supplier } from '@/features/masters/types';
 import { CreateInwardInput, InwardEntry, InwardItemInput } from '../types';
 import { Product } from '@/features/inventory/types';
 import { Unit } from '@/features/masters/types';
@@ -40,6 +42,7 @@ const getLocalDateString = () => {
 
 export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
   ({ onSubmit, isLoading, initialData, onCancel, onDirtyStateChange }, ref) => {
+    const navigate = useNavigate();
     const [products, setProducts] = useState<Product[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -137,10 +140,11 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
 
     const loadData = async () => {
       try {
-        const [unitsData, suppliersData] = await Promise.all([
+        const [unitsData, suppliersResult] = await Promise.all([
           unitApi.getAll().then(res => res.data),
-          suppliersApi.getAll({ isActive: true }),
+          supplierApi.getAll(),
         ]);
+        const suppliersData = suppliersResult.success ? suppliersResult.data ?? [] : [];
         // Normalize unit objects to expected shape { UnitID, UnitName }
         const normalizedUnits = (unitsData || []).map((u: any) => ({
           UnitID: u.UnitID ?? u.unitId ?? u.id ?? 0,
@@ -571,7 +575,11 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
                   supplierName: selectedSupplier?.supplierName || '',
                 }));
               }}
-              placeholder="Select supplier"
+              creatable={true}
+              onCreateNew={async newSupplierName => {
+                navigate('/masters/suppliers');
+              }}
+              placeholder="Type or select supplier"
               required
             />
           </div>
