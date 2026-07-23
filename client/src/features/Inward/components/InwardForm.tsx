@@ -554,7 +554,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
-              Supplier Name <span className="text-red-500">*</span>
+              Supplier Company Name <span className="text-red-500">*</span>
             </label>
             <SearchableSelect
               options={suppliers.map(s => ({
@@ -571,23 +571,7 @@ export const InwardForm = React.forwardRef<HTMLFormElement, InwardFormProps>(
                   supplierName: selectedSupplier?.supplierName || '',
                 }));
               }}
-              creatable={true}
-              onCreateNew={async newSupplierName => {
-                try {
-                  const newSupplier = await suppliersApi.create({
-                    supplierName: newSupplierName,
-                  });
-                  setSuppliers(prev => [...prev, newSupplier]);
-                  setBillDetails(prev => ({
-                    ...prev,
-                    supplierId: newSupplier.supplierId,
-                    supplierName: newSupplier.supplierName,
-                  }));
-                } catch (error) {
-                  showToast.error((error as any).response?.data?.message || 'Failed to create supplier');
-                }
-              }}
-              placeholder="Type or select supplier"
+              placeholder="Select supplier"
               required
             />
           </div>

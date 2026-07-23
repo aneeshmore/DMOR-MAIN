@@ -322,13 +322,11 @@ const QuotationMasterPage: React.FC = () => {
       },
       {
         accessorKey: 'salesPersonName',
+        meta: { fitContent: true },
         header: 'Sales Person',
         enableColumnFilter: true,
         cell: ({ row }) => (
-          <div
-            className="text-[var(--text-secondary)] truncate max-w-[150px]"
-            title={row.original.salesPersonName}
-          >
+          <div className="text-[var(--text-secondary)] whitespace-nowrap">
             {row.original.salesPersonName || '-'}
           </div>
         ),
@@ -404,6 +402,7 @@ const QuotationMasterPage: React.FC = () => {
       },
       {
         id: 'actions',
+        size: 145,
         header: 'Actions',
         cell: ({ row }) => {
           const quotation = row.original;
@@ -413,17 +412,16 @@ const QuotationMasterPage: React.FC = () => {
           const isRejected = quotation.status === 'Rejected';
 
           return (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1 whitespace-nowrap">
               {/* View Details Button */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleView(quotation)}
                 title="View Details"
-                className="text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 justify-start h-7"
+                className="!px-2 text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
               >
-                <Eye size={14} className="mr-1.5" />
-                View
+                <Eye size={16} />
               </Button>
 
               {/* Admin Actions for Pending */}
@@ -435,10 +433,10 @@ const QuotationMasterPage: React.FC = () => {
                     onClick={() => handleApprove(quotation.quotationId)}
                     disabled={actionLoading}
                     title="Approve Quotation"
-                    className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 justify-start h-7"
+                    className="!flex-col !h-auto !py-1 !px-2.5 !gap-0.5 text-[11px] font-medium bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
                   >
-                    <Check size={14} className="mr-1.5" />
-                    Approve
+                    <Check size={15} />
+                    <span>Approve</span>
                   </Button>
                   <Button
                     variant="secondary"
@@ -446,10 +444,10 @@ const QuotationMasterPage: React.FC = () => {
                     onClick={() => openRejectModal(quotation.quotationId)}
                     disabled={actionLoading}
                     title="Reject Quotation"
-                    className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100 justify-start h-7"
+                    className="!flex-col !h-auto !py-1 !px-2.5 !gap-0.5 text-[11px] font-medium bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
                   >
-                    <X size={14} className="mr-1.5" />
-                    Reject
+                    <X size={15} />
+                    <span>Reject</span>
                   </Button>
                 </>
               )}
@@ -461,14 +459,11 @@ const QuotationMasterPage: React.FC = () => {
                   size="sm"
                   onClick={() => handleDownload(quotation)}
                   title="Download PDF"
-                  className="text-blue-600 hover:bg-blue-50 justify-start h-7"
+                  className="!px-2 text-blue-600 hover:bg-blue-50"
                 >
-                  <Download size={14} className="mr-1.5" />
-                  Download
+                  <Download size={16} />
                 </Button>
               )}
-
-
             </div>
           );
         },
@@ -641,6 +636,7 @@ const QuotationMasterPage: React.FC = () => {
               columns={columns}
               data={filteredQuotations}
               searchPlaceholder="Search quotations..."
+              theme={{ cell: '!px-2 !py-2', headerCell: '!px-2' }}
             />
           )}
         </div>

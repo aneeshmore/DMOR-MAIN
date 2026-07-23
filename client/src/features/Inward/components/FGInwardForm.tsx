@@ -324,7 +324,7 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-[var(--surface-secondary)] rounded-lg border border-[var(--border)]">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
-              Supplier{' '}
+              Supplier Company Name{' '}
             </label>
             <SearchableSelect
               options={suppliers.map(s => ({

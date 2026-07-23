@@ -89,6 +89,7 @@ const CreateOrderPage: React.FC = () => {
   const columns: ColumnDef<Order>[] = [
     {
       accessorKey: 'orderId',
+      size: 110,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Order No" />,
       enableColumnFilter: true,
       cell: ({ row }) => {
@@ -107,6 +108,7 @@ const CreateOrderPage: React.FC = () => {
     },
     {
       accessorKey: 'orderDate',
+      size: 95,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
       enableColumnFilter: true,
       cell: ({ row }) => {
@@ -129,20 +131,12 @@ const CreateOrderPage: React.FC = () => {
     },
     {
       accessorKey: 'salespersonName',
+      meta: { fitContent: true },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Sales Person" />,
       enableColumnFilter: true,
       cell: ({ row }) => {
         const fullName = row.original.salespersonName || '-';
-        const parts = fullName.split(' ');
-        const titles = ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.'];
-        let displayName = parts[0];
-
-        // If first part is a title and there's a name after it, combine them
-        if (titles.includes(parts[0]) && parts.length > 1) {
-          displayName = `${parts[0]} ${parts[1]}`;
-        }
-
-        return <span className="font-medium">{displayName}</span>;
+        return <span className="font-medium whitespace-nowrap">{fullName}</span>;
       },
     },
     {
@@ -173,6 +167,7 @@ const CreateOrderPage: React.FC = () => {
     },
     {
       accessorKey: 'status',
+      size: 165,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       enableColumnFilter: true,
       cell: ({ row }) => {
@@ -216,9 +211,10 @@ const CreateOrderPage: React.FC = () => {
           default:
             variant = 'secondary';
         }
+        const badgeLayoutClass = 'whitespace-nowrap leading-none px-2.5 py-1 text-xs';
         return (
           <div className="flex flex-col items-start gap-1">
-            <Badge variant={variant} className={className}>
+            <Badge variant={variant} className={`${className} ${badgeLayoutClass}`}>
               {status}
             </Badge>
             {status === 'Ready for Dispatch' && row.original.expectedDeliveryDate && (
@@ -237,6 +233,7 @@ const CreateOrderPage: React.FC = () => {
     },
     {
       accessorKey: 'totalAmount',
+      size: 110,
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Amount" className="justify-end" />
       ),
@@ -247,20 +244,21 @@ const CreateOrderPage: React.FC = () => {
     },
     {
       id: 'actions',
+      size: 115,
       header: 'Actions',
       cell: ({ row }) => {
         const order = row.original;
         return (
-          <>
+          <div className="flex items-center gap-1 whitespace-nowrap">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => handleViewOrder(order)}
               title="View Order Details"
-              className="text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
+              className="!flex-col !h-auto !py-1 !px-2 !gap-0.5 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
             >
-              <Eye size={14} className="mr-1.5" />
-              View
+              <Eye size={15} />
+              <span>View</span>
             </Button>
             {(order.status === 'Factory Approved' ||
               order.status === 'Pending Factory Approval' ||
@@ -271,32 +269,32 @@ const CreateOrderPage: React.FC = () => {
               order.status === 'Dispatched' ||
               order.status === 'Verified' ||
               order.status === 'Ready for Dispatch') && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDownloadInvoice(order)}
-                title="Download Invoice"
-                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-1"
-              >
-                <Download size={14} className="mr-1.5" />
-                Invoice
-              </Button>
-            )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDownloadInvoice(order)}
+                  title="Download Invoice"
+                  className="!flex-col !h-auto !py-1 !px-2 !gap-0.5 text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                >
+                  <Download size={15} />
+                  <span>Invoice</span>
+                </Button>
+              )}
             {(order.status === 'Pending Accounts Approval' ||
               order.status === 'Pending' ||
               order.status === 'Rejected') && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleEditOrder(order)}
-                title="Edit Order"
-                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 ml-1"
-              >
-                <EditIcon size={14} className="mr-1.5" />
-                Edit
-              </Button>
-            )}
-          </>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditOrder(order)}
+                  title="Edit Order"
+                  className="!flex-col !h-auto !py-1 !px-2 !gap-0.5 text-[11px] font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                >
+                  <EditIcon size={15} />
+                  <span>Edit</span>
+                </Button>
+              )}
+          </div>
         );
       },
     },
@@ -538,19 +536,19 @@ const CreateOrderPage: React.FC = () => {
                           : selectedOrder.status === 'Ready for Dispatch'
                             ? 'bg-blue-100 text-blue-800 border-blue-200'
                             : selectedOrder.status === 'In Production' ||
-                                selectedOrder.status === 'Scheduled for Production'
+                              selectedOrder.status === 'Scheduled for Production'
                               ? 'bg-purple-100 text-purple-800 border-purple-200'
                               : selectedOrder.status === 'Factory Approved' ||
-                                  selectedOrder.status === 'Confirmed' ||
-                                  selectedOrder.status === 'Accepted'
+                                selectedOrder.status === 'Confirmed' ||
+                                selectedOrder.status === 'Accepted'
                                 ? 'bg-teal-100 text-teal-800 border-teal-200'
                                 : selectedOrder.status === 'Pending Factory Approval' ||
-                                    selectedOrder.status === 'Verified'
+                                  selectedOrder.status === 'Verified'
                                   ? 'bg-amber-100 text-amber-800 border-amber-200'
                                   : selectedOrder.status === 'On Hold'
                                     ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
                                     : selectedOrder.status === 'Pending Accounts Approval' ||
-                                        selectedOrder.status === 'Pending'
+                                      selectedOrder.status === 'Pending'
                                       ? 'bg-orange-100 text-orange-800 border-orange-200'
                                       : ''
                     }

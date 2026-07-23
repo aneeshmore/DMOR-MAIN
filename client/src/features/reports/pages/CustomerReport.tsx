@@ -619,11 +619,10 @@ const ExpandedCustomerRow: React.FC<ExpandedCustomerRowProps> = ({
                             </td>
                             <td className="px-3 py-1.5">
                               <span
-                                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                                  order.status === 'Delivered' || order.status === 'Completed'
+                                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${order.status === 'Delivered' || order.status === 'Completed'
                                     ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400'
                                     : 'bg-[var(--primary)]/10 text-[var(--primary)]'
-                                }`}
+                                  }`}
                               >
                                 {order.status || '-'}
                               </span>
@@ -654,33 +653,30 @@ const ExpandedCustomerRow: React.FC<ExpandedCustomerRowProps> = ({
                     <button
                       type="button"
                       onClick={() => setTrendMode('monthly')}
-                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${
-                        trendMode === 'monthly'
+                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${trendMode === 'monthly'
                           ? 'bg-[var(--primary)] text-white shadow-sm'
                           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                      }`}
+                        }`}
                     >
                       Monthly
                     </button>
                     <button
                       type="button"
                       onClick={() => setTrendMode('yearly')}
-                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${
-                        trendMode === 'yearly'
+                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${trendMode === 'yearly'
                           ? 'bg-[var(--primary)] text-white shadow-sm'
                           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                      }`}
+                        }`}
                     >
                       Yearly
                     </button>
                     <button
                       type="button"
                       onClick={() => setTrendMode('custom')}
-                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${
-                        trendMode === 'custom'
+                      className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-all ${trendMode === 'custom'
                           ? 'bg-[var(--primary)] text-white shadow-sm'
                           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                      }`}
+                        }`}
                     >
                       Custom
                     </button>
@@ -2031,33 +2027,30 @@ const CustomerReport: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setMainTrendMode('monthly')}
-                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${
-                      mainTrendMode === 'monthly'
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${mainTrendMode === 'monthly'
                         ? 'bg-[var(--primary)] text-white shadow-sm'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
+                      }`}
                   >
                     Monthly
                   </button>
                   <button
                     type="button"
                     onClick={() => setMainTrendMode('yearly')}
-                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${
-                      mainTrendMode === 'yearly'
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${mainTrendMode === 'yearly'
                         ? 'bg-[var(--primary)] text-white shadow-sm'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
+                      }`}
                   >
                     Yearly
                   </button>
                   <button
                     type="button"
                     onClick={() => setMainTrendMode('custom')}
-                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${
-                      mainTrendMode === 'custom'
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${mainTrendMode === 'custom'
                         ? 'bg-[var(--primary)] text-white shadow-sm'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
+                      }`}
                   >
                     Custom
                   </button>
@@ -2290,25 +2283,22 @@ const CustomerReport: React.FC = () => {
                   return (
                     <React.Fragment key={customer.customerId}>
                       <tr
-                        className={`transition-colors ${
-                          isExpanded ? 'bg-[var(--primary)]/5' : 'hover:bg-[var(--background)]'
-                        }`}
+                        className={`transition-colors ${isExpanded ? 'bg-[var(--primary)]/5' : 'hover:bg-[var(--background)]'
+                          }`}
                       >
                         <td className="px-2 py-4 text-center">
                           <button
                             type="button"
                             onClick={() => toggleCustomerExpanded(customer.customerId)}
                             title={isExpanded ? 'Hide orders' : 'Show orders'}
-                            className={`p-1 rounded-full transition-all duration-200 ${
-                              isExpanded
+                            className={`p-1 rounded-full transition-all duration-200 ${isExpanded
                                 ? 'bg-[var(--primary)] text-white'
                                 : 'bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/20'
-                            }`}
+                              }`}
                           >
                             <ChevronRight
-                              className={`h-3.5 w-3.5 transition-transform duration-200 ${
-                                isExpanded ? 'rotate-90' : ''
-                              }`}
+                              className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''
+                                }`}
                             />
                           </button>
                         </td>
@@ -2333,11 +2323,10 @@ const CustomerReport: React.FC = () => {
                         {customer.monthlyAmounts.map((amount, monthIdx) => (
                           <td
                             key={monthIdx}
-                            className={`px-3 py-4 text-center font-medium min-w-[75px] w-[75px] whitespace-nowrap ${
-                              amount > 0
+                            className={`px-3 py-4 text-center font-medium min-w-[75px] w-[75px] whitespace-nowrap ${amount > 0
                                 ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20'
                                 : 'text-[var(--text-secondary)]'
-                            }`}
+                              }`}
                           >
                             {amount > 0 ? `₹${(amount / 1000).toFixed(1)}K` : '0'}
                           </td>
