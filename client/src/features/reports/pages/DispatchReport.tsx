@@ -13,6 +13,42 @@ import { addPdfFooter, addPdfHeader } from '@/utils/pdfUtils';
 import { companyApi } from '@/features/company/api/companyApi';
 import { CompanyInfo } from '@/features/company/types';
 
+// ---------------------------------------------------------------------------
+// Available Capacity
+//
+// Available Capacity = vehicle capacity (Tons) − loaded weight (Kg), computed
+// in kilograms. Vehicle capacity is stored in Tons and loaded weight in Kg
+// (see DispatchReportItem), so capacity is normalised to Kg before subtracting.
+//
+// One helper backs the on-screen detail, the PDF export and the CSV export, so
+// all three can never diverge. It is a pure, dynamic calculation over values
+// the report already has — nothing is stored, and no API field is added.
+// ---------------------------------------------------------------------------
+
+// Returns the available capacity in Kg, or null when it cannot be computed
+// (capacity missing/invalid). Loaded weight of 0 is valid and yields the full
+// vehicle capacity.
+const computeAvailableKg = (capacityTons: number | null, loadedWeightKg: number): number | null => {
+  if (
+    capacityTons == null ||
+    Number.isNaN(capacityTons) ||
+    loadedWeightKg == null ||
+    Number.isNaN(loadedWeightKg)
+  ) {
+    return null;
+  }
+  return capacityTons * 1000 - loadedWeightKg;
+};
+
+// Text form for PDF/CSV. Screen rendering uses computeAvailableKg directly so
+// it can apply DMOR's warning style to the overloaded case.
+const formatAvailableCapacity = (availableKg: number | null): string => {
+  if (availableKg == null) return '—';
+  if (availableKg < 0) return `Overloaded by ${Math.abs(availableKg).toFixed(2)} Kg`;
+  // Both units derive from the same availableKg; Tons primary, Kg in parentheses.
+  return `${(availableKg / 1000).toFixed(2)} Tons (${availableKg.toFixed(2)} Kg)`;
+};
+
 const DispatchReport = () => {
   const [data, setData] = useState<DispatchReportItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,6 +115,7 @@ const DispatchReport = () => {
       'Total Qty',
       'Loaded Weight',
       'Capacity',
+      'Available Capacity',
       'Remarks',
     ];
 
@@ -103,6 +140,7 @@ const DispatchReport = () => {
         item.vehicleCapacity != null
           ? `${parseFloat(item.vehicleCapacity.toFixed(2))} Tons`
           : 'N/A',
+        formatAvailableCapacity(computeAvailableKg(item.vehicleCapacity, item.loadedWeight)),
         item.remarks || '-',
       ];
     });
@@ -115,7 +153,9 @@ const DispatchReport = () => {
       headStyles: { fillColor: [59, 130, 246] },
       columnStyles: {
         4: { cellWidth: 100 },
-        8: { cellWidth: 35 },
+        // Remarks moved from index 8 to 9 after the Available Capacity column
+        // was inserted; keeps its original fixed width.
+        9: { cellWidth: 35 },
       },
     });
 
@@ -141,6 +181,7 @@ const DispatchReport = () => {
       'Total Qty',
       'Loaded Weight',
       'Vehicle Capacity',
+      'Available Capacity',
       'Remarks',
     ];
 
@@ -155,6 +196,7 @@ const DispatchReport = () => {
       item.totalQuantity.toString(),
       `${item.loadedWeight.toFixed(2)} Kg`,
       item.vehicleCapacity != null ? `${parseFloat(item.vehicleCapacity.toFixed(2))} Tons` : 'N/A',
+      formatAvailableCapacity(computeAvailableKg(item.vehicleCapacity, item.loadedWeight)),
       item.remarks,
     ]);
 
@@ -381,6 +423,31 @@ const DispatchReport = () => {
                 <span className="font-medium text-[var(--text-primary)] text-sm">
                   {parseFloat(item.loadedWeight.toFixed(2))} Kg
                 </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider font-semibold">
+                  Available Capacity
+                </span>
+                {(() => {
+                  const availableKg = computeAvailableKg(item.vehicleCapacity, item.loadedWeight);
+                  if (availableKg == null) {
+                    return (
+                      <span className="font-medium text-[var(--text-primary)] text-sm">—</span>
+                    );
+                  }
+                  if (availableKg < 0) {
+                    return (
+                      <span className="font-semibold text-red-700 text-sm">
+                        Overloaded by {Math.abs(availableKg).toFixed(2)} Kg
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="font-medium text-[var(--text-primary)] text-sm">
+                      {(availableKg / 1000).toFixed(2)} Tons ({availableKg.toFixed(2)} Kg)
+                    </span>
+                  );
+                })()}
               </div>
             </div>
           </div>

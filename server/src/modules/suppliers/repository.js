@@ -38,7 +38,11 @@ export class SuppliersRepository {
     let query = db.select().from(suppliers);
 
     const isActive = filters.isActive !== undefined ? filters.isActive : true;
-    query = query.where(eq(suppliers.isActive, isActive));
+    if (isActive === true) {
+      query = query.where(sql`${suppliers.isActive} IS NOT FALSE`);
+    } else {
+      query = query.where(eq(suppliers.isActive, isActive));
+    }
 
     return await query.orderBy(suppliers.supplierName);
   }

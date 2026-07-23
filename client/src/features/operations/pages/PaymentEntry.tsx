@@ -118,11 +118,19 @@ export default function PaymentEntry() {
         paymentDate: new Date(data.paymentDate || new Date()).toISOString(), // Convert YYYY-MM-DD to ISO
       });
       showToast.success('Payment recorded successfully!');
+      // Keep the same customer selected so the ledger panel stays visible and
+      // the refresh below is shown; only the payment-entry fields are cleared.
+      // Without customerId here, reset() clears the selection, the selection
+      // effect blanks the balance/ledger, and the refreshed data is discarded.
       reset({
         paymentMode: 'Cash',
         paymentDate: new Date().toISOString().split('T')[0],
+        customerId: data.customerId,
+        // Explicitly clear the Amount field after a successful payment so the
+        // input returns to its placeholder; runs only in the success path.
+        amount: '',
       });
-      // Refresh balance and history
+      // Refresh balance and history from the backend for the customer just paid.
       if (data.customerId) {
         fetchBalance(Number(data.customerId));
         fetchRecentPayments(Number(data.customerId));

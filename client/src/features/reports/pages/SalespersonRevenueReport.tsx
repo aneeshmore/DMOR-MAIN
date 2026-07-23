@@ -329,9 +329,25 @@ const SalespersonRevenueReport: React.FC = () => {
       `Rs. ${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(order.amount)}`,
     ]);
 
+    // Grand total = sum of the same raw amount field used for each PDF row,
+    // over exactly the orders included in this PDF. Formatted with the same
+    // "Rs." + en-IN convention as the row amounts above.
+    const totalRevenue = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+    const formattedTotal = `Rs. ${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(totalRevenue)}`;
+
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
+      // One grand-total row: label spans the first five columns (right-aligned,
+      // bold) so the amount sits directly under the Amount column. showFoot
+      // 'lastPage' renders it once, after the last transaction, never per page.
+      foot: [
+        [
+          { content: 'Total', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
+          { content: formattedTotal, styles: { fontStyle: 'bold' } },
+        ],
+      ],
+      showFoot: 'lastPage',
       startY: headerEndY + 20,
       theme: 'grid',
       headStyles: { fillColor: [66, 66, 66] },

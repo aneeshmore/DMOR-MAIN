@@ -1180,7 +1180,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
               <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif;">
                 <thead>
                   <tr style="border-bottom: 1px solid #000; font-weight: bold; text-align: center; background: #ffffff;">
-                    <th style="width: 5%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px;">SI No.</th>
+                    <th style="width: 5%; border-right: 1px solid #000; padding: 6px 4px; font-size: 10px; white-space: nowrap;">Sr. No.</th>
                     <th style="width: 55%; border-right: 1px solid #000; padding: 6px 4px; text-align: left; font-size: 10px;">Description of Goods</th>
                     <th style="width: 12%; border-right: 1px solid #000; padding: 6px 4px; text-align: right; font-size: 10px;">Quantity</th>
                     <th style="width: 10%; border-right: 1px solid #000; padding: 6px 4px; text-align: right; font-size: 10px;">Rate</th>
