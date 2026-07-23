@@ -615,7 +615,7 @@ export const CustomerDashboardPage: React.FC = () => {
             : 'The requested customer record does not exist or has been deleted.'}
         </p>
         <button
-          onClick={() => navigate('/operations/field-intelligence')}
+          onClick={() => navigate('/operations/smart-crm')}
           className="btn bg-[var(--primary)] text-white px-5 py-2.5 font-bold shadow-md rounded-xl transition-all cursor-pointer"
         >
           Back to SMART CRM
@@ -764,7 +764,7 @@ export const CustomerDashboardPage: React.FC = () => {
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/operations/field-intelligence')}
+            onClick={() => navigate('/operations/smart-crm')}
             className="p-2 rounded-lg border border-gray-250 hover:bg-gray-50 text-gray-600 hover:text-gray-900 transition-colors shadow-sm cursor-pointer"
             title="Back to List"
           >
@@ -1689,7 +1689,11 @@ export const CustomerDashboardPage: React.FC = () => {
                       <td className="py-3 px-3 text-center">
                         <div className="flex justify-center gap-1.5">
                           <button
-                            onClick={() => navigate(`/operations/field-intelligence/${visit.id}`)}
+                            onClick={() =>
+                              navigate(
+                                `/operations/smart-crm/${encodeURIComponent(visit.reportNumber || visit.id)}`
+                              )
+                            }
                             className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-gray-950 transition-colors cursor-pointer"
                             title="View Detail"
                           >
@@ -1702,7 +1706,9 @@ export const CustomerDashboardPage: React.FC = () => {
                                 Number(visit.createdBy) === Number(user?.EmployeeID)))) && (
                             <button
                               onClick={() =>
-                                navigate(`/operations/field-intelligence/${visit.id}/edit`)
+                                navigate(
+                                  `/operations/smart-crm/${encodeURIComponent(visit.reportNumber || visit.id)}/edit`
+                                )
                               }
                               className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-yellow-600 transition-colors cursor-pointer"
                               title="Edit"

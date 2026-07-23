@@ -36,6 +36,11 @@ import { Button, Badge, Input, Modal } from '@/components/ui';
 import { addPdfFooter, addPdfHeader } from '@/utils/pdfUtils';
 import { CompanyInfo } from '@/features/company/types';
 import { companyApi } from '@/features/company/api/companyApi';
+import {
+  calculateQualityAndVarianceData,
+  drawQualityVariancePDFTable,
+  formatNumber3,
+} from '../utils/qualityVarianceUtils';
 
 ChartJS.register(
   CategoryScale,
@@ -186,7 +191,19 @@ const NewBatchProductionReport = () => {
       const headerEndY = addPdfHeader(
         doc,
         companyInfo,
-        `Batch Production Report: ${batch.batchNo}`
+        `Batch Production Report No.: ${batch.batchNo}`
+      );
+
+      // Render the Date on the SAME line as the report-number title, right-aligned.
+      // (addPdfHeader draws the title at headerEndY - 5.)
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(colorGray700[0], colorGray700[1], colorGray700[2]);
+      doc.text(
+        `Date: ${formatDate(new Date().toISOString())}`,
+        pageWidth - margin,
+        headerEndY - 5,
+        { align: 'right' }
       );
 
       // 2. Info Block - Reorganized Layout
@@ -194,8 +211,15 @@ const NewBatchProductionReport = () => {
       // Use autoTable for layout precision on the text block to match Preview's alignment
       // Left Info Block
       // Left Info Block
+      const plannedQtyDisplay =
+        batch.plannedQuantity !== undefined &&
+        batch.plannedQuantity !== null &&
+        String(batch.plannedQuantity).trim() !== ''
+          ? Number(batch.plannedQuantity).toFixed(3)
+          : 'N/A';
       const leftInfoData = [
-        [`Batch No:`, `${batch.batchNo}${batch.productName ? ' / ' + batch.productName : ''}`],
+        [`Product Name:`, batch.productName || '-'],
+        [`Planned Quantity (kg):`, plannedQtyDisplay],
         [`Supervisor:`, batch.supervisor || '-'],
         [`Labours:`, batch.labourNames || '-'],
         [
@@ -209,14 +233,20 @@ const NewBatchProductionReport = () => {
         ],
       ];
 
-      // Right Info Block (Quality Fields)
-      const rightInfoData = [
-        [`Date:`, formatDate(new Date().toISOString())],
-        [`Actual Density:`, batch.actualDensity || '-'],
-        [`Product Viscosity:`, batch.actualViscosity || '-'],
-      ];
+      // Date is now rendered on the report-number title line above, so there is
+      // no separate right info block.
+      const rightInfoData: string[][] = [];
 
-      const infoStartY = headerEndY + 5;
+      const qualityTableX = 100;
+      const qualityTableWidth = 96;
+      const infoStartY = headerEndY + 9;
+
+      // Table Titles for Top Section
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Batch Details', margin, infoStartY - 2);
+      doc.text('Quality & Variance Analysis', qualityTableX, infoStartY - 2);
 
       // Draw Left Table
       autoTable(doc, {
@@ -233,46 +263,39 @@ const NewBatchProductionReport = () => {
           lineWidth: 0.1,
         },
         columnStyles: {
-          0: { cellWidth: 22, fontStyle: 'bold' },
-          1: { cellWidth: 58 },
+          0: { cellWidth: 38, fontStyle: 'bold' },
+          1: { cellWidth: 42 },
         },
         tableWidth: 80,
       });
+      const leftInfoFinalY = (doc as any).lastAutoTable.finalY;
 
-      // Draw Right Table
-      autoTable(doc, {
-        startY: infoStartY,
-        margin: { left: 110 }, // Align with right column starting position
-        body: rightInfoData,
-        theme: 'plain',
-        styles: {
-          fontSize: 9.5,
-          cellPadding: 1.5,
-          font: 'helvetica',
-          textColor: colorGray700,
-        },
-        columnStyles: {
-          0: { cellWidth: 35, fontStyle: 'bold' },
-          1: { cellWidth: 51 },
-        },
-        tableWidth: 86,
-      });
+      // Draw Right Table (only if there is right-side info to show).
+      if (rightInfoData.length > 0) {
+        autoTable(doc, {
+          startY: infoStartY,
+          margin: { left: 110 }, // Align with right column starting position
+          body: rightInfoData,
+          theme: 'plain',
+          styles: {
+            fontSize: 9.5,
+            cellPadding: 1.5,
+            font: 'helvetica',
+            textColor: colorGray700,
+          },
+          columnStyles: {
+            0: { cellWidth: 35, fontStyle: 'bold' },
+            1: { cellWidth: 51 },
+          },
+          tableWidth: 86,
+        });
+      }
 
-      const infoBlockFinalY = (doc as any).lastAutoTable.finalY;
+      // Use the taller of the two info tables so following content never overlaps
+      // the left block (which is now taller than the Date-only right block).
+      const infoBlockFinalY = Math.max(leftInfoFinalY, (doc as any).lastAutoTable.finalY);
 
-      // 3. Right Side: Quality & Variance Analysis Table
-      // Calculate variance values
-      const stdDensity = batch.density ? parseFloat(batch.density) : 0;
-      const actDensity = batch.actualDensity ? parseFloat(batch.actualDensity) : 0;
-      const densityVariance = actDensity - stdDensity;
-
-      const stdViscosity = batch.viscosity ? parseFloat(batch.viscosity) : 0;
-      const actViscosity = batch.actualViscosity ? parseFloat(batch.actualViscosity) : 0;
-      const viscosityVariance = actViscosity - stdViscosity;
-
-      // --- CALCULATIONS FOR TABLES (Moved up for use in Quality Table) ---
-
-      // 1. Ingredients Calculation (Left Table)
+      // 3. CALCULATIONS FOR TABLES & QUALITY & VARIANCE ANALYSIS
       const allIngredients = (batch.rawMaterials || []).filter(rm => rm.productType !== 'PM');
       const plannedQtyTotal = parseNumber(batch.plannedQuantity) || 1;
 
@@ -283,8 +306,6 @@ const NewBatchProductionReport = () => {
         const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
         const isReduced = !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
         const storedActualQty = parseNumber(rm.actualQty);
-        // Trace recovery: DB scale-4 storage truncates tiny quantities to 0.0000;
-        // the recipe percentage survives, so rebuild the true actual quantity.
         const effectiveActual =
           storedActualQty === 0 && parseNumber(rm.percentage) > 0
             ? (parseNumber(rm.percentage) / 100) * plannedQtyTotal
@@ -307,7 +328,7 @@ const NewBatchProductionReport = () => {
 
       const ingredients = [...processedRegular, ...processedAdditional];
 
-      // Total Actual Weight from Ingredients (Sum of Actual Qty)
+      // Total Batch Input Weight (Sum of ingredient actual weights)
       const totalActualWeight = ingredients.reduce(
         (sum, rm) =>
           sum + (rm.effectiveActual ?? parseNumber(rm.actualQty || rm.percentage || '0')),
@@ -316,14 +337,14 @@ const NewBatchProductionReport = () => {
       const totalPercentage = ingredients.reduce((sum, rm) => sum + rm.computedPercentage, 0);
       const anyExceeds100 = ingredients.some(rm => rm.isAdditional || rm.isReduced);
 
-      // 2. Sub Products Calculation (Right Table / Shade Table)
+      // Sub Products / Packing Calculation
       const filteredSubProducts = (batch.subProducts || []).filter(sp => {
         const actQty = parseNumber(sp.actualQty || '0');
         const batchQty = parseNumber(sp.batchQty || '0');
         return actQty > 0 || batchQty > 0;
       });
 
-      // Total LTR from Sub Products - using filtered list and actualQty (matching preview)
+      // Total Output Liters
       const totalLtr = filteredSubProducts.reduce((s, x) => {
         const actualQty = parseFloat(x.actualQty || '0');
         const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
@@ -338,43 +359,32 @@ const NewBatchProductionReport = () => {
         (s, x) => s + (parseFloat(x.actualQty || '0') || 0),
         0
       );
-      const totalKg = (batch.subProducts || []).reduce((s, x) => {
-        const actualQty = parseFloat(x.actualQty || '0');
-        const plannedQty = parseFloat(x.batchQty || '0');
 
-        const effQty = actualQty > 0 ? actualQty : plannedQty;
+      // Shared Quality & Variance Data Calculation
+      const qualityData = calculateQualityAndVarianceData(batch, ingredients, filteredSubProducts);
+      const totalKg = qualityData.totalKg;
 
-        const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
-        const ltr = effQty * capacity;
-        // Use fillingDensity or fallback to batch density for weight calc
-        const density =
-          parseFloat(x.fillingDensity?.toString() || '0') ||
-          parseFloat(batch.packingDensity || batch.actualDensity || batch.density || '0');
+      // Draw Right Side: Redesigned 5-Column Quality & Variance Analysis Table aligned beside Info table
+      drawQualityVariancePDFTable(doc, infoStartY, qualityTableX, qualityTableWidth, qualityData, {
+        colorGray100,
+        colorGray700,
+      });
 
-        return s + ltr * density;
-      }, 0);
+      const qualityTableFinalY = (doc as any).lastAutoTable.finalY;
+      const topSectionFinalY = Math.max(leftInfoFinalY, qualityTableFinalY);
 
-      // Calculate total weight for Quality Table
-      // Standard = Total of Actual Column from Ingredients Table
-      const stdTotalWeight = totalActualWeight;
+      // Ingredients table begins after leaving space for title (11mm) below top section
+      let currentY = topSectionFinalY + 11;
 
-      // Actual = Total KG from Shade Table
-      const actTotalWeight = totalKg;
-      const totalWeightVariance = actTotalWeight - stdTotalWeight;
-
-      let currentY = infoBlockFinalY + 10;
-
-      // 3. Tables Section - Side by Side
-      // Separate regular and additional materials
-      // Ingredients Body - Without Rate and Amount columns
+      // 4. Tables Section - Side by Side
       const ingredientsBody = ingredients.map((rm, index) => {
-        const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumber(rm.computedPercentage);
-        return [index + 1, rm.rawMaterialName, pctVal, formatNumber(rm.effectiveActual)];
+        const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumber3(rm.computedPercentage);
+        return [index + 1, rm.rawMaterialName, pctVal, formatNumber3(rm.effectiveActual)];
       });
 
       const totalAmount = 0;
 
-      // Sub Products Body - Using calculated filtered list
+      // Option 1: Packing Table - Actual Packed Mass
       const subProductsBody = filteredSubProducts.map(sp => {
         const actualQty = parseFloat(sp.actualQty || '0');
         const plannedQty = parseFloat(sp.batchQty || '0');
@@ -382,13 +392,11 @@ const NewBatchProductionReport = () => {
 
         const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
         const ltr = effQty * capacity;
-        // Use fillingDensity or fallback to batch density for weight calc
         const productDensity = parseFloat(sp.fillingDensity?.toString() || '0');
         const density =
           productDensity > 0
             ? productDensity
             : parseFloat(batch.packingDensity || batch.actualDensity || batch.density || '0');
-
         const kg = ltr * density;
 
         return [
@@ -403,11 +411,17 @@ const NewBatchProductionReport = () => {
       const sideBySideStartPage = doc.getNumberOfPages();
       const tableY = currentY;
 
+      // Table Title for Ingredients
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Ingredients Formulation', margin, tableY - 2);
+
       // Left Table: Ingredients (Side by Side - Left)
       autoTable(doc, {
         startY: tableY,
         margin: { left: margin, right: 110 },
-        head: [['Seq', 'Product', 'Percentage (%)', 'Actual']],
+        head: [['Seq', 'Product', 'Percentage', 'Actual']],
         body: ingredientsBody,
         theme: 'grid',
         styles: {
@@ -434,7 +448,7 @@ const NewBatchProductionReport = () => {
           3: { cellWidth: 16, halign: 'right' },
         },
         tableWidth: 91,
-        foot: [['', 'Total', formatNumber(totalPercentage), formatNumber(totalActualWeight)]],
+        foot: [['', 'Total', formatNumber3(totalPercentage), formatNumber3(totalActualWeight)]],
         footStyles: {
           fillColor: colorSuccess, // Green
           textColor: [255, 255, 255], // White
@@ -445,9 +459,8 @@ const NewBatchProductionReport = () => {
         },
         showFoot: 'lastPage',
         didParseCell: data => {
-          if (data.section === 'body') {
+          if (data.section === 'body' && data.column.index === 1) {
             const rm = ingredients[data.row.index];
-            // Bold styling for additional (if exceeds 100%) or reduced materials
             const isHighlighted = rm && (rm.isAdditional ? anyExceeds100 : rm.isReduced);
             if (isHighlighted) {
               data.cell.styles.fontStyle = 'bold';
@@ -496,69 +509,12 @@ const NewBatchProductionReport = () => {
         leftTableFinalY += 6;
       }
 
-      // Reset to starting page for Right Column
+      // Reset to starting page for Right Column (Packing Table & Packaging Materials Table)
       doc.setPage(sideBySideStartPage);
 
-      // RIGHT Column: Table Stack (Parameters -> Shade -> Packaging)
       const rightTableX = 110;
       const rightTableWidth = 86;
-
-      // 1. Parameters Table
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('Quality & Variance Analysis', rightTableX, tableY - 2);
-
-      autoTable(doc, {
-        startY: tableY,
-        margin: { left: rightTableX, right: margin },
-        head: [['Parameter', 'Theoretical', 'Actual', 'Difference']],
-        body: [
-          [
-            'Filling Density',
-            stdDensity.toFixed(2),
-            actDensity.toFixed(2),
-            densityVariance.toFixed(2),
-          ],
-          [
-            'Viscosity',
-            stdViscosity > 0 ? stdViscosity.toString() : '-',
-            actViscosity > 0 ? actViscosity.toString() : '-',
-            viscosityVariance !== 0 ? viscosityVariance.toFixed(2) : '0.00',
-          ],
-          [
-            'Weight (Kg)',
-            stdTotalWeight.toFixed(2),
-            actTotalWeight.toFixed(2),
-            totalWeightVariance.toFixed(2),
-          ],
-        ],
-        theme: 'grid',
-        styles: {
-          fontSize: 9,
-          cellPadding: 1.2,
-          lineColor: [229, 231, 235],
-          lineWidth: 0.1,
-          textColor: colorGray700,
-        },
-        headStyles: {
-          fillColor: colorGray100,
-          textColor: [0, 0, 0],
-          fontStyle: 'bold',
-          fontSize: 9,
-          lineWidth: 0.1,
-          lineColor: [229, 231, 235],
-        },
-        columnStyles: {
-          0: { cellWidth: 35 },
-          1: { cellWidth: 14, halign: 'right' },
-          2: { cellWidth: 14, halign: 'right' },
-          3: { cellWidth: 23, halign: 'right' },
-        },
-        tableWidth: rightTableWidth,
-      });
-
-      let rightStackY = (doc as any).lastAutoTable.finalY + 8;
+      let rightStackY = tableY;
 
       // Draw "Packing Table" title
       doc.setFont('helvetica', 'bold');
@@ -800,7 +756,7 @@ const NewBatchProductionReport = () => {
     // Define rows
     const tableRows = data.map(item => [
       item.batchNo,
-      item.productType || '',
+      item.productType || '-',
       item.productName,
       item.status,
       formatNumber(item.plannedQuantity),
@@ -808,7 +764,7 @@ const NewBatchProductionReport = () => {
       formatNumber(item.actualWeightKg),
       formatDateTime(item.startedAt),
       formatDateTime(item.completedAt),
-      item.timeRequired,
+      item.timeRequired || '-',
       item.supervisor || '-',
       item.qualityStatus || 'Pending',
     ]);
@@ -1755,20 +1711,39 @@ const NewBatchProductionReport = () => {
         >
           <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 max-w-4xl mx-auto printable-content">
             {/* Header */}
-            <div className="text-center mb-6 border-b pb-4">
+            <div className="text-center mb-4 border-b pb-4">
               <h1 className="text-2xl font-bold text-gray-900">
                 {companyInfo?.companyName || 'MOREX TECHNOLOGIES'}
               </h1>
             </div>
 
-            {/* Info Grid */}
-            <div className="grid grid-cols-2 gap-x-12 gap-y-4 mb-8 text-sm">
+            {/* Report No. (left) + Date (right) on one line */}
+            <div className="flex justify-between items-center mb-6 gap-4">
+              <h2 className="text-base font-bold text-gray-800">
+                Batch Production Report No.: {previewBatch.batchNo}
+              </h2>
+              <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                Date: {formatDate(new Date().toISOString())}
+              </span>
+            </div>
+
+            {/* Top Grid: Info Block (Left) + Quality & Variance Analysis Table (Right) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-sm items-start">
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Batch No:</span>
+                  <span className="font-semibold text-gray-600">Product Name:</span>
                   <span className="font-medium text-gray-900">
-                    {previewBatch.batchNo}{' '}
-                    {previewBatch.productName ? `/ ${previewBatch.productName}` : ''}
+                    {previewBatch.productName || '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-gray-600">Planned Quantity (kg):</span>
+                  <span className="text-gray-900">
+                    {previewBatch.plannedQuantity !== undefined &&
+                    previewBatch.plannedQuantity !== null &&
+                    String(previewBatch.plannedQuantity).trim() !== ''
+                      ? Number(previewBatch.plannedQuantity).toFixed(3)
+                      : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -1780,24 +1755,21 @@ const NewBatchProductionReport = () => {
                   <span className="text-gray-900">{previewBatch.labourNames || '-'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Date:</span>
-                  <span className="text-gray-900">{formatDate(new Date().toISOString())}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">Start Date-Time:</span>
-                  <span className="text-gray-900">{formatDateTime(previewBatch.startedAt)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-600">End Date-Time:</span>
-                  <span className="text-gray-900">{formatDateTime(previewBatch.completedAt)}</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Total Time:</span>
-                  <span className="text-gray-900">{previewBatch.timeRequired || '-'}</span>
+                  <span className="text-gray-900">
+                    {(() => {
+                      if (!previewBatch.actualTimeHours) return previewBatch.timeRequired || '-';
+                      const hours = Math.floor(parseFloat(previewBatch.actualTimeHours));
+                      const minutes = Math.round(
+                        (parseFloat(previewBatch.actualTimeHours) - hours) * 60
+                      );
+                      return `${hours} Hrs ${minutes} Min`;
+                    })()}
+                  </span>
                 </div>
               </div>
 
-              {/* Right Side: Quality & Variance Analysis Table */}
+              {/* Right Side: Redesigned 5-Column Quality & Variance Analysis Table */}
               <div className="space-y-2">
                 <h4 className="font-bold text-sm text-gray-700 mb-2">
                   Quality & Variance Analysis
@@ -1805,6 +1777,9 @@ const NewBatchProductionReport = () => {
                 <table className="w-full text-xs border-collapse border border-gray-300">
                   <thead className="bg-gray-100">
                     <tr>
+                      <th className="border border-gray-300 px-2 py-1 text-left font-bold">
+                        Description
+                      </th>
                       <th className="border border-gray-300 px-2 py-1 text-left">Parameter</th>
                       <th className="border border-gray-300 px-2 py-1 text-right">Theoretical</th>
                       <th className="border border-gray-300 px-2 py-1 text-right">Actual</th>
@@ -1813,7 +1788,6 @@ const NewBatchProductionReport = () => {
                   </thead>
                   <tbody>
                     {(() => {
-                      // Align calculations with handleDownloadBatch
                       const stdDensity = previewBatch.density
                         ? parseFloat(previewBatch.density)
                         : 0;
@@ -1830,23 +1804,47 @@ const NewBatchProductionReport = () => {
                         : 0;
                       const viscosityVariance = actViscosity - stdViscosity;
 
-                      // 1. Ingredients Calculation (Standard Weight)
+                      // Ingredients (Input Weight)
                       const rms = (previewBatch.rawMaterials || []).filter(
                         rm => rm.productType !== 'PM'
                       );
-                      const totalActualWeightFromIngredients = rms.reduce(
-                        (sum, rm) => sum + parseNumber(rm.actualQty || rm.percentage || '0'),
-                        0
-                      );
+                      const plannedQtyTotal = parseNumber(previewBatch.plannedQuantity) || 1;
+                      const totalActualWeight = rms.reduce((sum, rm) => {
+                        const storedActualQty = parseNumber(rm.actualQty);
+                        const effectiveActual =
+                          storedActualQty === 0 && parseNumber(rm.percentage) > 0
+                            ? (parseNumber(rm.percentage) / 100) * plannedQtyTotal
+                            : storedActualQty;
+                        return sum + (effectiveActual || parseNumber(rm.percentage || '0'));
+                      }, 0);
 
-                      // 2. Sub Products Calculation (Output Weight)
-                      const totalKg = (previewBatch.subProducts || []).reduce((s, x) => {
-                        const actualQty = parseFloat(String(x.actualQty || '0'));
-                        const plannedQty = parseFloat(String(x.batchQty || '0'));
+                      // Sub-products (Output Liter)
+                      const filteredSubProducts = (previewBatch.subProducts || []).filter(sp => {
+                        const actQty = parseNumber(sp.actualQty || '0');
+                        const batchQty = parseNumber(sp.batchQty || '0');
+                        return actQty > 0 || batchQty > 0;
+                      });
+                      const totalLtr = filteredSubProducts.reduce((s, x) => {
+                        const actualQty = parseFloat(x.actualQty || '0');
+                        const plannedQty = parseFloat(x.batchQty || '0');
+                        const effQty = actualQty > 0 ? actualQty : plannedQty;
+                        const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
+                        return s + effQty * capacity;
+                      }, 0);
+
+                      const firstSubProduct = (previewBatch.subProducts || [])[0];
+                      const stdFillDensity =
+                        parseFloat(firstSubProduct?.fillingDensity?.toString() || '0') ||
+                        parseFloat(previewBatch.packingDensity || previewBatch.density || '0');
+                      const actFillDensity = totalLtr > 0 ? totalActualWeight / totalLtr : 0;
+                      const fillDensityVariance = actFillDensity - stdFillDensity;
+                      const totalKg = filteredSubProducts.reduce((s, x) => {
+                        const actualQty = parseFloat(x.actualQty || '0');
+                        const plannedQty = parseFloat(x.batchQty || '0');
                         const effQty = actualQty > 0 ? actualQty : plannedQty;
                         const capacity = x.capacity ? parseFloat(x.capacity.toString()) : 0;
                         const ltr = effQty * capacity;
-                        const productDensity = parseFloat(String(x.fillingDensity || '0'));
+                        const productDensity = parseFloat(x.fillingDensity?.toString() || '0');
                         const density =
                           productDensity > 0
                             ? productDensity
@@ -1856,29 +1854,33 @@ const NewBatchProductionReport = () => {
                                   previewBatch.density ||
                                   '0'
                               );
-
                         return s + ltr * density;
                       }, 0);
 
-                      const stdTotalWeight = totalActualWeightFromIngredients;
-                      const actTotalWeight = totalKg;
-                      const totalWeightVariance = actTotalWeight - stdTotalWeight;
+                      const stdWeight = totalActualWeight;
+                      const actWeight = totalKg;
+                      const weightVariance = actWeight - stdWeight;
 
                       return (
                         <>
+                          {/* Quality Section */}
                           <tr>
-                            <td className="border border-gray-300 px-2 py-1">Filling Density</td>
+                            <td className="border border-gray-300 px-2 py-1 font-bold bg-gray-50">
+                              Quality
+                            </td>
+                            <td className="border border-gray-300 px-2 py-1">Density</td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
-                              {stdDensity.toFixed(2)}
+                              {stdDensity > 0 ? stdDensity.toFixed(3) : '-'}
                             </td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
-                              {actDensity.toFixed(2)}
+                              {actDensity > 0 ? actDensity.toFixed(3) : '-'}
                             </td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
-                              {densityVariance.toFixed(2)}
+                              {densityVariance.toFixed(3)}
                             </td>
                           </tr>
-                          <tr>
+                          <tr className="border-b-2 border-gray-600">
+                            <td className="border border-gray-300 px-2 py-1"></td>
                             <td className="border border-gray-300 px-2 py-1">Viscosity</td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
                               {stdViscosity > 0 ? stdViscosity : '-'}
@@ -1890,16 +1892,33 @@ const NewBatchProductionReport = () => {
                               {viscosityVariance.toFixed(2)}
                             </td>
                           </tr>
+                          {/* Quantity Section */}
                           <tr>
-                            <td className="border border-gray-300 px-2 py-1">Total Weight (Kg)</td>
+                            <td className="border border-gray-300 px-2 py-1 font-bold bg-gray-50">
+                              Quantity
+                            </td>
+                            <td className="border border-gray-300 px-2 py-1">Filling Density</td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
-                              {stdTotalWeight.toFixed(2)}
+                              {stdFillDensity > 0 ? stdFillDensity.toFixed(3) : '-'}
                             </td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
-                              {actTotalWeight.toFixed(2)}
+                              {actFillDensity > 0 ? actFillDensity.toFixed(3) : '-'}
                             </td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
-                              {totalWeightVariance.toFixed(2)}
+                              {fillDensityVariance.toFixed(3)}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-300 px-2 py-1"></td>
+                            <td className="border border-gray-300 px-2 py-1">Weight (Kg)</td>
+                            <td className="border border-gray-300 px-2 py-1 text-right">
+                              {stdWeight > 0 ? stdWeight.toFixed(3) : '-'}
+                            </td>
+                            <td className="border border-gray-300 px-2 py-1 text-right">
+                              {actWeight > 0 ? actWeight.toFixed(3) : '-'}
+                            </td>
+                            <td className="border border-gray-300 px-2 py-1 text-right">
+                              {weightVariance.toFixed(2)}
                             </td>
                           </tr>
                         </>
@@ -1980,7 +1999,7 @@ const NewBatchProductionReport = () => {
                           <th className="border border-gray-300 px-2 py-1 text-left">Seq</th>
                           <th className="border border-gray-300 px-2 py-1 text-left">Product</th>
                           <th className="border border-gray-300 px-2 py-1 text-right">
-                            Percentage (%)
+                            Percentage
                           </th>
                           <th className="border border-gray-300 px-2 py-1 text-right">Actual</th>
                         </tr>
@@ -1991,29 +2010,21 @@ const NewBatchProductionReport = () => {
                           const isUnderlinedOrBold = rm.isReduced;
                           return (
                             <tr key={`reg-${idx}`}>
-                              <td
-                                className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}
-                              >
+                              <td className="border border-gray-300 px-2 py-1 text-center">
                                 {idx + 1}
                               </td>
-                              <td
-                                className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}
-                              >
+                              <td className="border border-gray-300 px-2 py-1">
                                 {isUnderlinedOrBold ? (
-                                  <u>{rm.rawMaterialName}</u>
+                                  <span className="font-bold underline">{rm.rawMaterialName}</span>
                                 ) : (
                                   rm.rawMaterialName
                                 )}
                               </td>
-                              <td
-                                className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
-                              >
-                                {formatNumberForPreview(rm.computedPercentage)}
+                              <td className="border border-gray-300 px-2 py-1 text-right">
+                                {formatNumber3(rm.computedPercentage)}
                               </td>
-                              <td
-                                className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
-                              >
-                                {formatNumberForPreview(rm.effectiveActual)}
+                              <td className="border border-gray-300 px-2 py-1 text-right">
+                                {formatNumber3(rm.effectiveActual)}
                               </td>
                             </tr>
                           );
@@ -2024,32 +2035,24 @@ const NewBatchProductionReport = () => {
                           const pctVal =
                             rm.computedPercentage <= 0.0001
                               ? '-'
-                              : formatNumberForPreview(rm.computedPercentage);
+                              : formatNumber3(rm.computedPercentage);
                           return (
                             <tr key={`add-${idx}`}>
-                              <td
-                                className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}
-                              >
+                              <td className="border border-gray-300 px-2 py-1 text-center">
                                 {regular.length + idx + 1}
                               </td>
-                              <td
-                                className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}
-                              >
+                              <td className="border border-gray-300 px-2 py-1">
                                 {isUnderlinedOrBold ? (
-                                  <u>{rm.rawMaterialName}</u>
+                                  <span className="font-bold underline">{rm.rawMaterialName}</span>
                                 ) : (
                                   rm.rawMaterialName
                                 )}
                               </td>
-                              <td
-                                className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
-                              >
+                              <td className="border border-gray-300 px-2 py-1 text-right">
                                 {pctVal}
                               </td>
-                              <td
-                                className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
-                              >
-                                {formatNumberForPreview(rm.effectiveActual)}
+                              <td className="border border-gray-300 px-2 py-1 text-right">
+                                {formatNumber3(rm.effectiveActual)}
                               </td>
                             </tr>
                           );
@@ -2061,10 +2064,10 @@ const NewBatchProductionReport = () => {
                             Total
                           </td>
                           <td className="border border-gray-300 px-2 py-1 text-right">
-                            {formatNumberForPreview(totalPercentage)}
+                            {formatNumber3(totalPercentage)}
                           </td>
                           <td className="border border-gray-300 px-2 py-1 text-right">
-                            {formatNumberForPreview(totalActual)}
+                            {formatNumber3(totalActual)}
                           </td>
                         </tr>
                       </tfoot>
@@ -2142,9 +2145,16 @@ const NewBatchProductionReport = () => {
                                   ? parseFloat(sp.capacity.toString())
                                   : 0;
                                 const ltr = qty * capacity;
-                                const density = previewBatch.actualDensity
-                                  ? parseFloat(previewBatch.actualDensity)
-                                  : 0;
+                                const productDensity = parseFloat(String(sp.fillingDensity || '0'));
+                                const density =
+                                  productDensity > 0
+                                    ? productDensity
+                                    : parseFloat(
+                                        previewBatch.packingDensity ||
+                                          previewBatch.actualDensity ||
+                                          previewBatch.density ||
+                                          '0'
+                                      );
                                 return formatNumberForPreview(ltr * density);
                               })()}
                             </td>

@@ -2671,7 +2671,7 @@ export default function ScheduleBatchPage() {
                   <div className="grid grid-cols-2 gap-6">
                     {/* Master Product (Searchable Dropdown) */}
                     <SearchableSelect
-                      label="Master Product *"
+                      label="Master Product"
                       placeholder="Search Master Product..."
                       options={masterProducts.map(mp => ({
                         id: mp.masterProductId,
@@ -3024,12 +3024,12 @@ export default function ScheduleBatchPage() {
                           <td className="px-4 py-3 text-sm">
                             {batch.startedAt || batch.createdAt
                               ? new Date(
-                                  batch.startedAt || batch.createdAt || ''
-                                ).toLocaleDateString('en-IN', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                })
+                                batch.startedAt || batch.createdAt || ''
+                              ).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                              })
                               : '-'}
                           </td>
                           <td className="px-4 py-3 min-w-[150px]">{batch.masterProductName}</td>

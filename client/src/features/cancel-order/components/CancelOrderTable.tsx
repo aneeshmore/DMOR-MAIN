@@ -106,7 +106,7 @@ export const CancelOrderTable: React.FC<CancelOrderTableProps> = ({
                   <FileText className="w-6 h-6" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="font-bold text-[var(--text-primary)]">
                       #{order.orderNumber || order.orderId}
                     </span>
@@ -116,7 +116,7 @@ export const CancelOrderTable: React.FC<CancelOrderTableProps> = ({
                       </span>
                     )}
                     <span
-                      className={`text-xs px-2 py-0.5 rounded ${mode === 'cancelled'
+                      className={`text-xs px-2 py-0.5 rounded whitespace-nowrap ${mode === 'cancelled'
                         ? 'bg-red-100 text-red-700'
                         : 'bg-amber-100 text-amber-700'
                         }`}

@@ -313,15 +313,18 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         if (products.length > 0) {
           newDetails.forEach((item, index) => {
             const product = products.find(p => p.productId === item.productId);
-            if (product?.Subcategory === 'Base' && product?.HardenerId && !item.linkedHardenerRowId) {
+            if (
+              product?.Subcategory === 'Base' &&
+              product?.HardenerId &&
+              !item.linkedHardenerRowId
+            ) {
               const hardenerSkus = products.filter(p => p.masterProductId === product.HardenerId);
               const hardenerProductIds = hardenerSkus.map(p => p.productId);
-              
+
               // Find the NEXT available hardener row that matches
-              const hardenerIndex = newDetails.findIndex((d, i) => 
-                i > index && 
-                hardenerProductIds.includes(d.productId) && 
-                !d.linkedBaseRowId
+              const hardenerIndex = newDetails.findIndex(
+                (d, i) =>
+                  i > index && hardenerProductIds.includes(d.productId) && !d.linkedBaseRowId
               );
 
               if (hardenerIndex !== -1) {
@@ -562,11 +565,11 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         showToast.error('At least one item is required');
         return prevDetails;
       }
-      
+
       const rowToRemove = prevDetails[index];
       const newDetails = [...prevDetails];
       idsToRemove.push(rowToRemove.id);
-      
+
       // If deleting an Auto-Hardener directly
       if (rowToRemove.isAutoHardener && rowToRemove.linkedBaseRowId) {
         // Unlink it from its Base
@@ -575,7 +578,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
           newDetails[baseIndex] = { ...newDetails[baseIndex], linkedHardenerRowId: undefined };
         }
       }
-      
+
       // If deleting a Base that has a linked Auto-Hardener
       if (rowToRemove.linkedHardenerRowId) {
         const hardenerIndex = newDetails.findIndex(
@@ -585,7 +588,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
           idsToRemove.push(newDetails[hardenerIndex].id);
         }
       }
-      
+
       return newDetails.filter(d => !idsToRemove.includes(d.id));
     });
 
@@ -605,13 +608,13 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         items: [],
       };
     });
-    
+
     // Trigger a micro-task to properly sync validation array length
     setTimeout(() => {
       setOrderDetails(currentDetails => {
         setValidationErrors(prev => ({
           ...prev,
-          items: currentDetails.map(() => ({ productId: false, quantity: false }))
+          items: currentDetails.map(() => ({ productId: false, quantity: false })),
         }));
         return currentDetails;
       });
@@ -658,7 +661,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                     const newDetails = [...prev];
                     const baseRow = newDetails[index];
                     const baseQty = baseRow?.quantity || 1;
-                    
+
                     if (baseRow.linkedHardenerRowId) {
                       // Already has a linked hardener. Update it instead of creating a new one.
                       const hardenerIdx = newDetails.findIndex(
@@ -686,7 +689,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                       linkedBaseRowId: baseRow.id,
                       isAutoHardener: true,
                     };
-                    
+
                     // Update base row to link to the new hardener
                     newDetails[index] = { ...baseRow, linkedHardenerRowId: hardenerRowId };
                     newDetails.push(newHardener);
@@ -727,16 +730,21 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         if (field === 'productId') {
           const productId = Number(value);
           const oldRow = newDetails[index];
-          
+
           // If this row had a linked Auto-Hardener and the product changed, we should unlink or delete it.
           // Since it's a product switch, we can just let the above async logic handle updating it if the new product is a Base.
           // BUT if the new product is NOT a Base, we need to delete the old Hardener.
           const selectedProduct = products.find(p => p.productId === productId);
-          if (oldRow.linkedHardenerRowId && (!selectedProduct || selectedProduct.Subcategory !== 'Base')) {
-            const hardenerIdx = newDetails.findIndex(d => d.id === oldRow.linkedHardenerRowId && d.isAutoHardener);
+          if (
+            oldRow.linkedHardenerRowId &&
+            (!selectedProduct || selectedProduct.Subcategory !== 'Base')
+          ) {
+            const hardenerIdx = newDetails.findIndex(
+              d => d.id === oldRow.linkedHardenerRowId && d.isAutoHardener
+            );
             if (hardenerIdx !== -1) {
-               // Remove the hardener since the base is no longer a Base
-               newDetails.splice(hardenerIdx, 1);
+              // Remove the hardener since the base is no longer a Base
+              newDetails.splice(hardenerIdx, 1);
             }
           }
 
@@ -745,7 +753,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
             productId,
             unitPrice: getProductPrice(productId),
           };
-          
+
           // Clear link if it's no longer a base
           if (!selectedProduct || selectedProduct.Subcategory !== 'Base') {
             newDetails[index].linkedHardenerRowId = undefined;
@@ -764,9 +772,11 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
 
           // Update linked Hardener quantity if this is a Base product (only for Auto-Hardeners)
           const linkedHardenerRowId = newDetails[index].linkedHardenerRowId;
-          
+
           if (linkedHardenerRowId && qty > 0) {
-            const hardenerIndex = newDetails.findIndex(d => d.id === linkedHardenerRowId && d.isAutoHardener);
+            const hardenerIndex = newDetails.findIndex(
+              d => d.id === linkedHardenerRowId && d.isAutoHardener
+            );
             if (hardenerIndex !== -1) {
               newDetails[hardenerIndex] = { ...newDetails[hardenerIndex], quantity: qty };
             }
@@ -841,7 +851,9 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
           customer.area || customer.Area,
           customer.location || customer.Location,
           customer.pinCode || customer.Pincode,
-        ].filter(part => part && part.trim());
+        ]
+          .map(part => (part ? decodeHtml(part.toString()) : ''))
+          .filter(part => part && part.trim());
 
         setDeliveryAddress(addressParts.join(', '));
 
@@ -920,7 +932,9 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
             matchingCustomer.area || matchingCustomer.Area,
             matchingCustomer.location || matchingCustomer.Location,
             matchingCustomer.pinCode || matchingCustomer.Pincode,
-          ].filter(part => part && part.trim());
+          ]
+            .map(part => (part ? decodeHtml(part.toString()) : ''))
+            .filter(part => part && part.trim());
 
           if (addressParts.length > 0) {
             setDeliveryAddress(addressParts.join(', '));
@@ -1038,7 +1052,9 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
     setPriority('Normal');
     setDeliveryAddress('');
     setRemarks('');
-    setOrderDetails([{ id: crypto.randomUUID(), productId: 0, quantity: 1, unitPrice: 0, discount: 0 }]);
+    setOrderDetails([
+      { id: crypto.randomUUID(), productId: 0, quantity: 1, unitPrice: 0, discount: 0 },
+    ]);
   }, [isSalesPerson]);
 
   /**
@@ -1054,15 +1070,15 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
       setOrderDetails(prev => {
         const newDetails = [...prev];
         const baseIndex = newDetails.findIndex(d => d.id === baseRowId);
-        
+
         if (baseIndex !== -1) {
           const hardenerRowId = crypto.randomUUID();
-          
+
           newDetails[baseIndex] = {
             ...newDetails[baseIndex],
-            linkedHardenerRowId: hardenerRowId
+            linkedHardenerRowId: hardenerRowId,
           };
-          
+
           newDetails.push({
             id: hardenerRowId,
             productId: selectedHardener.productId,
@@ -1105,7 +1121,9 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
 
     // Pre-fill address from customer
     const customer = customers.find(c => (c.customerId || c.CustomerID) === customerId);
-    setQuotationAddress(customer?.address || customer?.Address || deliveryAddress || '');
+    setQuotationAddress(
+      decodeHtml(customer?.address || customer?.Address) || deliveryAddress || ''
+    );
     setSelectedPaymentTerms(paymentTermsOptions[0]?.value || '');
     setSelectedDeliveryTerms(deliveryTermsOptions[0]?.value || '');
     setValidTillDays('');
@@ -1125,9 +1143,14 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
       showToast.error('Please select payment terms, delivery terms, and valid till days');
       return;
     }
-    
+
     const validTillNum = Number(validTillDays);
-    if (!validTillDays || isNaN(validTillNum) || validTillNum <= 0 || !Number.isInteger(validTillNum)) {
+    if (
+      !validTillDays ||
+      isNaN(validTillNum) ||
+      validTillNum <= 0 ||
+      !Number.isInteger(validTillNum)
+    ) {
       showToast.error('Valid Till must be a positive integer');
       return;
     }
@@ -1156,12 +1179,16 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
 
       // Extract the name
       if (selectedSalesperson) {
-        salespersonName = `${selectedSalesperson.FirstName || ''} ${selectedSalesperson.LastName || ''}`.trim();
+        salespersonName =
+          `${selectedSalesperson.FirstName || ''} ${selectedSalesperson.LastName || ''}`.trim();
       }
 
       // Fallback to logged-in user if salesperson not found
       if (!salespersonName) {
-        salespersonName = `${user?.FirstName || ''} ${user?.LastName || ''}`.trim() || user?.Username || 'Sales Team';
+        salespersonName =
+          `${user?.FirstName || ''} ${user?.LastName || ''}`.trim() ||
+          user?.Username ||
+          'Sales Team';
       }
 
       // Build quotation data with ALL required fields
@@ -1324,19 +1351,22 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
             discount: item.discount || 0,
           };
         });
-        
+
         // Pass 2: Reconstruct bidirectional Auto-Hardener links
         if (products.length > 0) {
           loadedItems.forEach((item, index) => {
             const product = products.find(p => p.productId === item.productId);
-            if (product?.Subcategory === 'Base' && product?.HardenerId && !item.linkedHardenerRowId) {
+            if (
+              product?.Subcategory === 'Base' &&
+              product?.HardenerId &&
+              !item.linkedHardenerRowId
+            ) {
               const hardenerSkus = products.filter(p => p.masterProductId === product.HardenerId);
               const hardenerProductIds = hardenerSkus.map(p => p.productId);
-              
-              const hardenerIndex = loadedItems.findIndex((d, i) => 
-                i > index && 
-                hardenerProductIds.includes(d.productId) && 
-                !d.linkedBaseRowId
+
+              const hardenerIndex = loadedItems.findIndex(
+                (d, i) =>
+                  i > index && hardenerProductIds.includes(d.productId) && !d.linkedBaseRowId
               );
 
               if (hardenerIndex !== -1) {
@@ -1347,7 +1377,7 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
             }
           });
         }
-        
+
         setOrderDetails(loadedItems);
       }
 
@@ -1392,10 +1422,14 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
         ) || employees.find(e => String(e.employeeId || e.EmployeeID) === String(salesPersonId));
 
       if (selectedSalesperson) {
-        salespersonName = `${selectedSalesperson.FirstName || ''} ${selectedSalesperson.LastName || ''}`.trim();
+        salespersonName =
+          `${selectedSalesperson.FirstName || ''} ${selectedSalesperson.LastName || ''}`.trim();
       }
       if (!salespersonName) {
-        salespersonName = `${user?.FirstName || ''} ${user?.LastName || ''}`.trim() || user?.Username || 'Sales Team';
+        salespersonName =
+          `${user?.FirstName || ''} ${user?.LastName || ''}`.trim() ||
+          user?.Username ||
+          'Sales Team';
       }
 
       const updatedData = {
@@ -1508,19 +1542,27 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
               const createdDate = new Date(row.original.createdAt);
               const updatedAtStr = row.original.updatedAt;
               const updatedDate = updatedAtStr ? new Date(updatedAtStr) : null;
-              const isEdited = updatedDate && (updatedDate.getTime() - createdDate.getTime() > 1000);
+              const isEdited = updatedDate && updatedDate.getTime() - createdDate.getTime() > 1000;
 
               return (
                 <div className="flex flex-col text-sm space-y-1">
                   <div>
-                    <div className="text-gray-500 font-medium text-[10px] uppercase tracking-wider">Created:</div>
-                    <div className="font-semibold text-gray-800">{format(createdDate, 'dd MMM yyyy')}</div>
+                    <div className="text-gray-500 font-medium text-[10px] uppercase tracking-wider">
+                      Created:
+                    </div>
+                    <div className="font-semibold text-gray-800">
+                      {format(createdDate, 'dd MMM yyyy')}
+                    </div>
                     <div className="text-xs text-gray-500">{format(createdDate, 'hh:mm a')}</div>
                   </div>
                   {isEdited && (
                     <div>
-                      <div className="text-amber-500 font-medium text-[10px] uppercase tracking-wider">Edited:</div>
-                      <div className="font-semibold text-amber-700">{format(updatedDate, 'dd MMM yyyy')}</div>
+                      <div className="text-amber-500 font-medium text-[10px] uppercase tracking-wider">
+                        Edited:
+                      </div>
+                      <div className="font-semibold text-amber-700">
+                        {format(updatedDate, 'dd MMM yyyy')}
+                      </div>
                       <div className="text-xs text-amber-600">{format(updatedDate, 'hh:mm a')}</div>
                     </div>
                   )}
@@ -1939,7 +1981,12 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
               <Button
                 variant="primary"
                 onClick={handleCreateQuotation}
-                disabled={quotationLoading || !selectedPaymentTerms || !selectedDeliveryTerms || !validTillDays}
+                disabled={
+                  quotationLoading ||
+                  !selectedPaymentTerms ||
+                  !selectedDeliveryTerms ||
+                  !validTillDays
+                }
               >
                 {quotationLoading ? 'Creating...' : 'Create Quotation'}
               </Button>
@@ -2138,10 +2185,11 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
           {(() => {
             const orderItemsContent = (
               <div
-                className={`bg-[var(--surface)] p-6 rounded-lg flex flex-col transition-all duration-300 ${isOrderItemsFullScreen
-                  ? 'fixed inset-0 rounded-none overflow-auto'
-                  : 'lg:col-span-2'
-                  }`}
+                className={`bg-[var(--surface)] p-6 rounded-lg flex flex-col transition-all duration-300 ${
+                  isOrderItemsFullScreen
+                    ? 'fixed inset-0 rounded-none overflow-auto'
+                    : 'lg:col-span-2'
+                }`}
                 style={isOrderItemsFullScreen ? { zIndex: 999999, isolation: 'isolate' } : {}}
               >
                 {/* Header with Expand Button */}
@@ -2187,10 +2235,11 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                       <div
                         key={index}
                         data-item-card
-                        className={`border rounded-lg p-4 transition-all ${isComplete
-                          ? 'border-[var(--success)]/50 bg-[var(--success)]/5'
-                          : 'border-[var(--border)] bg-[var(--surface-secondary)]'
-                          } hover:border-[var(--primary)] hover:shadow-md`}
+                        className={`border rounded-lg p-4 transition-all ${
+                          isComplete
+                            ? 'border-[var(--success)]/50 bg-[var(--success)]/5'
+                            : 'border-[var(--border)] bg-[var(--surface-secondary)]'
+                        } hover:border-[var(--primary)] hover:shadow-md`}
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2">
@@ -2302,10 +2351,11 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                                 Line Total
                               </label>
                               <div
-                                className={`px-3 py-2 border rounded-lg font-semibold ${isComplete
-                                  ? 'border-[var(--success)] bg-[var(--success)]/10 text-[var(--success)]'
-                                  : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]'
-                                  }`}
+                                className={`px-3 py-2 border rounded-lg font-semibold ${
+                                  isComplete
+                                    ? 'border-[var(--success)] bg-[var(--success)]/10 text-[var(--success)]'
+                                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]'
+                                }`}
                               >
                                 ₹{calculateLineTotal(item).toFixed(2)}
                               </div>
@@ -2572,12 +2622,13 @@ const CreateOrderForm: React.FC<CreateOrderFormProps> = ({
                 <span className="text-[var(--text-secondary)]">Status:</span>
                 <Badge
                   variant={previewQuotation.status === 'Rejected' ? 'destructive' : 'secondary'}
-                  className={`ml-2 ${previewQuotation.status === 'Approved'
-                    ? 'bg-green-100 text-green-800'
-                    : previewQuotation.status === 'Pending'
-                      ? 'bg-orange-100 text-orange-800'
-                      : ''
-                    }`}
+                  className={`ml-2 ${
+                    previewQuotation.status === 'Approved'
+                      ? 'bg-green-100 text-green-800'
+                      : previewQuotation.status === 'Pending'
+                        ? 'bg-orange-100 text-orange-800'
+                        : ''
+                  }`}
                 >
                   {previewQuotation.status}
                 </Badge>

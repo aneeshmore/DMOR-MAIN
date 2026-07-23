@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useTheme, ThemeEditor, isThemeEditorEnabled } from '@/plugins/themeEditor';
@@ -7,6 +7,7 @@ import { Sidebar, Header } from '@/components/layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useSidebarNavigation } from '@/hooks/useSidebarNavigation';
+import { useGlobalTableDragScroll } from '@/hooks/useGlobalTableDragScroll';
 import { AppRouter } from '@/router/AppRouter';
 import LoginPage from '@/features/authority/pages/LoginPage';
 import { TopAlertBanner } from '@/features/notifications/components';
@@ -54,6 +55,11 @@ function AppContent() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { navItems } = useSidebarNavigation();
+
+  // App-wide click-and-drag horizontal scrolling for every table (see hook
+  // for details). Mounted once here so no individual table page needs to
+  // opt in.
+  useGlobalTableDragScroll();
 
   const handlePageChange = (path: string) => {
     navigate(path);

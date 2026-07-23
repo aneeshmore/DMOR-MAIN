@@ -10,6 +10,7 @@ import {
   fieldIntelligenceDashboardMetrics,
 } from '../../db/schema/field-intelligence.schema.js';
 import { customers } from '../../db/schema/sales/customers.js';
+import { safeSplit, safeArray, safeString } from './utils/legacyNormalizer.js';
 
 function isAdmin(userContext) {
   if (!userContext) return false;
@@ -26,8 +27,13 @@ export class FieldIntelligenceRepository {
 
   async updateReport(id, reportData, companyId, tenantId, userContext = null, tx = null) {
     const client = tx || db;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const idCondition = isUuid
+      ? eq(fieldIntelligenceReports.id, id)
+      : eq(fieldIntelligenceReports.reportNumber, id);
+
     const conditions = [
-      eq(fieldIntelligenceReports.id, id),
+      idCondition,
       eq(fieldIntelligenceReports.companyId, companyId),
       eq(fieldIntelligenceReports.tenantId, tenantId),
     ];
@@ -44,8 +50,13 @@ export class FieldIntelligenceRepository {
 
   async deleteReport(id, companyId, tenantId, userContext = null, tx = null) {
     const client = tx || db;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const idCondition = isUuid
+      ? eq(fieldIntelligenceReports.id, id)
+      : eq(fieldIntelligenceReports.reportNumber, id);
+
     const conditions = [
-      eq(fieldIntelligenceReports.id, id),
+      idCondition,
       eq(fieldIntelligenceReports.companyId, companyId),
       eq(fieldIntelligenceReports.tenantId, tenantId),
     ];
@@ -60,8 +71,13 @@ export class FieldIntelligenceRepository {
   }
 
   async getReportById(id, companyId, tenantId, userContext = null) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const idCondition = isUuid
+      ? eq(fieldIntelligenceReports.id, id)
+      : eq(fieldIntelligenceReports.reportNumber, id);
+
     const conditions = [
-      eq(fieldIntelligenceReports.id, id),
+      idCondition,
       eq(fieldIntelligenceReports.companyId, companyId),
       eq(fieldIntelligenceReports.tenantId, tenantId),
     ];
@@ -81,31 +97,33 @@ export class FieldIntelligenceRepository {
       Object.assign(report, report.dynamicFields);
     }
 
+    const targetId = report.id;
+
     const followups = await db
       .select()
       .from(fieldIntelligenceFollowups)
-      .where(eq(fieldIntelligenceFollowups.reportId, id))
+      .where(eq(fieldIntelligenceFollowups.reportId, targetId))
       .orderBy(asc(fieldIntelligenceFollowups.followupDate));
 
     const competitors = await db
       .select()
       .from(fieldIntelligenceCompetitors)
-      .where(eq(fieldIntelligenceCompetitors.reportId, id));
+      .where(eq(fieldIntelligenceCompetitors.reportId, targetId));
 
     const uploads = await db
       .select()
       .from(fieldIntelligenceUploads)
-      .where(eq(fieldIntelligenceUploads.reportId, id));
+      .where(eq(fieldIntelligenceUploads.reportId, targetId));
 
     const insights = await db
       .select()
       .from(fieldIntelligenceAiInsights)
-      .where(eq(fieldIntelligenceAiInsights.reportId, id));
+      .where(eq(fieldIntelligenceAiInsights.reportId, targetId));
 
     const logs = await db
       .select()
       .from(fieldIntelligenceActivityLog)
-      .where(eq(fieldIntelligenceActivityLog.reportId, id))
+      .where(eq(fieldIntelligenceActivityLog.reportId, targetId))
       .orderBy(desc(fieldIntelligenceActivityLog.createdAt));
 
     return {
@@ -571,11 +589,15 @@ export class FieldIntelligenceRepository {
     const customerDisplayName = customerRow ? customerRow.companyName : latest.customerName;
 
     // Visit gap in days
+    const latestVisitTime = latest?.visitDate ? new Date(latest.visitDate).getTime() : Date.now();
+    const oldestVisitTime = oldest?.visitDate
+      ? new Date(oldest.visitDate).getTime()
+      : latestVisitTime;
+    const isValidTimes = !isNaN(latestVisitTime) && !isNaN(oldestVisitTime);
+
     const totalDays =
-      reports.length > 1
-        ? Math.round(
-            (new Date(latest.visitDate) - new Date(oldest.visitDate)) / (1000 * 60 * 60 * 24)
-          )
+      reports.length > 1 && isValidTimes
+        ? Math.round(Math.abs(latestVisitTime - oldestVisitTime) / (1000 * 60 * 60 * 24))
         : 0;
     const avgGapDays = reports.length > 1 ? Math.round(totalDays / (reports.length - 1)) : 0;
 
@@ -593,9 +615,9 @@ export class FieldIntelligenceRepository {
     const draftCount = reports.filter(r => r.status === 'Draft').length;
 
     // Relationship age
-    const oldestDate = new Date(oldest.visitDate);
+    const oldestDate = new Date(oldestVisitTime);
     const diffTime = Math.abs(new Date().getTime() - oldestDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = isNaN(diffTime) ? 0 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const diffMonths = Math.ceil(diffDays / 30);
     const relationshipAgeText =
       diffMonths > 0 ? `${diffMonths} month${diffMonths > 1 ? 's' : ''}` : 'Less than a month';
@@ -613,9 +635,14 @@ export class FieldIntelligenceRepository {
     const completedFollowups = allFollowups.filter(f => f.status === 'Completed').length;
     const followupComplianceVal =
       totalFollowups > 0 ? `${Math.round((completedFollowups / totalFollowups) * 100)}%` : '100%';
-    const missedFollowupsVal = allFollowups.filter(
-      f => f.status === 'Missed' || (f.status === 'Open' && new Date(f.followupDate) < new Date())
-    ).length;
+    const missedFollowupsVal = allFollowups.filter(f => {
+      if (f.status === 'Missed') return true;
+      if (f.status === 'Open' && f.followupDate) {
+        const d = new Date(f.followupDate);
+        return !isNaN(d.getTime()) && d < new Date();
+      }
+      return false;
+    }).length;
 
     // Competitors detail list
     const competitorRows =
@@ -630,10 +657,15 @@ export class FieldIntelligenceRepository {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-    const recentCount = reports.filter(r => new Date(r.visitDate) >= thirtyDaysAgo).length;
-    const priorCount = reports.filter(r => {
+    const recentCount = reports.filter(r => {
+      if (!r.visitDate) return false;
       const d = new Date(r.visitDate);
-      return d >= sixtyDaysAgo && d < thirtyDaysAgo;
+      return !isNaN(d.getTime()) && d >= thirtyDaysAgo;
+    }).length;
+    const priorCount = reports.filter(r => {
+      if (!r.visitDate) return false;
+      const d = new Date(r.visitDate);
+      return !isNaN(d.getTime()) && d >= sixtyDaysAgo && d < thirtyDaysAgo;
     }).length;
     const salesActivityTrend =
       recentCount > priorCount ? 'Increasing' : recentCount < priorCount ? 'Declining' : 'Stable';
@@ -641,17 +673,17 @@ export class FieldIntelligenceRepository {
     return {
       profile: {
         customerId,
-        customerName: customerDisplayName,
-        contactPerson: latest.contactPerson,
-        designation: latest.designation,
-        businessCategory: latest.businessCategory,
-        mobile: latest.mobile,
-        email: latest.email,
-        address: latest.address,
-        city: latest.city,
-        state: latest.state,
-        pinCode: latest.pinCode,
-        gstNumber: latest.gstNumber,
+        customerName: safeString(customerDisplayName, 'Unspecified Customer'),
+        contactPerson: safeString(latest.contactPerson, '-'),
+        designation: safeString(latest.designation, '-'),
+        businessCategory: safeString(latest.businessCategory, '-'),
+        mobile: safeString(latest.mobile, '-'),
+        email: safeString(latest.email, '-'),
+        address: safeString(latest.address, '-'),
+        city: safeString(latest.city, '-'),
+        state: safeString(latest.state, '-'),
+        pinCode: safeString(latest.pinCode, '-'),
+        gstNumber: safeString(latest.gstNumber, '-'),
       },
       analytics: {
         totalVisits: reports.length,
@@ -668,24 +700,22 @@ export class FieldIntelligenceRepository {
         salesActivityTrend,
       },
       sales: {
-        currentSupplier: unique(reports.map(r => r.currentSupplier)).join(', '),
-        currentPurchaseRate: latest.currentPurchaseRate,
-        expectedRate: latest.expectedRate,
-        creditDays: latest.creditDays,
-        outstandingAmount: latest.outstandingAmount,
-        monthlyConsumption: latest.monthlyConsumption,
-        expectedMonthlyBusiness: latest.expectedMonthlyBusiness,
-        potentialBusinessValue: latest.potentialBusinessValue,
+        currentSupplier: safeString(unique(reports.map(r => r.currentSupplier)).join(', '), '-'),
+        currentPurchaseRate: safeString(latest.currentPurchaseRate, '-'),
+        expectedRate: safeString(latest.expectedRate, '-'),
+        creditDays: safeString(latest.creditDays, '-'),
+        outstandingAmount: safeString(latest.outstandingAmount, '-'),
+        monthlyConsumption: safeString(latest.monthlyConsumption, '-'),
+        expectedMonthlyBusiness: safeString(latest.expectedMonthlyBusiness, '-'),
+        potentialBusinessValue: safeString(latest.potentialBusinessValue, '-'),
       },
       products: {
         requiredFinish: unique(reports.map(r => r.requiredFinish)),
-        paintRequirementTypes: flatUnique(reports.map(r => r.paintRequirementTypes || [])),
-        surfaceTypes: flatUnique(reports.map(r => r.surfaceTypes || [])),
-        applicationMethods: flatUnique(reports.map(r => r.applicationMethods || [])),
-        technicalChallenges: flatUnique(reports.map(r => r.technicalChallenges || [])),
-        requiredShade: flatUnique(
-          reports.map(r => (r.requiredShade ? r.requiredShade.split(',').map(s => s.trim()) : []))
-        ),
+        paintRequirementTypes: flatUnique(reports.map(r => safeArray(r.paintRequirementTypes))),
+        surfaceTypes: flatUnique(reports.map(r => safeArray(r.surfaceTypes))),
+        applicationMethods: flatUnique(reports.map(r => safeArray(r.applicationMethods))),
+        technicalChallenges: flatUnique(reports.map(r => safeArray(r.technicalChallenges))),
+        requiredShade: flatUnique(reports.map(r => safeSplit(r.requiredShade))),
       },
       visits: reports,
       competitorsDetail: competitorRows,

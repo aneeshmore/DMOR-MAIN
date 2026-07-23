@@ -42,9 +42,9 @@ const deserializeOrderStatus = (
     const statusesStr = match[1].trim();
     const statuses = statusesStr
       ? statusesStr
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter(Boolean)
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean)
       : [];
     const cleanNotes = notes.replace(markerRegex, '');
     return { cleanNotes, statuses };
@@ -610,9 +610,9 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
           IsActive: true,
           OpeningBalance:
             data.openingBalance !== undefined &&
-              data.openingBalance !== null &&
-              String(data.openingBalance).trim() !== '' &&
-              !isNaN(Number(data.openingBalance))
+            data.openingBalance !== null &&
+            String(data.openingBalance).trim() !== '' &&
+            !isNaN(Number(data.openingBalance))
               ? Number(data.openingBalance)
               : 0,
         };
@@ -916,7 +916,7 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
         <div className="flex flex-row gap-2 w-full sm:w-auto justify-end">
           <button
             type="button"
-            onClick={() => navigate('/operations/field-intelligence')}
+            onClick={() => navigate('/operations/smart-crm')}
             className="btn border border-gray-300 text-gray-700 hover:bg-gray-100 px-3 sm:px-6 py-2.5 rounded-lg font-semibold text-xs sm:text-sm transition-all cursor-pointer flex-1 sm:flex-initial text-center min-h-[44px] whitespace-nowrap"
           >
             Cancel
