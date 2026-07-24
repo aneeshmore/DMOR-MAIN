@@ -152,29 +152,31 @@ export function drawQualityVariancePDFTable(
     ],
     theme: 'grid',
     styles: {
-      fontSize: 8.5,
-      cellPadding: 1.2,
+      // Larger, more readable sizing (matches the optimized reference layout).
+      fontSize: 10,
+      cellPadding: 1.0,
       lineColor: [229, 231, 235],
       lineWidth: 0.1,
       textColor: colors.colorGray700,
+      valign: 'middle',
     },
     headStyles: {
       fillColor: colors.colorGray100,
       textColor: [0, 0, 0],
       fontStyle: 'bold',
-      // Smaller header font + 'visible' overflow so long headings
-      // ("Description", "Theoretical") stay on a single line.
-      fontSize: 7.5,
-      overflow: 'visible',
+      // Header font slightly smaller than the body (10) so long headings
+      // ("Description", "Theoretical", "Difference") fit on a single row at
+      // the 96mm table width without wrapping or overlapping.
+      fontSize: 9,
       valign: 'middle',
       lineWidth: 0.1,
       lineColor: [229, 231, 235],
     },
     columnStyles: {
-      0: { cellWidth: 18, halign: 'left', fontStyle: 'bold' },
-      1: { cellWidth: 25, halign: 'left' },
-      2: { cellWidth: 19, halign: 'right' },
-      3: { cellWidth: 16, halign: 'right' },
+      0: { cellWidth: 20, halign: 'left', fontStyle: 'bold' },
+      1: { cellWidth: 23, halign: 'left' },
+      2: { cellWidth: 20, halign: 'right' },
+      3: { cellWidth: 15, halign: 'right' },
       4: { cellWidth: 18, halign: 'right' },
     },
     tableWidth: rightTableWidth,

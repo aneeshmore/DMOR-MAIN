@@ -10,6 +10,7 @@ import { productApi } from '@/features/master-products/api/productApi';
 import logger from '@/utils/logger';
 import { showToast } from '@/utils/toast';
 import { getGlossInfo, getPerformanceInfo } from '../utils/glossInfo';
+import { calculateCPVC } from '../utils/formulationCalculations';
 import { handleApiError } from '@/utils/errorHandler';
 import {
   DndContext,
@@ -590,20 +591,6 @@ const ProductDevelopment = () => {
     if (totalVolume === 0) return 0;
 
     return (totalPigmentVolume / totalVolume) * 100;
-  };
-
-  const calculateCPVC = () => {
-    // Check if we have any Extenders in the formulation
-    const hasExtenders = addedItems.some(item => {
-      const rmProduct = rmMasterProducts.find(rm => rm.masterProductId === item.productId);
-      return rmProduct?.Subcategory === 'Extender';
-    });
-
-    // Return 0 if no extenders in formulation
-    if (!hasExtenders) return 0;
-
-    // Standard CPVC for alkyd/QD resin systems with calcite, talc, TiO₂
-    return 52;
   };
 
   const handleSave = async () => {
@@ -1215,7 +1202,9 @@ const ProductDevelopment = () => {
             <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
               <div className="text-xs text-[var(--text-secondary)] uppercase font-medium">CPVC</div>
               <div className="text-lg font-bold text-[var(--text-primary)]">
-                {addedItems.length > 0 ? `${calculateCPVC().toFixed(3)}%` : '--'}
+                {addedItems.length > 0
+                  ? `${calculateCPVC(addedItems, rmMasterProducts).toFixed(3)}%`
+                  : '--'}
               </div>
             </div>
             <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
@@ -1251,11 +1240,13 @@ const ProductDevelopment = () => {
           </div>
         </div>
 
-        {/* Gloss Information (derived from PVC / CPVC of the formulation) */}
+        {/* Gloss Information */}
         {addedItems.length > 0 &&
           (() => {
-            const gloss = getGlossInfo(calculatePVC());
-            const perf = getPerformanceInfo(calculatePVC(), calculateCPVC());
+            const pvcVal = calculatePVC();
+            const cpvcVal = calculateCPVC(addedItems, rmMasterProducts);
+            const gloss = getGlossInfo(pvcVal);
+            const perf = getPerformanceInfo(pvcVal, cpvcVal);
             return (
               <div className="bg-gradient-to-r from-[var(--primary-bg)] to-[var(--surface-highlight)] border border-[var(--primary)] rounded-lg p-4 mt-6">
                 <h4 className="text-sm font-semibold uppercase text-[var(--primary)] mb-3">
