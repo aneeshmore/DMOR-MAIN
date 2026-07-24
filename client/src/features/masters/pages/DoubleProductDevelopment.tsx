@@ -9,6 +9,7 @@ import { productDevelopmentApi } from '@/features/masters/api/productDevelopment
 import logger from '@/utils/logger';
 import { showToast } from '@/utils/toast';
 import { getGlossInfo, getPerformanceInfo } from '../utils/glossInfo';
+import { calculateCPVC } from '../utils/formulationCalculations';
 import { handleApiError } from '@/utils/errorHandler';
 import {
   DndContext,
@@ -668,23 +669,7 @@ const DoubleProductDevelopment = () => {
    * For typical alkyd/QD resin systems with Calcite + Talc + Rutile TiO₂:
    * - CPVC range: 50-55%
    * - Using 52% as the standard value
-   *
-   * Only uses Extender subcategory; returns 0 if no extenders present
    */
-  const calculateCPVC = (items: RawMaterialItem[]) => {
-    // Check if we have any Extenders in the formulation
-    const hasExtenders = items.some(item => {
-      const rmProduct = rmMasterProducts.find(rm => rm.masterProductId === item.productId);
-      return rmProduct?.Subcategory === 'Extender';
-    });
-
-    // Return 0 if no extenders in formulation
-    if (!hasExtenders) return 0;
-
-    // Standard CPVC for alkyd/QD resin systems with calcite, talc, TiO₂
-    return 52;
-  };
-
   // Calculate mixture values (weighted by ratios)
   const calculateMixtureValues = () => {
     const baseRatio = parseFloat(ratioBase) || 0;
@@ -703,17 +688,32 @@ const DoubleProductDevelopment = () => {
     const hardenerCost = calculateProductionCost(hardenerItems);
     const basePvc = calculatePVC(baseItems);
     const hardenerPvc = calculatePVC(hardenerItems);
-    const baseCpvc = calculateCPVC(baseItems);
-    const hardenerCpvc = calculateCPVC(hardenerItems);
+    const baseCpvc = calculateCPVC(baseItems, rmMasterProducts);
+    const hardenerCpvc = calculateCPVC(hardenerItems, rmMasterProducts);
 
     const baseWeight = baseRatio / totalRatio;
     const hardenerWeight = hardenerRatio / totalRatio;
+
+    // CPVC is an intrinsic property of the pigment/extender system.
+    // It must be calculated by pooling and scaling the raw items,
+    // NOT by a simple weighted average of the pre-calculated CPVC values.
+    const scaledBaseItems = baseItems.map(item => ({
+      ...item,
+      percentage: String(parseFloat(String(item.percentage || '0')) * baseWeight),
+    }));
+    const scaledHardenerItems = hardenerItems.map(item => ({
+      ...item,
+      percentage: String(parseFloat(String(item.percentage || '0')) * hardenerWeight),
+    }));
+    const mixtureCpvc = calculateCPVC(
+      [...scaledBaseItems, ...scaledHardenerItems],
+      rmMasterProducts
+    );
 
     const mixtureSvr = baseSvr * baseWeight + hardenerSvr * hardenerWeight;
     const mixtureDensity = baseDensity * baseWeight + hardenerDensity * hardenerWeight;
     const mixtureCost = baseCost * baseWeight + hardenerCost * hardenerWeight;
     const mixturePvc = basePvc * baseWeight + hardenerPvc * hardenerWeight;
-    const mixtureCpvc = baseCpvc * baseWeight + hardenerCpvc * hardenerWeight;
 
     return { mixtureSvr, mixtureDensity, mixtureCost, mixturePvc, mixtureCpvc };
   };
@@ -1617,7 +1617,7 @@ const DoubleProductDevelopment = () => {
                 <div className="text-lg font-bold text-[var(--text-primary)]">
                   {linkedHardenerId
                     ? `${calculateMixtureValues().mixtureCpvc.toFixed(2)}%`
-                    : `${calculateCPVC(baseItems).toFixed(2)}%`}
+                    : `${calculateCPVC(baseItems, rmMasterProducts).toFixed(2)}%`}
                 </div>
               </div>
               <div className="bg-[var(--surface)] rounded-lg p-3 border border-[var(--border)]">
@@ -1653,7 +1653,7 @@ const DoubleProductDevelopment = () => {
               : calculatePVC(baseItems);
             const cpvcVal = linkedHardenerId
               ? calculateMixtureValues().mixtureCpvc
-              : calculateCPVC(baseItems);
+              : calculateCPVC(baseItems, rmMasterProducts);
             const gloss = getGlossInfo(pvcVal);
             const perf = getPerformanceInfo(pvcVal, cpvcVal);
             return (
