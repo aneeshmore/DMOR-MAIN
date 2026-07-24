@@ -218,13 +218,13 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
           <table className="w-full text-xs border-collapse border border-gray-300">
             <thead className="bg-gray-100">
               <tr>
-                <th className="border border-gray-300 px-2 py-1 text-left font-bold">
+                <th className="border border-gray-300 px-3 py-2 text-left font-bold">
                   Description
                 </th>
-                <th className="border border-gray-300 px-2 py-1 text-left">Parameter</th>
-                <th className="border border-gray-300 px-2 py-1 text-right">Theoretical</th>
-                <th className="border border-gray-300 px-2 py-1 text-right">Actual</th>
-                <th className="border border-gray-300 px-2 py-1 text-right">Difference</th>
+                <th className="border border-gray-300 px-3 py-2 text-left">Parameter</th>
+                <th className="border border-gray-300 px-3 py-2 text-right">Theoretical</th>
+                <th className="border border-gray-300 px-3 py-2 text-right">Actual</th>
+                <th className="border border-gray-300 px-3 py-2 text-right">Difference</th>
               </tr>
             </thead>
             <tbody>
@@ -294,59 +294,59 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                   <>
                     {/* Quality Section */}
                     <tr>
-                      <td className="border border-gray-300 px-2 py-1 font-bold bg-gray-50">
+                      <td className="border border-gray-300 px-3 py-2 font-bold bg-gray-50">
                         Quality
                       </td>
-                      <td className="border border-gray-300 px-2 py-1">Density</td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2">Density</td>
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {stdDensity > 0 ? stdDensity.toFixed(3) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {actDensity > 0 ? actDensity.toFixed(3) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {densityVariance.toFixed(3)}
                       </td>
                     </tr>
                     <tr className="border-b-2 border-gray-600">
-                      <td className="border border-gray-300 px-2 py-1"></td>
-                      <td className="border border-gray-300 px-2 py-1">Viscosity</td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2"></td>
+                      <td className="border border-gray-300 px-3 py-2">Viscosity</td>
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {stdViscosity > 0 ? stdViscosity : '-'}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {actViscosity > 0 ? actViscosity : '-'}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {viscosityVariance.toFixed(2)}
                       </td>
                     </tr>
                     {/* Quantity Section */}
                     <tr>
-                      <td className="border border-gray-300 px-2 py-1 font-bold bg-gray-50">
+                      <td className="border border-gray-300 px-3 py-2 font-bold bg-gray-50">
                         Quantity
                       </td>
-                      <td className="border border-gray-300 px-2 py-1">Filling Density</td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2">Filling Density</td>
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {stdFillDensity > 0 ? stdFillDensity.toFixed(3) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {actFillDensity > 0 ? actFillDensity.toFixed(3) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {fillDensityVariance.toFixed(3)}
                       </td>
                     </tr>
                     <tr>
-                      <td className="border border-gray-300 px-2 py-1"></td>
-                      <td className="border border-gray-300 px-2 py-1">Weight (Kg)</td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2"></td>
+                      <td className="border border-gray-300 px-3 py-2">Weight (Kg)</td>
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {stdWeight > 0 ? stdWeight.toFixed(3) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {actWeight > 0 ? actWeight.toFixed(3) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {weightVariance.toFixed(2)}
                       </td>
                     </tr>
@@ -409,12 +409,12 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
               <table className="w-full text-xs border-collapse border border-gray-300">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="border border-gray-300 px-2 py-1 text-left">Seq</th>
-                    <th className="border border-gray-300 px-2 py-1 text-left">Product</th>
-                    <th className="border border-gray-300 px-2 py-1 text-right">Percentage (%)</th>
-                    <th className="border border-gray-300 px-2 py-1 text-right">Actual</th>
-                    <th className="border border-gray-300 px-2 py-1 text-right">Rate</th>
-                    <th className="border border-gray-300 px-2 py-1 text-right">Amount</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left">Seq</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left">Product</th>
+                    <th className="border border-gray-300 px-3 py-2 text-right">Percentage (%)</th>
+                    <th className="border border-gray-300 px-3 py-2 text-right">Actual</th>
+                    <th className="border border-gray-300 px-3 py-2 text-right">Rate</th>
+                    <th className="border border-gray-300 px-3 py-2 text-right">Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -424,34 +424,34 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                     return (
                       <tr key={`reg-${idx}`}>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {idx + 1}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {isUnderlinedOrBold ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {formatNumberForPreview(rm.computedPercentage)}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {parseNumber(rm.actualQty ?? rm.percentage ?? '0') === 0
                             ? '0.00*'
                             : formatNumberForPreview(rm.actualQty || rm.percentage)}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {formatNumberForPreview(rm.unitPrice)}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {formatNumberForPreview(
                             parseNumber(rm.actualQty ?? rm.percentage ?? '0') *
@@ -473,34 +473,34 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                     return (
                       <tr key={`add-${idx}`}>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-center ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {regular.length + idx + 1}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {isUnderlinedOrBold ? <u>{rm.rawMaterialName}</u> : rm.rawMaterialName}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {pctVal}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {parseNumber(rm.actualQty ?? rm.percentage ?? '0') === 0
                             ? '0.00*'
                             : formatNumberForPreview(rm.actualQty || rm.percentage)}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {formatNumberForPreview(rm.unitPrice)}
                         </td>
                         <td
-                          className={`border border-gray-300 px-2 py-1 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
+                          className={`border border-gray-300 px-3 py-2 text-right ${isUnderlinedOrBold ? 'font-bold' : ''}`}
                         >
                           {formatNumberForPreview(
                             parseNumber(rm.actualQty ?? rm.percentage ?? '0') *
@@ -515,17 +515,17 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                 </tbody>
                 <tfoot className="bg-[var(--color-success)] text-white font-bold">
                   <tr>
-                    <td className="border border-gray-300 px-2 py-1" colSpan={2}>
+                    <td className="border border-gray-300 px-3 py-2" colSpan={2}>
                       Total
                     </td>
-                    <td className="border border-gray-300 px-2 py-1 text-right">
+                    <td className="border border-gray-300 px-3 py-2 text-right">
                       {formatNumberForPreview(totalPercentage)}
                     </td>
-                    <td className="border border-gray-300 px-2 py-1 text-right">
+                    <td className="border border-gray-300 px-3 py-2 text-right">
                       {formatNumberForPreview(totalActual)}
                     </td>
-                    <td className="border border-gray-300 px-2 py-1 text-right">&nbsp;</td>
-                    <td className="border border-gray-300 px-2 py-1 text-right">
+                    <td className="border border-gray-300 px-3 py-2 text-right">&nbsp;</td>
+                    <td className="border border-gray-300 px-3 py-2 text-right">
                       {formatNumberForPreview(totalAmount)}
                     </td>
                   </tr>
@@ -546,11 +546,11 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
           <table className="w-full text-xs border-collapse border border-gray-300">
             <thead className="bg-gray-100">
               <tr>
-                <th className="border border-gray-300 px-2 py-1 text-left">Packing</th>
-                <th className="border border-gray-300 px-2 py-1 text-right">QTY</th>
-                <th className="border border-gray-300 px-2 py-1 text-right">ACT QTY</th>
-                <th className="border border-gray-300 px-2 py-1 text-center">LTR</th>
-                <th className="border border-gray-300 px-2 py-1 text-center">KG</th>
+                <th className="border border-gray-300 px-3 py-2 text-left">Packing</th>
+                <th className="border border-gray-300 px-3 py-2 text-right">Qty</th>
+                <th className="border border-gray-300 px-3 py-2 text-right">Filled</th>
+                <th className="border border-gray-300 px-3 py-2 text-right">LTR</th>
+                <th className="border border-gray-300 px-3 py-2 text-right">KG</th>
               </tr>
             </thead>
             <tbody>
@@ -577,21 +577,21 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                   })
                   .map((sp, idx) => (
                     <tr key={idx}>
-                      <td className="border border-gray-300 px-2 py-1">{sp.productName}</td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2">{sp.productName}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {formatNumberForPreview(sp.batchQty)}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {formatNumberForPreview(sp.actualQty)}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {(() => {
                           const qty = parseFloat(String(sp.actualQty || '0'));
                           const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
                           return formatNumberForPreview(qty * capacity);
                         })()}
                       </td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {(() => {
                           const qty = parseFloat(String(sp.actualQty || '0'));
                           const capacity = sp.capacity ? parseFloat(sp.capacity.toString()) : 0;
@@ -604,14 +604,14 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                   ))
               ) : batch.productName ? (
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1">{batch.productName}</td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2">{batch.productName}</td>
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     {formatNumberForPreview(batch.plannedQuantity)}
                   </td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     {formatNumberForPreview(batch.actualQuantity)}
                   </td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     {(() => {
                       const qty = parseFloat(String(batch.actualQuantity || '0'));
                       const capacity = (batch as any).capacity
@@ -620,7 +620,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                       return formatNumberForPreview(qty * capacity);
                     })()}
                   </td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     {(() => {
                       const qty = parseFloat(String(batch.actualQuantity || '0'));
                       const capacity = (batch as any).capacity
@@ -636,8 +636,8 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
             </tbody>
             <tfoot className="bg-[var(--color-success)] text-white font-bold">
               <tr>
-                <td className="border border-gray-300 px-2 py-1">Total</td>
-                <td className="border border-gray-300 px-2 py-1 text-right">
+                <td className="border border-gray-300 px-3 py-2">Total</td>
+                <td className="border border-gray-300 px-3 py-2 text-right">
                   {formatNumberForPreview(
                     (batch.subProducts || [])
                       .filter(sp => {
@@ -654,7 +654,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                       .reduce((sum, sp) => sum + parseFloat(sp.batchQty || '0'), 0)
                   )}
                 </td>
-                <td className="border border-gray-300 px-2 py-1 text-right">
+                <td className="border border-gray-300 px-3 py-2 text-right">
                   {formatNumberForPreview(
                     (batch.subProducts || [])
                       .filter(sp => {
@@ -671,7 +671,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                       .reduce((sum, sp) => sum + parseFloat(String(sp.actualQty) || '0'), 0)
                   )}
                 </td>
-                <td className="border border-gray-300 px-2 py-1 text-right">
+                <td className="border border-gray-300 px-3 py-2 text-right">
                   {formatNumberForPreview(
                     (batch.subProducts || [])
                       .filter(sp => {
@@ -692,7 +692,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                       }, 0)
                   )}
                 </td>
-                <td className="border border-gray-300 px-2 py-1 text-right">
+                <td className="border border-gray-300 px-3 py-2 text-right">
                   {formatNumberForPreview(
                     (batch.subProducts || [])
                       .filter(sp => {
@@ -743,8 +743,8 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
             <table className="w-full text-xs border-collapse border border-gray-300">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="border border-gray-300 px-2 py-1 text-left">Packaging Name</th>
-                  <th className="border border-gray-300 px-2 py-1 text-right">Actual Qty</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left">Packaging Name</th>
+                  <th className="border border-gray-300 px-3 py-2 text-right">Actual Qty</th>
                 </tr>
               </thead>
               <tbody>
@@ -758,8 +758,8 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                   })
                   .map((pm, idx) => (
                     <tr key={idx}>
-                      <td className="border border-gray-300 px-2 py-1">{pm.packagingName}</td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
+                      <td className="border border-gray-300 px-3 py-2">{pm.packagingName}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {formatNumberForPreview(pm.actualQty)}
                       </td>
                     </tr>
@@ -767,8 +767,8 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
               </tbody>
               <tfoot className="bg-[var(--color-success)] text-white font-bold">
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1">Total</td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2">Total</td>
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     {formatNumberForPreview(
                       batch.packagingMaterials
                         .filter(pm => {
@@ -797,28 +797,28 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
             <table className="w-full text-xs border-collapse border border-gray-300">
               <tbody>
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1">Total Ingredients Amount</td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2">Total Ingredients Amount</td>
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     ₹{formatCurrency2(totalAmount)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1">Total Ingredients Actual</td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2">Total Ingredients Actual</td>
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     {totalActual.toFixed(3)} Kg
                   </td>
                 </tr>
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1">Actual Filling Density</td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2">Actual Filling Density</td>
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     {actFillDensity.toFixed(3)}
                   </td>
                 </tr>
               </tbody>
               <tfoot className="bg-[var(--color-success)] text-white font-bold">
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1">Raw Material Cost Per Unit</td>
-                  <td className="border border-gray-300 px-2 py-1 text-right">
+                  <td className="border border-gray-300 px-3 py-2">Raw Material Cost Per Unit</td>
+                  <td className="border border-gray-300 px-3 py-2 text-right">
                     ₹{formatCurrency2(costPerUnit)} / Ltr
                   </td>
                 </tr>
@@ -1016,7 +1016,7 @@ const BatchProductionReport = () => {
 
       // Table Titles for Top Section
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
+      doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       doc.text('Batch Details', margin, infoStartY - 2);
       doc.text('Quality & Variance Analysis', qualityTableX, infoStartY - 2);
@@ -1165,7 +1165,7 @@ const BatchProductionReport = () => {
 
       // Table Title for Ingredients
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
+      doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       doc.text('Ingredients Formulation', margin, tableY - 2);
 
@@ -1177,8 +1177,8 @@ const BatchProductionReport = () => {
         body: ingredientsBody,
         theme: 'grid',
         styles: {
-          fontSize: 8.5,
-          cellPadding: 1.2,
+          fontSize: 10,
+          cellPadding: 0.8,
           lineColor: [229, 231, 235],
           lineWidth: 0.1,
           textColor: colorGray700,
@@ -1189,17 +1189,17 @@ const BatchProductionReport = () => {
           fillColor: colorGray100,
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 8.5,
+          fontSize: 10,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
         columnStyles: {
           0: { cellWidth: 8, halign: 'center' },
-          1: { cellWidth: 32, halign: 'left' },
-          2: { cellWidth: 15, halign: 'right' },
+          1: { cellWidth: 25, halign: 'left' },
+          2: { cellWidth: 18, halign: 'right' },
           3: { cellWidth: 12, halign: 'right' },
           4: { cellWidth: 11, halign: 'right' },
-          5: { cellWidth: 13, halign: 'right' },
+          5: { cellWidth: 17, halign: 'right' },
         },
         tableWidth: 91,
         foot: [
@@ -1216,7 +1216,7 @@ const BatchProductionReport = () => {
           fillColor: colorSuccess,
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 8.5,
+          fontSize: 10,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
@@ -1281,7 +1281,7 @@ const BatchProductionReport = () => {
       let rightStackY = tableY;
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
+      doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       doc.text('Packing Table', rightTableX, rightStackY - 2);
 
@@ -1292,8 +1292,8 @@ const BatchProductionReport = () => {
         body: subProductsBody,
         theme: 'grid',
         styles: {
-          fontSize: 8.5,
-          cellPadding: 1.2,
+          fontSize: 10,
+          cellPadding: 0.8,
           lineColor: [229, 231, 235],
           lineWidth: 0.1,
           textColor: colorGray700,
@@ -1303,7 +1303,7 @@ const BatchProductionReport = () => {
           fillColor: colorGray100,
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 8.5,
+          fontSize: 10,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
@@ -1328,12 +1328,16 @@ const BatchProductionReport = () => {
           fillColor: colorSuccess,
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 8.5,
+          fontSize: 10,
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
         showFoot: 'lastPage',
         didParseCell: data => {
+          // Right-align all header cells except Packing (col 0)
+          if (data.section === 'head' && data.column.index > 0) {
+            data.cell.styles.halign = 'right';
+          }
           if (data.section === 'foot') {
             if (data.column.index === 0) {
               data.cell.styles.halign = 'left';
@@ -1354,7 +1358,7 @@ const BatchProductionReport = () => {
 
       if (filteredPackagingMaterials.length > 0) {
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
+        doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
         doc.text('Packaging Materials Used', rightTableX, rightStackY - 2);
 
@@ -1372,7 +1376,7 @@ const BatchProductionReport = () => {
           body: packagingBody,
           theme: 'grid',
           styles: {
-            fontSize: 8.5,
+            fontSize: 10,
             cellPadding: 1.2,
             lineColor: [229, 231, 235],
             lineWidth: 0.1,
@@ -1383,7 +1387,7 @@ const BatchProductionReport = () => {
             fillColor: colorGray100,
             textColor: [0, 0, 0],
             fontStyle: 'bold',
-            fontSize: 8.5,
+            fontSize: 10,
             lineWidth: 0.1,
             lineColor: [229, 231, 235],
           },
@@ -1397,7 +1401,7 @@ const BatchProductionReport = () => {
             fillColor: colorSuccess,
             textColor: [255, 255, 255],
             fontStyle: 'bold',
-            fontSize: 8.5,
+            fontSize: 10,
             lineWidth: 0.1,
             lineColor: [229, 231, 235],
           },
@@ -1421,7 +1425,7 @@ const BatchProductionReport = () => {
         rightStackY += 8;
         doc.setPage(doc.getNumberOfPages());
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
+        doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
         doc.text('Raw Material Cost Per Unit', rightTableX, rightStackY - 2);
         autoTable(doc, {
@@ -1437,22 +1441,22 @@ const BatchProductionReport = () => {
           ],
           theme: 'grid',
           styles: {
-            fontSize: 8.5,
-            cellPadding: 1.2,
+            fontSize: 10,
+            cellPadding: 0.8,
             lineColor: [229, 231, 235],
             lineWidth: 0.1,
             textColor: colorGray700,
           },
           columnStyles: {
-            0: { cellWidth: 60, halign: 'left', fontStyle: 'bold' },
-            1: { cellWidth: 26, halign: 'right' },
+            0: { cellWidth: 54, halign: 'left', fontStyle: 'bold' },
+            1: { cellWidth: 32, halign: 'right' },
           },
           tableWidth: rightTableWidth,
           footStyles: {
             fillColor: colorSuccess,
             textColor: [255, 255, 255],
             fontStyle: 'bold',
-            fontSize: 8.5,
+            fontSize: 10,
             lineWidth: 0.1,
             lineColor: [229, 231, 235],
           },
