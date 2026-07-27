@@ -194,6 +194,17 @@ const NewBatchProductionReport = () => {
         `Batch Production Report No.: ${batch.batchNo}`
       );
 
+      // Machine No. badge — left of company name (drawn at y=15, centred at x=25)
+      if (batch.machineNo) {
+        doc.setDrawColor(31, 41, 55);
+        doc.setLineWidth(0.5);
+        doc.circle(25, 13.5, 4.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(31, 41, 55);
+        doc.text(String(batch.machineNo), 25, 14.6, { align: 'center' });
+      }
+
       // Render the Date on the SAME line as the report-number title, right-aligned.
       // (addPdfHeader draws the title at headerEndY - 5.)
       doc.setFontSize(11);
@@ -1714,7 +1725,36 @@ const NewBatchProductionReport = () => {
         >
           <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 max-w-4xl mx-auto printable-content">
             {/* Header */}
-            <div className="text-center mb-4 border-b pb-4">
+            <div className="mb-4 border-b pb-4 flex items-center justify-center relative">
+              {previewBatch.machineNo && (
+                <div className="absolute left-0 flex flex-col items-center">
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      border: '2px solid #1f2937',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#1f2937',
+                        textAlign: 'center',
+                        lineHeight: 1,
+                        wordBreak: 'break-all',
+                        maxWidth: 24,
+                      }}
+                    >
+                      {previewBatch.machineNo}
+                    </span>
+                  </div>
+                </div>
+              )}
               <h1 className="text-2xl font-bold text-gray-900">
                 {companyInfo?.companyName || 'MOREX TECHNOLOGIES'}
               </h1>

@@ -58,6 +58,7 @@ export const scheduleBatchSchema = z.object({
   expectedDeliveryDate: z.string().optional(),
   pmRemarks: z.string().optional(),
   labourNames: z.string().optional(),
+  machineNo: z.string().max(20).optional(),
 });
 
 export const updateBatchSchema = z.object({
@@ -68,6 +69,7 @@ export const updateBatchSchema = z.object({
   viscosity: z.string().optional(),
   supervisorId: z.number().int().positive().optional(),
   labourNames: z.string().optional(),
+  machineNo: z.string().max(20).optional(),
   remarks: z.string().optional(),
 });
 

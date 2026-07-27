@@ -19,8 +19,10 @@ import {
   batchMaterials,
   inventoryTransactions,
   masterProductRM,
+  productionBatch,
 } from '../../db/schema/index.js';
 import { eq, and, inArray } from 'drizzle-orm';
+import { ReportsService } from '../reports/service.js';
 
 export class ProductionManagerService {
   constructor() {
@@ -207,6 +209,7 @@ export class ProductionManagerService {
             startedAt: new Date(),
             supervisorId: batchData.supervisorId,
             labourNames: batchData.labourNames || null,
+            machineNo: batchData.machineNo || null,
             createdBy: performedBy,
           });
 
@@ -1626,6 +1629,25 @@ export class ProductionManagerService {
         logger.error(
           'Failed to synchronize inventory transactions on batch completion:',
           syncError
+        );
+      }
+
+      // Capture an immutable report snapshot from the just-completed (committed)
+      // batch, so the Batch Production Report and Batch Report For Accounts never
+      // change when master data is edited later. Non-fatal: never block completion.
+      try {
+        const snapshot = await new ReportsService().buildBatchReportSnapshot(batchId);
+        if (snapshot) {
+          await db
+            .update(productionBatch)
+            .set({ reportSnapshot: snapshot })
+            .where(eq(productionBatch.batchId, batchId));
+          logger.info('Captured immutable report snapshot for batch', { batchId });
+        }
+      } catch (snapErr) {
+        logger.error(
+          'Failed to capture batch report snapshot (reports will fall back to live data):',
+          { batchId, error: snapErr.message }
         );
       }
 

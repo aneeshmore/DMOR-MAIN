@@ -563,6 +563,7 @@ export class ProductionManagerRepository {
         ),
         pmRemarks: sql`''`.as('pm_remarks'), // Placeholder for now
         labourNames: productionBatch.labourNames,
+        machineNo: productionBatch.machineNo,
         timeRequired: productionBatch.timeRequiredHours,
         createdAt: productionBatch.createdAt,
         startedAt: productionBatch.startedAt,
@@ -945,7 +946,7 @@ export class ProductionManagerRepository {
       if (product.length > 0) {
         await db.insert(inventoryTransactions).values({
           productId: product[0].productId,
-          masterProductId: masterProductId,
+          masterProductId,
           transactionType: 'Production Consumption',
           quantity: -Math.abs(quantity), // Negative for consumption
           referenceType: 'Batch',
