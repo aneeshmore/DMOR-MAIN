@@ -55,6 +55,8 @@ export interface MasterProduct {
   AvailableQuantity?: number;
   Subcategory?: 'General' | 'Hardener' | 'Base' | 'Resin' | 'Extender';
   HardenerID?: number;
+  Viscosity?: number | null;
+  WaterPercentage?: number | null;
 
   // RM-specific fields
   RMDensity?: number;

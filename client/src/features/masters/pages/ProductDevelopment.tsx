@@ -276,6 +276,17 @@ const ProductDevelopment = () => {
 
   const loadExistingRecipe = async (masterProductId: number) => {
     logger.info(`Checking for existing recipe for Master Product ID: ${masterProductId}`);
+    // Theoretical viscosity saved on the master product (same value the Batch
+    // Report shows) — used as a fallback when the dev record has no viscosity.
+    const selectedFg = masterProducts.find(
+      p => Number(p.masterProductId) === Number(masterProductId)
+    );
+    const fgViscosity =
+      selectedFg?.Viscosity !== null &&
+      selectedFg?.Viscosity !== undefined &&
+      !isNaN(Number(selectedFg?.Viscosity))
+        ? String(selectedFg?.Viscosity)
+        : '';
     try {
       // 1. Try to get from Product Development History first (Latest Draft/Saved)
       const devRes = await productDevelopmentApi.getByMasterProductId(masterProductId);
@@ -310,6 +321,13 @@ const ProductDevelopment = () => {
         setPerPercent(devData.percentageValue || '');
         setCalculationBasis(devData.calculationBasis || 'Ltr');
         setNotes(devData.notes || '');
+        // Restore viscosity: prefer the dev record's value, else the master
+        // product's saved (theoretical) viscosity, else empty.
+        setViscosity(
+          devData.viscosity !== null && devData.viscosity !== undefined && devData.viscosity !== ''
+            ? String(devData.viscosity)
+            : fgViscosity
+        );
 
         showToast.success('Loaded saved product development recipe');
         return; // Exit if found
@@ -365,11 +383,13 @@ const ProductDevelopment = () => {
         }
 
         setAddedItems(mappedItems);
+        // No dev record, but still show the product's saved theoretical viscosity.
+        setViscosity(fgViscosity);
         showToast.success('Existing BOM loaded (No dev record found)');
       } else {
         setAddedItems([]);
         setDensity('');
-        setViscosity('');
+        setViscosity(fgViscosity);
         setProductionCost('');
         setPerPercent('');
         setCalculationBasis('Ltr');

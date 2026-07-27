@@ -303,8 +303,10 @@ const NewBatchProductionReport = () => {
       const processedAdditional = [];
 
       for (const rm of allIngredients) {
-        const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
-        const isReduced = !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
+        // Highlight only manual Add/Reduce; the Water % auto-adjustment must not flag
+        // rows. Manual reductions aren't distinguishable from that adjustment in stored
+        // data, so regular rows are never flagged; adds are flagged via isAdditional.
+        const isReduced = false;
         const storedActualQty = parseNumber(rm.actualQty);
         const effectiveActual =
           storedActualQty === 0 && parseNumber(rm.percentage) > 0
@@ -1568,9 +1570,10 @@ const NewBatchProductionReport = () => {
                     const processedAdditional = [];
 
                     for (const rm of rawMaterialsList) {
-                      const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
-                      const isReduced =
-                        !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
+                      // Highlight only manual Add/Reduce; Water % auto-adjustment must
+                      // not flag rows (manual reductions aren't distinguishable from it
+                      // in stored data). Adds are flagged via isAdditional.
+                      const isReduced = false;
                       const storedActualQty = parseNumber(rm.actualQty);
                       // Trace recovery: DB scale-4 storage truncates tiny quantities to 0.0000;
                       // the recipe percentage survives, so rebuild the true actual quantity.
@@ -1857,8 +1860,9 @@ const NewBatchProductionReport = () => {
                         return s + ltr * density;
                       }, 0);
 
+                      const roundedActFillDensity = parseFloat(actFillDensity.toFixed(3));
                       const stdWeight = totalActualWeight;
-                      const actWeight = totalKg;
+                      const actWeight = totalLtr * roundedActFillDensity;
                       const weightVariance = actWeight - stdWeight;
 
                       return (
@@ -1940,9 +1944,10 @@ const NewBatchProductionReport = () => {
                 const processedAdditional = [];
 
                 for (const rm of rms) {
-                  const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
-                  const isReduced =
-                    !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
+                  // Highlight only manual Add/Reduce; Water % auto-adjustment must not
+                  // flag rows (manual reductions aren't distinguishable from it in stored
+                  // data). Adds are flagged via isAdditional.
+                  const isReduced = false;
                   const storedActualQty = parseNumber(rm.actualQty);
                   // Trace recovery: DB scale-4 storage truncates tiny quantities to 0.0000;
                   // the recipe percentage survives, so rebuild the true actual quantity.

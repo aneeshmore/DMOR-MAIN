@@ -286,8 +286,9 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                   return s + ltr * density;
                 }, 0);
 
+                const roundedActFillDensity = parseFloat(actFillDensity.toFixed(3));
                 const stdWeight = totalActualWeight;
-                const actWeight = totalKg;
+                const actWeight = totalLtr * roundedActFillDensity;
                 const weightVariance = actWeight - stdWeight;
 
                 return (
@@ -369,8 +370,12 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
           const processedAdditional = [];
 
           for (const rm of rms) {
-            const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
-            const isReduced = !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
+            // Highlight ONLY manual Add/Reduce transactions — never a recipe-vs-actual
+            // comparison. The Water % auto-adjustment proportionally reduces every
+            // material, which would otherwise flag them all. Manual reductions are not
+            // distinguishable from that adjustment in stored data, so regular rows are
+            // never flagged; manual additions are highlighted via isAdditional.
+            const isReduced = false;
             const computedPercentage = (parseNumber(rm.actualQty) / plannedQtyTotal) * 100;
 
             const processedObj = {
@@ -1050,8 +1055,10 @@ const BatchProductionReport = () => {
       const processedAdditional = [];
 
       for (const rm of allIngredients) {
-        const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
-        const isReduced = !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
+        // Highlight only manual Add/Reduce; the Water % auto-adjustment must not flag
+        // rows. Manual reductions aren't distinguishable from that adjustment in stored
+        // data, so regular rows are never flagged; adds are flagged via isAdditional.
+        const isReduced = false;
         const storedActualQty = parseNumber(rm.actualQty);
         const effectiveActual =
           storedActualQty === 0 && parseNumber(rm.percentage) > 0
@@ -2355,9 +2362,10 @@ const BatchProductionReport = () => {
                     const processedAdditional = [];
 
                     for (const rm of rawMaterialsList) {
-                      const plannedQty = (parseNumber(rm.percentage) / 100) * plannedQtyTotal;
-                      const isReduced =
-                        !rm.isAdditional && parseNumber(rm.actualQty) < plannedQty - 0.001;
+                      // Highlight only manual Add/Reduce; Water % auto-adjustment must
+                      // not flag rows (manual reductions aren't distinguishable from it
+                      // in stored data). Adds are flagged via isAdditional.
+                      const isReduced = false;
                       const computedPercentage =
                         (parseNumber(rm.actualQty) / plannedQtyTotal) * 100;
 

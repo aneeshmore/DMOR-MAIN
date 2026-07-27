@@ -27,7 +27,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { SearchableSelect, Button } from '@/components/ui';
+import { SearchableSelect, Button, Input } from '@/components/ui';
 import { showToast } from '@/utils/toast';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -207,7 +207,9 @@ export default function ScheduleBatchPage() {
 
   // Complete Batch Form State (Moved from Modal)
   const [actualQuantity, setActualQuantity] = useState<number | ''>('');
-  const [actualDensity, setActualDensity] = useState<number | ''>('');
+  // Raw string so decimals type naturally ("0.", "1.2") and backspace works;
+  // converted with Number() at every numeric use-site and at submit.
+  const [actualDensity, setActualDensity] = useState<string>('');
   const [actualViscosity, setActualViscosity] = useState<number | ''>('');
 
   // Planned Values (Reference for UI)
@@ -258,8 +260,8 @@ export default function ScheduleBatchPage() {
         const density =
           fillingDensity > 0
             ? fillingDensity
-            : actualDensity && actualDensity > 0
-              ? actualDensity
+            : Number(actualDensity) > 0
+              ? Number(actualDensity)
               : 1;
         return sum + qty * capacityLtr * density;
       }
@@ -1666,9 +1668,7 @@ export default function ScheduleBatchPage() {
       const capacityLtr = parseFloat(sku.packagingCapacityLtr || '0');
       if (capacityLtr > 0) {
         const density =
-          actualDensity && actualDensity > 0
-            ? actualDensity
-            : parseFloat(sku.fillingDensity || '1');
+          Number(actualDensity) > 0 ? Number(actualDensity) : parseFloat(sku.fillingDensity || '1');
         return sum + qty * capacityLtr * density;
       }
 
@@ -2091,24 +2091,20 @@ export default function ScheduleBatchPage() {
                           </span>
                         </div>
                         <input
-                          type="number"
-                          step="0.001"
+                          type="text"
+                          inputMode="decimal"
                           value={actualDensity}
                           onChange={e => {
-                            const val = e.target.value;
-                            const numVal = val === '' ? '' : parseFloat(val);
-
-                            if (numVal === 0) {
-                              showToast.error('Enter a non-zero value for Actual Density'); // Display toast
-                              return; // Do not update state with 0
+                            const v = e.target.value;
+                            // Allow empty, digits, and a single decimal point — including
+                            // partial values while typing ("0.", ".5", "1.2"). Validation
+                            // of the final value happens on submit, so we never block
+                            // intermediate keystrokes here.
+                            if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                              setActualDensity(v);
                             }
-
-                            setActualDensity(numVal);
                           }}
-                          onWheel={e => e.preventDefault()}
-                          onKeyDown={e => {
-                            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
-                          }}
+                          placeholder="e.g. 1.250"
                           className="w-full px-3 py-2 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
                           required
                         />
@@ -2327,6 +2323,7 @@ export default function ScheduleBatchPage() {
                           <SearchableSelect
                             label="Select Raw Material"
                             placeholder="Search raw material..."
+                            className="[&_input]:h-9 [&_input]:py-1.5"
                             options={allMasterProducts
                               .filter((p: any) => {
                                 // Only show RM type products
@@ -2361,11 +2358,9 @@ export default function ScheduleBatchPage() {
                             onCreateNew={undefined}
                           />
                         </div>
-                        <div className="w-full sm:w-32">
-                          <label className="block text-xs text-[var(--text-secondary)] mb-1">
-                            Quantity (kg)
-                          </label>
-                          <input
+                        <div className="w-full sm:w-36">
+                          <Input
+                            label="Quantity (kg)"
                             type="number"
                             step="0.000001"
                             min="0"
@@ -2376,17 +2371,17 @@ export default function ScheduleBatchPage() {
                               if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
                             }}
                             placeholder="0.000"
-                            className="w-full px-3 py-2 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
+                            className="h-9 py-1.5"
                           />
                         </div>
-                        <button
+                        <Button
                           type="button"
                           onClick={handleAddExtraMaterial}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-medium"
+                          className="h-9 w-28 shrink-0 bg-green-600 hover:bg-green-700 text-white border-transparent"
+                          leftIcon={<Plus className="w-4 h-4" />}
                         >
-                          <Plus className="w-4 h-4" />
                           Add
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
@@ -2408,6 +2403,7 @@ export default function ScheduleBatchPage() {
                           <SearchableSelect
                             label="Select Raw Material"
                             placeholder="Search raw material to reduce..."
+                            className="[&_input]:h-9 [&_input]:py-1.5"
                             options={actualMaterials
                               .filter(mat => mat.plannedQuantity > 0)
                               .filter(mat => {
@@ -2432,11 +2428,9 @@ export default function ScheduleBatchPage() {
                             onCreateNew={undefined}
                           />
                         </div>
-                        <div className="w-full sm:w-32">
-                          <label className="block text-xs text-[var(--text-secondary)] mb-1">
-                            Quantity (kg)
-                          </label>
-                          <input
+                        <div className="w-full sm:w-36">
+                          <Input
+                            label="Quantity (kg)"
                             type="number"
                             step="0.000001"
                             min="0"
@@ -2447,17 +2441,18 @@ export default function ScheduleBatchPage() {
                               if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
                             }}
                             placeholder="0.000"
-                            className="w-full px-3 py-2 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
+                            className="h-9 py-1.5"
                           />
                         </div>
-                        <button
+                        <Button
                           type="button"
                           onClick={handleReduceMaterial}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-medium"
+                          variant="danger"
+                          className="h-9 w-28 shrink-0"
+                          leftIcon={<Trash2 className="w-4 h-4" />}
                         >
-                          <Trash2 className="w-4 h-4" />
                           Reduce
-                        </button>
+                        </Button>
                       </div>
 
                       {/* Active Reductions List */}
@@ -2578,8 +2573,8 @@ export default function ScheduleBatchPage() {
                                   const density =
                                     fillingDensity > 0
                                       ? fillingDensity
-                                      : actualDensity && actualDensity > 0
-                                        ? actualDensity
+                                      : Number(actualDensity) > 0
+                                        ? Number(actualDensity)
                                         : 1;
                                   return sum + qty * capacityLtr * density;
                                 }
@@ -3024,12 +3019,12 @@ export default function ScheduleBatchPage() {
                           <td className="px-4 py-3 text-sm">
                             {batch.startedAt || batch.createdAt
                               ? new Date(
-                                batch.startedAt || batch.createdAt || ''
-                              ).toLocaleDateString('en-IN', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                              })
+                                  batch.startedAt || batch.createdAt || ''
+                                ).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                })
                               : '-'}
                           </td>
                           <td className="px-4 py-3 min-w-[150px]">{batch.masterProductName}</td>
