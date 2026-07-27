@@ -1577,7 +1577,11 @@ export default function CustomerMaster() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <PageHeader title="Customer Master" description="Manage your customer records" />
+      <PageHeader
+        metadataPath="/masters/customers"
+        title="Customer Master"
+        description="Manage your customer records"
+      />
 
       {/* Form Section - Always visible */}
       <div

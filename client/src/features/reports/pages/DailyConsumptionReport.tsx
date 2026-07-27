@@ -328,7 +328,7 @@ const DailyConsumptionReport: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHeader metadataPath="/reports/daily-consumption"
         title="Daily Consumption Report"
         description="Track daily material consumption and inventory levels"
         actions={

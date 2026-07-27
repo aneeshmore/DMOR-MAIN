@@ -537,7 +537,7 @@ const ProfitLossReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHeader metadataPath="/reports/profit-loss"
         title="Profit Loss Report"
         description="Detailed analysis of production costs vs sales revenue."
       />

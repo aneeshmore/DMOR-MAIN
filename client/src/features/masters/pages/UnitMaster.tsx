@@ -335,7 +335,11 @@ export default function UnitMaster() {
     <>
       <div className="space-y-6 animate-fade-in">
         {/* Page Header */}
-        <PageHeader title="Unit Master" description="Manage your unit records" />
+        <PageHeader
+          metadataPath="/masters/units"
+          title="Unit Master"
+          description="Manage your unit records"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Unit Form Section - Left Side (1/3 width) */}

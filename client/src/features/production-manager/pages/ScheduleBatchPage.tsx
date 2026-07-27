@@ -188,6 +188,7 @@ export default function ScheduleBatchPage() {
   const [plannedQuantity, setPlannedQuantity] = useState<number>(0);
   const [supervisorId, setSupervisorId] = useState<number>(0);
   const [laborName, setLaborName] = useState('');
+  const [machineNo, setMachineNo] = useState('');
 
   // Hidden/Default fields
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
@@ -752,6 +753,7 @@ export default function ScheduleBatchPage() {
       } else {
         setPmRemarks(batch.pmRemarks || '');
       }
+      setMachineNo(batch.machineNo || '');
       showToast.success(`Loaded batch #${batch.batchNo}`);
     } catch (error) {
       console.error('Failed to load batch details', error);
@@ -1138,6 +1140,10 @@ export default function ScheduleBatchPage() {
       showToast.error('Please select a supervisor');
       return;
     }
+    if (!machineNo.trim()) {
+      showToast.error('Please enter a Machine No.');
+      return;
+    }
     if (!masterProductId) {
       showToast.error('Please select a master product');
       return;
@@ -1206,6 +1212,7 @@ export default function ScheduleBatchPage() {
         waterPercentage: pdWaterPercentage || 0, // Use fetched water percentage
         supervisorId: Number(supervisorId),
         labourNames: laborName,
+        machineNo: machineNo.trim() || undefined,
         orders: validOrders,
         materials: consolidatedBOM.map((m, idx) => ({
           materialId: Number(m.materialId),
@@ -1228,6 +1235,7 @@ export default function ScheduleBatchPage() {
       setPlannedQuantity(0);
       setSupervisorId(0);
       setLaborName('');
+      setMachineNo('');
       setPmRemarks('');
       setExpectedDeliveryDate('');
       setScheduledDate(new Date().toISOString().split('T')[0]);
@@ -2022,7 +2030,7 @@ export default function ScheduleBatchPage() {
   return (
     <>
       <div className="space-y-6">
-        <PageHeader
+        <PageHeader metadataPath="/operations/create-batch"
           title="Create Production Batch"
           description="Consolidate orders and create batch production"
         />
@@ -2758,6 +2766,37 @@ export default function ScheduleBatchPage() {
                           value={laborName}
                           onChange={e => setLaborName(e.target.value)}
                           placeholder="Enter labor name"
+                          className="flex-1 px-4 py-2 border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] outline-none"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Machine No. */}
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                        Machine No. *
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-5 h-5 text-[var(--text-tertiary)]"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                          <path d="M16 3L12 7 8 3" />
+                        </svg>
+                        <input
+                          type="text"
+                          value={machineNo}
+                          onChange={e => setMachineNo(e.target.value)}
+                          placeholder="e.g. M1, M2, MC-01"
+                          maxLength={20}
                           className="flex-1 px-4 py-2 border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] outline-none"
                           required
                         />

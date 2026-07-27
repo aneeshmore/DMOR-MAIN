@@ -88,6 +88,7 @@ export interface BatchProductionReportItem {
   timeRequired: string;
   supervisor: string | null;
   labourNames: string | null;
+  machineNo?: string | null;
   qualityStatus: string | null;
   subProducts: BatchSubProductReportItem[];
   rawMaterials?: RawMaterialReportItem[];

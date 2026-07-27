@@ -538,6 +538,7 @@ const SalespersonRevenueReport: React.FC = () => {
   return (
     <div className="space-y-6 container mx-auto pb-10">
       <PageHeader
+        metadataPath="/reports/salesperson-revenue"
         title="Salesperson Revenue Report"
         description="Comprehensive view of revenue generation by sales team."
       />

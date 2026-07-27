@@ -543,7 +543,7 @@ const DispatchReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHeader metadataPath="/reports/dispatch"
         title="Dispatch Report"
         description="Track vehicle dispatches and loaded weights."
         actions={

@@ -484,7 +484,7 @@ const QuotationMasterPage: React.FC = () => {
   return (
     <div className="container mx-auto pb-10 space-y-6">
       {/* Page Header */}
-      <PageHeader
+      <PageHeader metadataPath="/operations/quotation-requests"
         title="Quotation Management"
         description="Review, approve, and manage quotations"
       />

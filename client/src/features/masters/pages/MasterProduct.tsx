@@ -336,6 +336,7 @@ const MasterProduct = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
+        metadataPath="/masters/master-product"
         title="Product Master"
         description="Manage products (Finished Goods, Raw Materials, Packing Materials)"
       />
@@ -377,10 +378,11 @@ const MasterProduct = () => {
                     setSelectedHardenerId(null);
                     setHighlightedIndex(-1);
                   }}
-                  className={`py-2 px-1 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-colors ${activeTab === type
-                    ? 'bg-[var(--primary)] text-white shadow-md'
-                    : 'bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                    }`}
+                  className={`py-2 px-1 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                    activeTab === type
+                      ? 'bg-[var(--primary)] text-white shadow-md'
+                      : 'bg-[var(--surface-highlight)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                  }`}
                 >
                   {fullForm}
                 </button>
@@ -440,10 +442,11 @@ const MasterProduct = () => {
                         setShowNameDropdown(false);
                         setNameSearchQuery('');
                       }}
-                      className={`px-3 py-2 text-sm cursor-pointer transition-colors border-b border-[var(--border)] last:border-b-0 ${index === highlightedIndex
-                        ? 'bg-[var(--primary)]/10 text-[var(--text-primary)]'
-                        : 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]'
-                        }`}
+                      className={`px-3 py-2 text-sm cursor-pointer transition-colors border-b border-[var(--border)] last:border-b-0 ${
+                        index === highlightedIndex
+                          ? 'bg-[var(--primary)]/10 text-[var(--text-primary)]'
+                          : 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]'
+                      }`}
                     >
                       <div className="font-medium">{product.masterProductName}</div>
                       <div className="text-xs text-[var(--text-secondary)]">
@@ -726,18 +729,18 @@ const MasterProduct = () => {
             </span>
           </div>
 
-          <div className="flex-grow p-0">
+          <div className="flex-grow overflow-auto p-0">
             <table className="w-full text-sm text-left">
               <thead className="bg-[var(--surface-highlight)] text-[var(--text-secondary)] uppercase text-xs font-semibold sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-3 w-24">ID</th>
-                  <th className="px-6 py-3">Type</th>
-                  <th className="px-6 py-3">Name</th>
-                  {activeTab !== 'PM' && <th className="px-6 py-3">Sub Category</th>}
-                  <th className="px-6 py-3">HSN Code</th>
-                  <th className="px-6 py-3">GST (%)</th>
-                  <th className="px-6 py-3">Details</th>
-                  <th className="px-6 py-3 w-24 text-right">Actions</th>
+                  <th className="px-3 py-3 w-16">ID</th>
+                  <th className="px-3 py-3">Type</th>
+                  <th className="px-3 py-3">Name</th>
+                  {activeTab !== 'PM' && <th className="px-3 py-3">Sub Category</th>}
+                  <th className="px-3 py-3">HSN Code</th>
+                  <th className="px-3 py-3">GST (%)</th>
+                  <th className="px-3 py-3">Details</th>
+                  <th className="px-3 py-3 w-24 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
@@ -760,45 +763,47 @@ const MasterProduct = () => {
                     <tr
                       key={product.masterProductId}
                       onClick={() => handleEdit(product)}
-                      className={`transition-colors cursor-pointer ${index === highlightedIndex
-                        ? 'bg-[var(--primary)]/10 border-l-4 border-l-[var(--primary)]'
-                        : selectedProduct?.masterProductId === product.masterProductId
-                          ? 'bg-[var(--surface-highlight)]'
-                          : 'hover:bg-[var(--surface-hover)]'
-                        }`}
+                      className={`transition-colors cursor-pointer ${
+                        index === highlightedIndex
+                          ? 'bg-[var(--primary)]/10 border-l-4 border-l-[var(--primary)]'
+                          : selectedProduct?.masterProductId === product.masterProductId
+                            ? 'bg-[var(--surface-highlight)]'
+                            : 'hover:bg-[var(--surface-hover)]'
+                      }`}
                     >
-                      <td className="px-6 py-3 font-mono text-[var(--text-secondary)]">
+                      <td className="px-3 py-3 font-mono text-[var(--text-secondary)]">
                         {product.masterProductId}
                       </td>
-                      <td className="px-6 py-3">
+                      <td className="px-3 py-3">
                         <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${product.productType === 'FG'
-                            ? 'bg-blue-100 text-blue-700'
-                            : product.productType === 'RM'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-purple-100 text-purple-700'
-                            }`}
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            product.productType === 'FG'
+                              ? 'bg-blue-100 text-blue-700'
+                              : product.productType === 'RM'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-purple-100 text-purple-700'
+                          }`}
                         >
                           {product.productType || 'FG'}
                         </span>
                       </td>
-                      <td className="px-6 py-3 font-medium text-[var(--text-primary)]">
+                      <td className="px-3 py-3 font-medium text-[var(--text-primary)]">
                         {product.masterProductName}
                       </td>
                       {activeTab !== 'PM' && (
-                        <td className="px-6 py-3 text-[var(--text-secondary)]">
+                        <td className="px-3 py-3 text-[var(--text-secondary)]">
                           {product.Subcategory || '-'}
                         </td>
                       )}
-                      <td className="px-6 py-3 text-[var(--text-secondary)]">
+                      <td className="px-3 py-3 text-[var(--text-secondary)]">
                         {product.HSNCode || '-'}
                       </td>
-                      <td className="px-6 py-3 text-[var(--text-secondary)]">
+                      <td className="px-3 py-3 text-[var(--text-secondary)]">
                         {product.gst !== undefined && product.gst !== null
                           ? `${product.gst}%`
                           : '-'}
                       </td>
-                      <td className="px-6 py-3 text-[var(--text-secondary)]">
+                      <td className="px-3 py-3 text-[var(--text-secondary)]">
                         {product.productType === 'FG' ? (
                           <span className="text-xs">
                             {product.Subcategory || 'General'}
@@ -827,7 +832,7 @@ const MasterProduct = () => {
                           <span className="text-xs">Capacity: {product.Capacity || '-'}</span>
                         )}
                       </td>
-                      <td className="px-6 py-3 text-right">
+                      <td className="px-3 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleEdit(product)}

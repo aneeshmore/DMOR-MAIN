@@ -509,7 +509,7 @@ const ProductWiseReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHeader metadataPath="/reports/product-wise"
         title="Product Wise Stock Report"
         description="Overview of stock levels and transaction history"
         actions={

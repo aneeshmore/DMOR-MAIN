@@ -7,6 +7,7 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { cn } from '@/utils/cn';
 import { NotificationDropdown } from '@/features/notifications/components';
 import { routeRegistry, flattenRoutes } from '@/config/routeRegistry';
+import { getModuleTitleByPath } from '@/config/moduleDisplayMetadata';
 import { confirmDialog } from '@/components/ui';
 
 // Set of real, navigable (non-dynamic) route paths. A breadcrumb segment is only
@@ -115,7 +116,10 @@ export const Header: React.FC<HeaderProps> = ({ onThemeToggle, user, onLogout })
               .map((segment, index, array) => {
                 const path = `/${array.slice(0, index + 1).join('/')}`;
                 const isLast = index === array.length - 1;
-                const label = formatSegmentLabel(segment);
+                // Prefer the central friendly module title for this cumulative
+                // route; fall back to the existing slug formatting when the
+                // route has no metadata. The link target (`path`) is unchanged.
+                const label = getModuleTitleByPath(path, formatSegmentLabel(segment));
 
                 const linkable = !isLast && NAVIGABLE_PATHS.has(path);
 
