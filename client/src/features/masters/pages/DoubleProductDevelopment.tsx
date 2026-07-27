@@ -313,7 +313,15 @@ const DoubleProductDevelopment = () => {
     // Load Base Recipe
     const baseData = await fetchRecipeItems(value);
     setBaseItems(baseData?.materials || []);
-    setViscosity(baseData?.viscosity || '');
+    // Prefer the dev record's viscosity, else the base product's saved
+    // (theoretical) viscosity — the same value shown in the Batch Report.
+    const baseFgViscosity =
+      baseProduct?.Viscosity !== null &&
+      baseProduct?.Viscosity !== undefined &&
+      !isNaN(Number(baseProduct?.Viscosity))
+        ? String(baseProduct?.Viscosity)
+        : '';
+    setViscosity(baseData?.viscosity || baseFgViscosity);
     if (baseData?.mixingRatioPart !== null && baseData?.mixingRatioPart !== undefined) {
       setRatioBase(String(baseData.mixingRatioPart));
     } else {

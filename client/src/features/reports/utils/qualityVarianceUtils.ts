@@ -84,9 +84,10 @@ export function calculateQualityAndVarianceData(
     return sum + ltr * density;
   }, 0);
 
-  // 7. Weight (Kg) - Input Side (Total Batch Input Weight) vs Output Packed Side (Packing Table Total KG)
+  // 7. Weight (Kg) - Total LTR value from Packing Table * Actual Filling Density (displayed 3-decimal value)
+  const roundedActFillDensity = parseFloat(actFillDensity.toFixed(3));
   const stdWeight = totalActualWeight;
-  const actWeight = totalKg;
+  const actWeight = totalLtr * roundedActFillDensity;
   const weightVariance = actWeight - stdWeight;
 
   return {

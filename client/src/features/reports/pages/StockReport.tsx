@@ -143,7 +143,7 @@ const StockReport = () => {
     const tableColumn = [
       'Product Name',
       'Type',
-      'Available Qty',
+      'Total Available Qty',
       'Available Weight (kg)',
       ...(productTypeFilter !== 'FG' ? ['Reserved Qty'] : []),
       'Min Stock Level',
@@ -152,11 +152,15 @@ const StockReport = () => {
     ];
 
     const tableRows = filteredData.map(item => {
+      const isRmOrPm = item.productType === 'RM' || item.productType === 'PM';
+      const availWtKg = isRmOrPm
+        ? Math.max(Number(item.availableQuantity) - Number(item.reservedQuantity), 0)
+        : Number(item.availableWeightKg);
       const row = [
         item.productName,
         item.productType,
         parseFloat(Number(item.availableQuantity).toFixed(2)).toString(),
-        parseFloat(Number(item.availableWeightKg).toFixed(2)).toString(),
+        parseFloat(availWtKg.toFixed(2)).toString(),
       ];
       if (productTypeFilter !== 'FG') {
         row.push(parseFloat(Number(item.reservedQuantity).toFixed(2)).toString());
@@ -192,7 +196,7 @@ const StockReport = () => {
     const csvHeaders = [
       'Product Name',
       'Type',
-      'Available Qty',
+      'Total Available Qty',
       'Available Weight (kg)',
       ...(productTypeFilter !== 'FG' ? ['Reserved Qty'] : []),
       'Min Stock Level',
@@ -201,11 +205,15 @@ const StockReport = () => {
     ];
 
     const csvRows = filteredData.map(item => {
+      const isRmOrPm = item.productType === 'RM' || item.productType === 'PM';
+      const availWtKg = isRmOrPm
+        ? Math.max(Number(item.availableQuantity) - Number(item.reservedQuantity), 0)
+        : Number(item.availableWeightKg);
       const row = [
         item.productName,
         item.productType,
         parseFloat(Number(item.availableQuantity).toFixed(2)).toString(),
-        parseFloat(Number(item.availableWeightKg).toFixed(2)).toString(),
+        parseFloat(availWtKg.toFixed(2)).toString(),
       ];
       if (productTypeFilter !== 'FG') {
         row.push(parseFloat(Number(item.reservedQuantity).toFixed(2)).toString());
@@ -567,7 +575,9 @@ const StockReport = () => {
       },
       {
         accessorKey: 'availableQuantity',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Available Qty" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Total Available Qty" />
+        ),
         cell: ({ row }) => (
           <div
             className={`text-right ${
@@ -584,15 +594,22 @@ const StockReport = () => {
         ),
       },
       {
-        accessorKey: 'availableWeightKg',
+        id: 'availableWeightKg',
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Available Weight (kg)" />
         ),
-        cell: ({ row }) => (
-          <div className="text-right text-[var(--text-secondary)]">
-            {Number(row.original.availableWeightKg).toFixed(2)}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const isRmOrPm = row.original.productType === 'RM' || row.original.productType === 'PM';
+          const availWtKg = isRmOrPm
+            ? Math.max(
+                Number(row.original.availableQuantity) - Number(row.original.reservedQuantity),
+                0
+              )
+            : Number(row.original.availableWeightKg);
+          return (
+            <div className="text-right text-[var(--text-secondary)]">{availWtKg.toFixed(2)}</div>
+          );
+        },
       },
     ];
 

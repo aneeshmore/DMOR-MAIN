@@ -38,6 +38,18 @@ export class MasterProductDTO {
       this.Subcategory = fgDetails.subcategory || 'General';
       this.HardenerID = fgDetails.hardenerId || fgDetails.hardener_id || null;
       this.HSNCode = fgDetails.hsnCode || fgDetails.hsn_code || '';
+      // Expose the saved (theoretical) viscosity + water % so Product Development
+      // can auto-fill them — same value the Batch Report shows as Theoretical.
+      const rawViscosity = fgDetails.viscosity ?? fgDetails.viscosity;
+      this.Viscosity =
+        rawViscosity !== null && rawViscosity !== undefined && rawViscosity !== ''
+          ? parseFloat(rawViscosity)
+          : null;
+      const rawWaterPct = fgDetails.waterPercentage ?? fgDetails.water_percentage;
+      this.WaterPercentage =
+        rawWaterPct !== null && rawWaterPct !== undefined && rawWaterPct !== ''
+          ? parseFloat(rawWaterPct)
+          : null;
     }
 
     if (rmDetails) {

@@ -37,7 +37,9 @@ export default function CompleteBatchModal({
 
   // Form State
   const [actualQuantity, setActualQuantity] = useState<number>(0);
-  const [actualDensity, setActualDensity] = useState<number>(0);
+  // Kept as a raw string so the user can type decimals naturally (e.g. "0.", "1.2")
+  // and backspace freely; converted to a number only at submit.
+  const [actualDensity, setActualDensity] = useState<string>('');
   const [actualWaterPercentage, setActualWaterPercentage] = useState<number>(0);
   const [actualViscosity, setActualViscosity] = useState<number>(0);
   const [startDate, setStartDate] = useState<string>('');
@@ -85,7 +87,7 @@ export default function CompleteBatchModal({
 
         // Pre-fill form with planned values
         setActualQuantity(parseFloat(data.batch?.plannedQuantity) || 0);
-        setActualDensity(parseFloat(data.batch?.density) || 0);
+        setActualDensity(data.batch?.density ? String(data.batch.density) : '');
         setActualWaterPercentage(parseFloat(data.batch?.waterPercentage) || 0);
         setActualViscosity(0);
 
@@ -186,6 +188,13 @@ export default function CompleteBatchModal({
       return;
     }
 
+    // Actual Density: parse the raw string once and validate it is a real, positive number.
+    const actualDensityNum = parseFloat(actualDensity);
+    if (!Number.isFinite(actualDensityNum) || actualDensityNum <= 0) {
+      showToast.error('Please enter a valid Actual Density (greater than 0).');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const startedAt = new Date(`${startDate}T${startTime}`).toISOString();
@@ -193,7 +202,7 @@ export default function CompleteBatchModal({
 
       const completionData = {
         actualQuantity,
-        actualDensity,
+        actualDensity: actualDensityNum,
         actualWaterPercentage,
         actualViscosity,
         startedAt,
@@ -268,10 +277,18 @@ export default function CompleteBatchModal({
                       Actual Density (kg/L)
                     </label>
                     <input
-                      type="number"
-                      step="0.001"
+                      type="text"
+                      inputMode="decimal"
                       value={actualDensity}
-                      onChange={e => setActualDensity(parseFloat(e.target.value) || 0)}
+                      onChange={e => {
+                        const v = e.target.value;
+                        // Allow empty, digits, and a single decimal point — including
+                        // partial values while typing ("0.", ".5", "1.2").
+                        if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                          setActualDensity(v);
+                        }
+                      }}
+                      placeholder="e.g. 1.250"
                       className="w-full px-3 py-2 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
                     />
                   </div>

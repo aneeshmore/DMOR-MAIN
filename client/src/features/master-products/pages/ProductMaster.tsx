@@ -207,9 +207,23 @@ const ProductMaster = () => {
     try {
       setSaving(true);
 
+      // These three fields are edited as raw strings (so decimals/backspace work);
+      // convert them back to numbers before sending. Empty → 0.
+      const num = (v: unknown, isInt = false) => {
+        if (v === '' || v === null || v === undefined) return 0;
+        const n = isInt ? parseInt(String(v), 10) : parseFloat(String(v));
+        return Number.isFinite(n) ? n : 0;
+      };
+      const payload = {
+        ...formData,
+        MinStockLevel: num(formData.MinStockLevel, true),
+        SellingPrice: num(formData.SellingPrice),
+        IncentiveAmount: num(formData.IncentiveAmount),
+      } as Product;
+
       if (isEditing && selectedProduct) {
-        logger.info('Updating product:', { id: selectedProduct.ProductID, data: formData });
-        const response = await productApi.update(selectedProduct.ProductID, formData);
+        logger.info('Updating product:', { id: selectedProduct.ProductID, data: payload });
+        const response = await productApi.update(selectedProduct.ProductID, payload);
         logger.info('Update response:', response);
 
         if (response.success && response.data) {
@@ -221,8 +235,8 @@ const ProductMaster = () => {
           showToast.error(response.error || 'Failed to update product');
         }
       } else {
-        logger.info('Creating product:', formData);
-        const response = await productApi.create(formData as Product);
+        logger.info('Creating product:', payload);
+        const response = await productApi.create(payload);
         logger.info('Create response:', response);
 
         if (response.success && response.data) {
@@ -354,12 +368,12 @@ const ProductMaster = () => {
                 options={
                   formData.MasterProductID
                     ? products
-                      .filter(p => p.MasterProductID === formData.MasterProductID)
-                      .map(p => ({
-                        id: p.ProductID,
-                        label: p.ProductName,
-                        value: p.ProductName,
-                      }))
+                        .filter(p => p.MasterProductID === formData.MasterProductID)
+                        .map(p => ({
+                          id: p.ProductID,
+                          label: p.ProductName,
+                          value: p.ProductName,
+                        }))
                     : []
                 }
                 value={formData.ProductName}
@@ -398,52 +412,60 @@ const ProductMaster = () => {
 
               <Input
                 label="Min Stock Level"
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 disabled={saving}
+                // Show empty for a real numeric 0/blank (so the field isn't stuck on "0"
+                // and Backspace can clear it), but keep any raw string the user types.
                 value={
-                  isEditing && formData.MinStockLevel === 0 ? '' : (formData.MinStockLevel ?? 0)
+                  formData.MinStockLevel === 0 || formData.MinStockLevel == null
+                    ? ''
+                    : String(formData.MinStockLevel)
                 }
-                onChange={e =>
-                  setFormData(prev => ({
-                    ...prev,
-                    MinStockLevel: parseInt(e.target.value) || 0,
-                  }))
-                }
+                onChange={e => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d*$/.test(v)) {
+                    setFormData(prev => ({ ...prev, MinStockLevel: v as unknown as number }));
+                  }
+                }}
                 placeholder="0"
               />
 
               <Input
                 label="Selling Price"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 disabled={saving}
-                value={isEditing && formData.SellingPrice === 0 ? '' : (formData.SellingPrice ?? 0)}
-                onChange={e =>
-                  setFormData(prev => ({
-                    ...prev,
-                    SellingPrice: Math.max(0, Number(e.target.value)),
-                  }))
+                value={
+                  formData.SellingPrice === 0 || formData.SellingPrice == null
+                    ? ''
+                    : String(formData.SellingPrice)
                 }
+                onChange={e => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                    setFormData(prev => ({ ...prev, SellingPrice: v as unknown as number }));
+                  }
+                }}
                 placeholder="0.00"
               />
 
               <Input
                 label="Incentive"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 disabled={saving}
                 value={
-                  isEditing && formData.IncentiveAmount === 0 ? '' : (formData.IncentiveAmount ?? 0)
+                  formData.IncentiveAmount === 0 || formData.IncentiveAmount == null
+                    ? ''
+                    : String(formData.IncentiveAmount)
                 }
-                onChange={e =>
-                  setFormData(prev => ({
-                    ...prev,
-                    IncentiveAmount: Math.max(0, Number(e.target.value)),
-                  }))
-                }
+                onChange={e => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                    setFormData(prev => ({ ...prev, IncentiveAmount: v as unknown as number }));
+                  }
+                }}
                 placeholder="0.00"
               />
             </div>
@@ -481,10 +503,11 @@ const ProductMaster = () => {
                       }));
                     }}
                     disabled={formData.IsFdSyncWithDensity}
-                    className={`w-20 px-2 py-1 text-sm rounded border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] ${formData.IsFdSyncWithDensity
-                      ? 'bg-gray-100 cursor-not-allowed opacity-60'
-                      : 'bg-[var(--surface)]'
-                      }`}
+                    className={`w-20 px-2 py-1 text-sm rounded border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] ${
+                      formData.IsFdSyncWithDensity
+                        ? 'bg-gray-100 cursor-not-allowed opacity-60'
+                        : 'bg-[var(--surface)]'
+                    }`}
                     placeholder="0.00"
                   />
                 </div>
@@ -637,10 +660,11 @@ const ProductMaster = () => {
                       </td>
                       <td className="px-6 py-3 text-center">
                         <span
-                          className={`font-bold ${(product.AvailableQuantity || 0) - (product.ReservedQuantity || 0) > 0
-                            ? 'text-green-600'
-                            : 'text-red-500'
-                            }`}
+                          className={`font-bold ${
+                            (product.AvailableQuantity || 0) - (product.ReservedQuantity || 0) > 0
+                              ? 'text-green-600'
+                              : 'text-red-500'
+                          }`}
                         >
                           {(product.AvailableQuantity || 0) - (product.ReservedQuantity || 0)}
                         </span>
