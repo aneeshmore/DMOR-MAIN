@@ -1825,7 +1825,7 @@ const CustomerReport: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <PageHeader
+      <PageHeader metadataPath="/reports/customer-sales"
         title="Customer Sales Report"
         description="Monthly sales analysis by customer and salesperson"
       />

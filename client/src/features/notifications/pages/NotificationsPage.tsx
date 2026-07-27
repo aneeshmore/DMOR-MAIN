@@ -577,7 +577,7 @@ const NotificationsPage = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Notification Management" description="Dashboard" />
+      <PageHeader metadataPath="/masters/notifications" title="Notification Management" description="Dashboard" />
 
       {/* Stats Cards — scoped to the user's visible sections */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -734,7 +734,11 @@ export default function SupplierMaster() {
     <>
       <div className="space-y-6 animate-fade-in">
         {/* Page Header */}
-        <PageHeader title="Create Vendor/Supplier" description="Manage your vendor/supplier records" />
+        <PageHeader
+          metadataPath="/masters/suppliers"
+          title="Create Vendor/Supplier"
+          description="Manage your vendor/supplier records"
+        />
 
         {/* ── FORM (top) ── */}
         <div

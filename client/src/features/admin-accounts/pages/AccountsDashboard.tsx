@@ -3,6 +3,11 @@ import { showToast } from '@/utils/toast';
 import { PauseCircle, AlertCircle, Ban } from 'lucide-react';
 import { FullScreenLoader, Modal } from '@/components/ui';
 import { PageHeader } from '@/components/common';
+
+// Stable route path for this page, as declared in routeRegistry.tsx.
+// Used only to look up the shared display title/description - the route,
+// component name and permission key are unchanged.
+const ADMIN_ACCOUNTS_PATH = '/operations/admin-accounts';
 import { PendingOrdersDataTable } from './PendingOrdersDataTable';
 import { SplitOrdersTable } from '../components/SplitOrdersTable';
 import { CancelledOrdersDataTable } from './CancelledOrdersDataTable';
@@ -246,6 +251,7 @@ export default function AccountsDashboard() {
       <div className="space-y-6">
         {/* Page Header */}
         <PageHeader
+          metadataPath={ADMIN_ACCOUNTS_PATH}
           title="Admin Accounts"
           description="Manage pending payments and order billing"
         />

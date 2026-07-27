@@ -288,6 +288,7 @@ export default function PMPlanningDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader
+        metadataPath="/operations/pm-dashboard"
         title="Production Planning"
         description="Manage production batches and scheduling"
       />

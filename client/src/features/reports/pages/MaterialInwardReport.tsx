@@ -613,7 +613,7 @@ const MaterialInwardReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHeader metadataPath="/reports/material-inward"
         title="Material Inward Report"
         description="Track all incoming materials and products"
         actions={

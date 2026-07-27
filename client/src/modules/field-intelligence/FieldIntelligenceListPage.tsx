@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { getModuleTitleByPath } from '@/config/moduleDisplayMetadata';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -463,7 +464,9 @@ export const FieldIntelligenceListPage: React.FC = () => {
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-1">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 leading-tight">Smart CRM</h1>
+          <h1 className="text-2xl font-bold text-gray-800 leading-tight">
+            {getModuleTitleByPath('/operations/smart-crm', 'Smart CRM')}
+          </h1>
           <p className="text-sm text-gray-400 mt-0.5">
             {loading
               ? 'Loading companies...'

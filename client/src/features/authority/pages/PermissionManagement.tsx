@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Modal, Input, Button } from '@/components/ui';
 import { routeRegistry, flattenRoutes, ApiDependency } from '@/config/routeRegistry';
+import { getModuleTitleByPath } from '@/config/moduleDisplayMetadata';
 import { Link } from 'react-router-dom';
 
 // Build a map of module -> APIs from route registry (only visible routes)
@@ -35,7 +36,10 @@ const buildApiMap = () => {
       if (map[route.permission.module]) return;
 
       map[route.permission.module] = {
-        label: route.label,
+        // Display-only friendly title. The permission module key and the stored
+        // `path` are unchanged, so role permissions and the Page After Login
+        // value continue to use the original route identity.
+        label: getModuleTitleByPath(route.path, route.label),
         path: route.path,
         apis: route.apis || [],
       };

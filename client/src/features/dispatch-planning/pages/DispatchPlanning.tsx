@@ -530,6 +530,7 @@ export default function DispatchPlanning() {
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-6">
       <PageHeader
+        metadataPath="/operations/dispatch-planning"
         title="Dispatch Planning"
         description="Select orders and assign to vehicles for dispatch"
       />

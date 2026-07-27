@@ -601,7 +601,7 @@ const CustomerContactReport: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <PageHeader
+      <PageHeader metadataPath="/reports/customer-contact"
         title="Customer Contact Report"
         description="View and manage all customer information and contact details"
       />

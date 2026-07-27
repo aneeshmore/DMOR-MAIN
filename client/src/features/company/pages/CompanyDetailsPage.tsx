@@ -245,6 +245,7 @@ const CompanyDetailsPage: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fade-in bg-[var(--background)] min-h-screen">
       <PageHeader
+        metadataPath="/company-details"
         title="Company Details"
         description="Configure your company details for quotations and invoices"
       />
