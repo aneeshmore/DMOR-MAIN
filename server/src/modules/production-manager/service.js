@@ -1241,7 +1241,7 @@ export class ProductionManagerService {
 
         if (totalOutputWeight > maxWeight) {
           throw new AppError(
-            `Total output weight (${totalOutputWeight.toFixed(2)} kg) cannot exceed +5% of actual batch weight (${actualBatchWeight.toFixed(2)} kg). Maximum allowed: ${maxWeight.toFixed(2)} kg`,
+            `Total packed output weight (${totalOutputWeight.toFixed(2)} kg) exceeds the produced batch weight (${actualBatchWeight.toFixed(2)} kg) by more than 5% (maximum allowed: ${maxWeight.toFixed(2)} kg). Batch weight = Actual Quantity × Actual Density, so please re-check the Actual Density and Actual Quantity — a very low density makes the batch weight too small.`,
             400
           );
         }
@@ -1635,6 +1635,13 @@ export class ProductionManagerService {
         ordersUpdated: orderIds.length,
       };
     } catch (error) {
+      // Preserve intentional, client-facing errors (AppError with their own
+      // status — e.g. the 400 mass-balance validation) so the user sees the real,
+      // understandable message instead of a generic 500 "Server error".
+      if (error instanceof AppError) {
+        logger.error('Batch completion rejected', { batchId, error: error.message });
+        throw error;
+      }
       logger.error('Error completing batch', { batchId, error: error.message });
       throw new AppError('Failed to complete batch: ' + error.message, 500);
     }

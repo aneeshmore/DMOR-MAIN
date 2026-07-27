@@ -968,10 +968,10 @@ export default function BatchReportModal({
                                 {stdTotalWeight.toFixed(2)}
                               </td>
                               <td className="border border-gray-600 px-1 py-0.5 text-right">
-                                {screenTotalKg > 0 ? screenTotalKg.toFixed(3) : '-'}
+                                {actTotalWeight > 0 ? actTotalWeight.toFixed(3) : '-'}
                               </td>
                               <td className="border border-gray-600 px-1 py-0.5 text-right">
-                                {(screenTotalKg - stdTotalWeight).toFixed(2)}
+                                {totalWeightVariance.toFixed(2)}
                               </td>
                             </tr>
                           </>
