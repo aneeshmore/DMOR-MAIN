@@ -14,6 +14,7 @@ import {
   text,
   timestamp,
   date,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { appSchema } from '../core/app-schema.js';
 // products table reference removed - not used in schema definition
@@ -57,6 +58,7 @@ export const productionBatch = appSchema.table('production_batches_enhanced', {
   // Personnel
   supervisorId: integer('supervisor_id').references(() => employees.employeeId),
   labourNames: text('labour_names'),
+  machineNo: varchar('machine_no', { length: 20 }),
 
   // Status
   status: varchar('status', { length: 20 }).notNull().default('Scheduled'),
@@ -75,6 +77,12 @@ export const productionBatch = appSchema.table('production_batches_enhanced', {
 
   // BOM Reference
   bomVersion: integer('bom_version'), // Track which BOM version was used
+
+  // Immutable report snapshot captured at completion. When present, the Batch
+  // Production Report and Batch Report For Accounts read from this instead of
+  // live master data, so historical reports never change. NULL for older
+  // batches → reports fall back to live computation.
+  reportSnapshot: jsonb('report_snapshot'),
 
   // Audit
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),

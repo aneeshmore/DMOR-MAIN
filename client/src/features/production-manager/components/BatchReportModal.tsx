@@ -237,6 +237,18 @@ export default function BatchReportModal({
     doc.setFont('helvetica', 'bold');
     const companyHeaderName = companyInfo?.companyName || 'DMOR PAINTS';
     doc.text(companyHeaderName, 105, 15, { align: 'center' });
+
+    // Machine No. Badge - drawn at y=14, centred at x=25
+    if (batch.machineNo) {
+      doc.setDrawColor(31, 41, 55);
+      doc.setLineWidth(0.5);
+      doc.circle(25, 13.5, 4.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(31, 41, 55);
+      doc.text(String(batch.machineNo), 25, 14.6, { align: 'center' });
+    }
+
     doc.line(14, 18, 196, 18);
 
     doc.setFont('helvetica', 'normal');
@@ -785,8 +797,39 @@ export default function BatchReportModal({
         ) : batchData ? (
           <div className="border-2 border-gray-800 p-6 min-h-[600px] bg-white text-black">
             {/* Header */}
-            <div className="text-center mb-4">
-              <h1 className="text-2xl font-bold">{companyInfo?.companyName || 'DMOR PAINTS'}</h1>
+            <div className="mb-4 relative">
+              <div className="flex items-center justify-center">
+                {batchData.machineNo && (
+                  <div className="absolute left-0 flex flex-col items-center">
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: '50%',
+                        border: '2px solid #1f2937',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: '#1f2937',
+                          textAlign: 'center',
+                          lineHeight: 1,
+                          wordBreak: 'break-all',
+                          maxWidth: 24,
+                        }}
+                      >
+                        {batchData.machineNo}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <h1 className="text-2xl font-bold">{companyInfo?.companyName || 'DMOR PAINTS'}</h1>
+              </div>
               <div className="border-b-2 border-gray-800 mt-2"></div>
             </div>
 

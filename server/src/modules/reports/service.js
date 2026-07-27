@@ -23,9 +23,15 @@ import {
 } from '../../db/schema/index.js';
 
 export class ReportsService {
-  async getBatchProductionReport(status, startDate, endDate) {
+  async getBatchProductionReport(status, startDate, endDate, opts = {}) {
+    // opts.batchId       → restrict to a single batch (used to build the snapshot)
+    // opts.ignoreSnapshot → force live computation (used when capturing the snapshot)
     try {
       const conditions = [];
+
+      if (opts.batchId) {
+        conditions.push(eq(productionBatch.batchId, opts.batchId));
+      }
 
       if (status && status !== 'All') {
         conditions.push(eq(productionBatch.status, status));
@@ -180,6 +186,13 @@ export class ReportsService {
 
       // 6. Final Assembly Object construction
       const batchesWithBom = batches.map(batch => {
+        // Immutable snapshot: if this batch was completed with a stored report
+        // snapshot, return it verbatim so historical reports never reflect later
+        // master-data changes. (Skipped when capturing the snapshot itself.)
+        if (!opts.ignoreSnapshot && batch.reportSnapshot) {
+          return batch.reportSnapshot;
+        }
+
         const startTime = batch.startedAt ? new Date(batch.startedAt).getTime() : null;
         const endTime = batch.completedAt ? new Date(batch.completedAt).getTime() : null;
 
@@ -270,6 +283,7 @@ export class ReportsService {
           actualWaterPercentage: batch.actualWaterPercentage,
           productionRemarks: batch.productionRemarks,
           labourNames: batch.labourNames,
+          machineNo: batch.machineNo || null,
           qualityStatus: batch.qualityStatus,
           subProducts: (batch.batchProducts || []).map((sp, _, arr) => {
             const capacity =
@@ -311,6 +325,19 @@ export class ReportsService {
       console.error('Error fetching batch production report:', error);
       throw error;
     }
+  }
+
+  /**
+   * Build the report payload for a single batch from LIVE data (ignoring any
+   * existing snapshot). Called at batch completion to capture an immutable
+   * snapshot that reports will read from thereafter.
+   */
+  async buildBatchReportSnapshot(batchId) {
+    const rows = await this.getBatchProductionReport(null, null, null, {
+      batchId,
+      ignoreSnapshot: true,
+    });
+    return rows && rows.length > 0 ? rows[0] : null;
   }
 
   async getSalesmanRevenueReport(startDate, endDate) {
