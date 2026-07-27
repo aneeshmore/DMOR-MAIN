@@ -574,7 +574,7 @@ const SplitOrderPage: React.FC = () => {
     <div className="w-full min-h-screen bg-[var(--background)] py-6 overflow-y-auto">
       <div className="max-w-7xl mx-auto px-4">
         {/* Page Header */}
-        <PageHeader
+        <PageHeader metadataPath="/operations/split-order"
           title="Split Orders"
           description="Divide orders based on stock availability"
           showBackButton={true}

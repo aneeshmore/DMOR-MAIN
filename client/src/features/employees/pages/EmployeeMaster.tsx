@@ -1659,7 +1659,11 @@ export default function EmployeeMaster() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <PageHeader title="Employee Master" description="Manage your employee records" />
+      <PageHeader
+        metadataPath="/masters/employees"
+        title="Employee Master"
+        description="Manage your employee records"
+      />
 
       {/* View Employee Details Modal */}
       <Modal

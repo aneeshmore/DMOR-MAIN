@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Edit2, Trash2, Loader2, Plus, Users } from 'lucide-react';
+import { Edit2, Trash2, Loader2, Plus, Users, Check } from 'lucide-react';
 import logger from '@/utils/logger';
 import { showToast } from '@/utils/toast';
 import { Department } from '../types';
@@ -9,6 +9,42 @@ import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { Input, Button, Modal } from '@/components/ui';
 import { ColumnDef } from '@tanstack/react-table';
+import { getModuleTitleByPath } from '@/config/moduleDisplayMetadata';
+import { routeRegistry, RouteNode } from '@/config/routeRegistry';
+
+// Top-level route-registry section ids used to group the Page After Login
+// selector. This mirrors the registry's own sequence (Dashboard, Masters,
+// Operations, Reports, Settings) — nothing here reorders the registry itself.
+const LANDING_PAGE_SECTION_IDS = new Set(['masters', 'operations', 'reports', 'settings']);
+
+interface RouteOrderInfo {
+  order: number;
+  group: string;
+}
+
+// Flattens the existing route registry, depth-first, into a path -> {order, group}
+// map exactly once. This is the single source of truth for landing-page option
+// SEQUENCE (registry order), while moduleDisplayMetadata.ts remains the single
+// source of truth for the visible TITLE only.
+const buildRouteOrderMap = (
+  nodes: RouteNode[],
+  map: Map<string, RouteOrderInfo> = new Map(),
+  counter: { n: number } = { n: 0 },
+  currentGroup: string = 'Dashboard'
+): Map<string, RouteOrderInfo> => {
+  nodes.forEach(node => {
+    const group = LANDING_PAGE_SECTION_IDS.has(node.id) ? node.label : currentGroup;
+    if (node.path && !map.has(node.path)) {
+      map.set(node.path, { order: counter.n++, group });
+    }
+    if (node.children && node.children.length) {
+      buildRouteOrderMap(node.children, map, counter, group);
+    }
+  });
+  return map;
+};
+
+const ROUTE_ORDER_MAP = buildRouteOrderMap(routeRegistry);
 
 // Shared validation function
 const validateDepartmentName = (name: string) => {
@@ -59,12 +95,116 @@ const RoleForm = ({
     });
   }, [role]);
 
-  // Filter only page permissions for landing page options
+  type LandingPageOption = {
+    id: string | number;
+    value: string;
+    label: string;
+    group: string;
+    searchableText: string;
+  };
+
+  // Permission.pagePath is `string | undefined`. This type guard narrows it to
+  // `string` (and excludes blank/whitespace-only paths) BEFORE any sorting or
+  // mapping, so nothing downstream ever needs `!` or a fake `''` fallback —
+  // permissions without a valid route simply never become an option.
+  const hasValidPagePath = (
+    permission: Permission
+  ): permission is Permission & { pagePath: string } =>
+    typeof permission.pagePath === 'string' && permission.pagePath.trim().length > 0;
+
+  // Filter only page permissions for landing page options, ordered by their
+  // position in the existing route registry (NOT alphabetically, and NOT by
+  // the new display title). Entries with no registry match sort after all
+  // matched entries but are never dropped — Array.prototype.sort is stable.
   const pageOptions = permissions
-    .filter(p => p.isPage && p.pagePath)
-    .sort((a, b) =>
-      (a.pageLabel || a.permissionName).localeCompare(b.pageLabel || b.permissionName)
-    );
+    .filter(p => p.isPage)
+    .filter(hasValidPagePath)
+    .sort((a, b) => {
+      const orderA = ROUTE_ORDER_MAP.get(a.pagePath)?.order ?? Number.MAX_SAFE_INTEGER;
+      const orderB = ROUTE_ORDER_MAP.get(b.pagePath)?.order ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+
+  // Complete option list/order is unchanged from the registry. Only the
+  // VISIBLE label is renamed to the approved module title where one exists;
+  // the underlying `value` (route path) is untouched, and the old label is
+  // kept as part of the searchable text so both old and new names still find it.
+  const landingPageSelectOptions: LandingPageOption[] = [
+    {
+      id: '/dashboard',
+      value: '/dashboard',
+      label: 'Dashboard (Default)',
+      searchableText: 'dashboard (default) dashboard',
+      group: 'Dashboard',
+    },
+    ...pageOptions.map(p => {
+      // p.pagePath is `string` here — narrowed by hasValidPagePath above.
+      const oldLabel = `${p.pageLabel || p.permissionName} (${p.pagePath})`;
+      const displayLabel = getModuleTitleByPath(p.pagePath, p.pageLabel || p.permissionName);
+      return {
+        id: p.permissionId,
+        value: p.pagePath,
+        label: displayLabel,
+        searchableText: `${displayLabel} ${oldLabel}`.toLowerCase(),
+        group: ROUTE_ORDER_MAP.get(p.pagePath)?.group ?? 'Other',
+      };
+    }),
+  ];
+
+  // --- Page After Login combobox state ---
+  // Three SEPARATE pieces of state: formData.landingPage = selected route
+  // VALUE, landingPageSearch = the user's typed query only (never pre-filled
+  // with the selected label), and the selected LABEL is derived (not stored)
+  // so it can never leak into the search and filter the list down to one item.
+  const [isLandingPageOpen, setIsLandingPageOpen] = useState(false);
+  const [landingPageSearch, setLandingPageSearch] = useState('');
+  const landingPageWrapperRef = useRef<HTMLDivElement>(null);
+
+  const selectedLandingPageOption = landingPageSelectOptions.find(
+    o => o.value === formData.landingPage
+  );
+
+  const filteredLandingPageOptions = landingPageSearch.trim()
+    ? landingPageSelectOptions.filter(o =>
+        o.searchableText.includes(landingPageSearch.trim().toLowerCase())
+      )
+    : landingPageSelectOptions;
+
+  // Insert a group header row whenever the group changes while walking the
+  // (already registry-ordered) filtered list — rendering only, never reorders.
+  type LandingPageRow =
+    | { kind: 'header'; group: string }
+    | { kind: 'option'; option: LandingPageOption };
+
+  const landingPageRows: LandingPageRow[] = [];
+  let lastLandingPageGroup: string | null = null;
+  filteredLandingPageOptions.forEach(option => {
+    if (option.group !== lastLandingPageGroup) {
+      landingPageRows.push({ kind: 'header', group: option.group });
+      lastLandingPageGroup = option.group;
+    }
+    landingPageRows.push({ kind: 'option', option });
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        landingPageWrapperRef.current &&
+        !landingPageWrapperRef.current.contains(event.target as Node)
+      ) {
+        setIsLandingPageOpen(false);
+        setLandingPageSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectLandingPage = (value: string) => {
+    setFormData(prev => ({ ...prev, landingPage: value }));
+    setIsLandingPageOpen(false);
+    setLandingPageSearch('');
+  };
 
   const handleSubmit = () => {
     const validationError = validateRoleName(formData.roleName);
@@ -101,23 +241,72 @@ const RoleForm = ({
       />
 
       <div className="space-y-1">
-        <label className="text-sm font-medium text-[var(--text-primary)]">
-          Default Landing Page
-        </label>
-        <select
-          value={formData.landingPage}
-          onChange={e => setFormData({ ...formData, landingPage: e.target.value })}
-          className="w-full h-10 px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-sm"
-        >
-          <option value="/dashboard">Dashboard (Default)</option>
-          {pageOptions.map(p => (
-            <option key={p.permissionId} value={p.pagePath}>
-              {p.pageLabel || p.permissionName} ({p.pagePath})
-            </option>
-          ))}
-        </select>
+        <label className="text-sm font-medium text-[var(--text-primary)]">Page After Login</label>
+        <div className="relative" ref={landingPageWrapperRef}>
+          <Input
+            type="text"
+            value={isLandingPageOpen ? landingPageSearch : selectedLandingPageOption?.label || ''}
+            onChange={e => setLandingPageSearch(e.target.value)}
+            onFocus={() => {
+              // Opening always starts from an empty query, so the full list
+              // shows first — the selected label is never used as the filter.
+              setLandingPageSearch('');
+              setIsLandingPageOpen(true);
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Escape') {
+                setIsLandingPageOpen(false);
+                setLandingPageSearch('');
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const firstOption = filteredLandingPageOptions[0];
+                if (firstOption) {
+                  selectLandingPage(firstOption.value);
+                }
+              }
+            }}
+            placeholder="Select page after login"
+            autoComplete="off"
+          />
+          {isLandingPageOpen && (
+            <div
+              className="absolute z-[9999] w-full mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-md shadow-lg overflow-y-auto"
+              style={{ maxHeight: '340px' }}
+            >
+              {landingPageRows.length > 0 ? (
+                landingPageRows.map(row =>
+                  row.kind === 'header' ? (
+                    <div
+                      key={`group-${row.group}`}
+                      className="px-4 pt-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)] bg-[var(--surface)]"
+                    >
+                      {row.group}
+                    </div>
+                  ) : (
+                    <div
+                      key={row.option.id}
+                      onClick={() => selectLandingPage(row.option.value)}
+                      className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between ${
+                        formData.landingPage === row.option.value
+                          ? 'bg-[var(--surface-hover)] text-[var(--text-primary)]'
+                          : 'text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                      }`}
+                    >
+                      <span className="font-medium">{row.option.label}</span>
+                      {formData.landingPage === row.option.value && <Check size={16} />}
+                    </div>
+                  )
+                )
+              ) : (
+                <div className="px-4 py-2 text-sm text-[var(--text-secondary)]">
+                  No results found
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <p className="text-xs text-[var(--text-secondary)]">
-          User will be redirected here after login
+          Select the page this role will open after login.
         </p>
       </div>
 
@@ -658,7 +847,8 @@ export default function DepartmentMaster() {
       <div className="space-y-6 animate-fade-in">
         {/* Page Header */}
         <PageHeader
-          title="Department Master"
+          metadataPath="/masters/departments"
+        title="Department Master"
           description="Manage your department records and associated roles"
         />
 

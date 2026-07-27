@@ -218,7 +218,7 @@ export default function AcceptedOrdersPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <PageHeader
+      <PageHeader metadataPath="/operations/accept-orders"
         title="Accept Orders by Production Department"
         description="Manage factory orders and dispatch"
       />

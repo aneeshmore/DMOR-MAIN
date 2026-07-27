@@ -1297,7 +1297,7 @@ const NewBatchProductionReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHeader metadataPath="/reports/new-batch-production"
         title="Batch Production Reports"
         description="Comprehensive view of all production batches"
         actions={

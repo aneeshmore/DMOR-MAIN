@@ -2022,7 +2022,7 @@ export default function ScheduleBatchPage() {
   return (
     <>
       <div className="space-y-6">
-        <PageHeader
+        <PageHeader metadataPath="/operations/create-batch"
           title="Create Production Batch"
           description="Consolidate orders and create batch production"
         />

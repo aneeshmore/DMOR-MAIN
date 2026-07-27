@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { routeRegistry, RouteNode, NavItem, NavSubItem } from '@/config/routeRegistry';
+import { getModuleTitleByPath } from '@/config/moduleDisplayMetadata';
 import { LucideIcon } from 'lucide-react';
 
 /**
@@ -25,6 +26,10 @@ export function useSidebarNavigation() {
           if (node.showInSidebar === false) return null;
           if (!node.label) return null;
 
+          // Friendly display title from central metadata; falls back to the
+          // registry label so unmapped routes keep their current name.
+          const displayLabel = getModuleTitleByPath(node.path, node.label);
+
           // Admin bypass - show everything
           if (isAdmin) {
             let children: NavSubItem[] | undefined = undefined;
@@ -41,7 +46,7 @@ export function useSidebarNavigation() {
             }
             return {
               id: node.id,
-              label: node.label,
+              label: displayLabel,
               icon: node.icon as LucideIcon,
               path: node.path,
               group: node.group || 'Main',
@@ -67,7 +72,7 @@ export function useSidebarNavigation() {
           if (children && children.length > 0) {
             return {
               id: node.id,
-              label: node.label,
+              label: displayLabel,
               icon: node.icon as LucideIcon,
               path: node.path,
               group: node.group || 'Main',
@@ -83,7 +88,7 @@ export function useSidebarNavigation() {
             }
             return {
               id: node.id,
-              label: node.label,
+              label: displayLabel,
               icon: node.icon as LucideIcon,
               path: node.path,
               group: node.group || 'Main',

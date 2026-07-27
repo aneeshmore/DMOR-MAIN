@@ -22,6 +22,11 @@ import { AlertsTicker } from '@/features/notifications/components/AlertsTicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/utils/cn';
 import {
+  MODULE_CARD_SIZE,
+  MODULE_CARD_TITLE_CLAMP,
+  MODULE_CARD_DESCRIPTION_CLAMP,
+} from '../constants/cardLayout';
+import {
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -39,6 +44,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { confirmDialog } from '@/components/ui';
+import { getModuleTitleByPath } from '@/config/moduleDisplayMetadata';
 
 // Define Card Interface
 interface DashboardCard {
@@ -79,6 +85,19 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
 
   const Icon = card.icon;
 
+  // Display-only resolution through the central module metadata, keyed by the
+  // card's existing stable `path`. The local title/description stay as
+  // fallbacks so unmapped cards keep their current text. Navigation, the
+  // dnd-kit sortable id and the React key intentionally continue to use the
+  // raw card.title / card.path so ordering and routing are unaffected.
+  const displayTitle = getModuleTitleByPath(card.path, card.title);
+  // Main dashboard cards intentionally show the live count/status, not the
+  // module description (matching the approved PaintOS dashboard). Central
+  // metadata descriptions are therefore NOT resolved here - they remain in
+  // moduleDisplayMetadata.ts for the sub-dashboard cards and page headings.
+  // Only a card's own local description (if any) is honoured.
+  const displayDescription = card.description;
+
   return (
     <button
       ref={setNodeRef}
@@ -89,6 +108,7 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
       }}
       className={cn(
         "group relative overflow-hidden rounded-xl border p-6 text-left transition-all select-none",
+        MODULE_CARD_SIZE,
         isEditing
           ? "border-2 border-dashed border-[var(--primary)]/60 bg-[var(--surface-highlight)]/10 cursor-grab active:cursor-grabbing hover:border-[var(--primary)] hover:shadow-lg"
           : "border-[var(--border)] bg-[var(--surface)] hover:shadow-lg hover:border-[var(--primary)] cursor-pointer"
@@ -105,19 +125,34 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
             <div className={`inline-flex p-3 rounded-lg ${card.bg} mb-4`}>
               <Icon className={`h-6 w-6 ${card.color}`} />
             </div>
-            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
-              {card.title}
+            <h3
+              className={cn(
+                'text-lg font-semibold text-[var(--text-primary)] mb-1',
+                MODULE_CARD_TITLE_CLAMP
+              )}
+            >
+              {displayTitle}
             </h3>
-            {card.description ? (
-              <p className="text-sm text-[var(--text-secondary)]">{card.description}</p>
+            {displayDescription ? (
+              <p
+                className={cn(
+                  'text-sm text-[var(--text-secondary)]',
+                  MODULE_CARD_DESCRIPTION_CLAMP
+                )}
+              >
+                {displayDescription}
+              </p>
             ) : (
               <p className="text-2xl font-bold text-[var(--text-primary)]">{card.count}</p>
             )}
           </div>
         </div>
-        {!isEditing && (
+        {/* Cards with a description are self-explanatory and fully clickable, so
+            the redundant "Access" affordance is not rendered for them. Cards
+            without a description keep the "View details" hint. */}
+        {!isEditing && !displayDescription && (
           <div className="mt-4 flex items-center text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">
-            {card.description ? 'Access' : 'View details'}
+            View details
             <svg
               className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
               fill="none"
@@ -579,7 +614,7 @@ export const Dashboard: React.FC = () => {
           items={items.map(item => item.title)}
           strategy={rectSortingStrategy}
         >
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
             {items.map(card => (
               <SortableDashboardCard
                 key={card.title}

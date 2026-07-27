@@ -336,6 +336,7 @@ const MasterProduct = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
+        metadataPath="/masters/master-product"
         title="Product Master"
         description="Manage products (Finished Goods, Raw Materials, Packing Materials)"
       />

@@ -609,7 +609,7 @@ const CancelledOrdersReport: React.FC = () => {
   return (
     <div className="space-y-8 pb-10">
       <div className="flex items-center justify-between">
-        <PageHeader
+        <PageHeader metadataPath="/reports/cancelled-orders"
           title="Cancellation Analytics"
           description="Detailed insights into order cancellations and revenue impact"
         />

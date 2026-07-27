@@ -8,6 +8,10 @@ import { paymentApi, PaymentInput } from '@/features/operations/api/paymentApi';
 import { ArrowLeft, Save, CreditCard, History, IndianRupee } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { showToast } from '@/utils/toast';
+import { getModuleTitleByPath } from '@/config/moduleDisplayMetadata';
+
+// Stable route path from routeRegistry.tsx - lookup key only.
+const PAYMENT_ENTRY_PATH = '/operations/payment-entry';
 
 const schema = z.object({
   customerId: z.number().min(1, 'Customer is required'),
@@ -158,7 +162,7 @@ export default function PaymentEntry() {
           <ArrowLeft size={18} />
         </button>
         <h1 className="text-2xl font-extrabold uppercase tracking-wide text-[var(--text-primary)]">
-          Payment Entry
+          {getModuleTitleByPath(PAYMENT_ENTRY_PATH, 'Payment Entry')}
         </h1>
       </div>
 

@@ -381,7 +381,7 @@ const LowStockReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHeader metadataPath="/reports/low-stock"
         title="Low Stock Report"
         description="Monitoring critical inventory levels and shortages"
         actions={

@@ -112,7 +112,7 @@ export const CancelOrderPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--background)] p-6 md:p-8 space-y-6 animate-fade-in">
       {/* Header */}
-      <PageHeader
+      <PageHeader metadataPath="/operations/cancel-order"
         title="Cancel Order"
         description="Manage order cancellations and view cancelled orders"
       />

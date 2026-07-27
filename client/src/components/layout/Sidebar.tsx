@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LogOut, ChevronLeft, ChevronRight, Search, ChevronDown, X } from 'lucide-react';
 import { NavItem } from '@/config/routeRegistry';
+import { getModuleAliasesByPath } from '@/config/moduleDisplayMetadata';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/utils/cn';
@@ -114,12 +115,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
     (acc, [group, items]) => {
       const filtered = items
         .map(item => {
-          const parentMatches = item.label.toLowerCase().includes(searchQuery.toLowerCase());
+          // Match the visible friendly title OR any legacy alias, so users can
+          // still search by the previous module name. Aliases are never shown.
+          const matchesQuery = (label: string, path?: string) => {
+            const q = searchQuery.toLowerCase();
+            if (label.toLowerCase().includes(q)) return true;
+            return getModuleAliasesByPath(path).some(alias => alias.toLowerCase().includes(q));
+          };
+
+          const parentMatches = matchesQuery(item.label, item.path);
 
           // Filter children by search query only
           const matchingChildren = item.children?.filter(child => {
             if (!searchQuery) return true; // No search = show all
-            return child.label.toLowerCase().includes(searchQuery.toLowerCase()) || parentMatches;
+            return matchesQuery(child.label, child.path) || parentMatches;
           });
 
           const hasMatchingChildren = matchingChildren && matchingChildren.length > 0;

@@ -308,7 +308,7 @@ const ProductMaster = () => {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <PageHeader title="Sub Product Master" description="Manage individual SKUs" />
+      <PageHeader metadataPath="/masters/product-sub-master" title="Sub Product Master" description="Manage individual SKUs" />
 
       <div className="flex flex-col gap-6">
         {/* Top: Form */}
