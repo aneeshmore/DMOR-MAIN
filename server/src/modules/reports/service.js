@@ -355,7 +355,9 @@ export class ReportsService {
       }
 
       // Exclude cancelled/rejected/returned orders
-      conditions.push(notInArray(orders.status, ['Cancelled', 'Rejected', 'Returned']));
+      // 'Split' parents are excluded alongside cancelled/rejected orders: their value is
+      // carried by the two child orders, so counting the parent as well would double-count.
+      conditions.push(notInArray(orders.status, ['Cancelled', 'Rejected', 'Returned', 'Split']));
 
       // Include valid salespersons (where salespersonId is set)
       conditions.push(isNotNull(orders.salespersonId));
@@ -429,7 +431,9 @@ export class ReportsService {
       }
 
       // Exclude invalid orders
-      conditions.push(notInArray(orders.status, ['Cancelled', 'Rejected', 'Returned']));
+      // 'Split' parents are excluded alongside cancelled/rejected orders: their value is
+      // carried by the two child orders, so counting the parent as well would double-count.
+      conditions.push(notInArray(orders.status, ['Cancelled', 'Rejected', 'Returned', 'Split']));
       // Ensure salesperson is assigned
       conditions.push(isNotNull(orders.salespersonId));
       // Only include products with incentive > 0
@@ -1054,7 +1058,9 @@ export class ReportsService {
         conditions.push(lte(orders.orderDate, end));
       }
 
-      conditions.push(notInArray(orders.status, ['Cancelled', 'Rejected', 'Returned']));
+      // 'Split' parents are excluded alongside cancelled/rejected orders: their value is
+      // carried by the two child orders, so counting the parent as well would double-count.
+      conditions.push(notInArray(orders.status, ['Cancelled', 'Rejected', 'Returned', 'Split']));
 
       const orderItems = await db
         .select({

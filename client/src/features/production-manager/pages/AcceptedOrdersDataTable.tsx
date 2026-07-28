@@ -35,6 +35,14 @@ const getSalespersonName = (sp: any) => {
   return decodeHtml(sp.username || 'N/A');
 };
 
+// Split children carry "Split from Order #X" (and, for the Balance child, "(Balance)") in the
+// order's own notes — the same marker used by the Split Orders table on the Credit & Order
+// Approval page. Factory only needs the portion badge here, not the full remark text.
+const getSplitPortion = (notes: string): 'Dispatch' | 'Balance' | null => {
+  if (!/Split from Order/i.test(notes)) return null;
+  return /\(Balance\)/i.test(notes) ? 'Balance' : 'Dispatch';
+};
+
 const formatTimeSpan = (dateString: string) => {
   const start = new Date(dateString);
   const now = new Date();
@@ -183,12 +191,28 @@ export function AcceptedOrdersDataTable({
       {
         accessorKey: 'order.orderId',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Order ID" />,
-        cell: ({ row }) => (
-          <span className="font-medium text-xs">
-            {row.original.order.orderNumber || row.original.order.orderId}
-          </span>
-        ),
-        size: 100,
+        cell: ({ row }) => {
+          const portion = getSplitPortion(row.original.order?.notes || '');
+          return (
+            <div className="flex flex-col gap-1">
+              <span className="font-medium text-xs whitespace-nowrap">
+                {row.original.order.orderNumber || row.original.order.orderId}
+              </span>
+              {portion && (
+                <span
+                  className={`w-fit text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                    portion === 'Balance'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-emerald-100 text-emerald-700'
+                  }`}
+                >
+                  {portion}
+                </span>
+              )}
+            </div>
+          );
+        },
+        size: 110,
       },
       {
         accessorKey: 'customer.companyName',
@@ -222,17 +246,31 @@ export function AcceptedOrdersDataTable({
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Salesperson Remark" />
         ),
-        cell: ({ row }) => (
-          <div className="flex flex-col items-start gap-1.5">
-            <span
-              className="text-xs text-[var(--text-secondary)] truncate block max-w-[140px]"
-              title={decodeHtml(row.original.order?.notes || '')}
-            >
-              {decodeHtml(row.original.order?.notes || '-')}
-            </span>
-            <PriorityBadge priority={row.original.order?.priorityLevel} />
-          </div>
-        ),
+        cell: ({ row }) => {
+          const notes = row.original.order?.notes || '';
+          // Split-order bookkeeping text ("Split from Order #X" / "(Balance)") is an
+          // accounts-manager concern — it's already surfaced in the Split Orders table on the
+          // Credit & Order Approval page. It isn't a salesperson remark, so it shouldn't show
+          // here; the factory user just sees "-" for these orders, same as any order with no
+          // remark.
+          const isSplitOrder = /Split from Order/i.test(notes);
+          const remarkText = isSplitOrder ? '-' : decodeHtml(notes) || '-';
+
+          return (
+            <div className="flex flex-col items-start gap-1.5">
+              <span
+                className="text-xs text-[var(--text-secondary)] truncate block max-w-[140px]"
+                title={isSplitOrder ? '' : decodeHtml(notes)}
+              >
+                {remarkText}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] text-[var(--text-secondary)]">
+                Priority:
+                <PriorityBadge priority={row.original.order?.priorityLevel} />
+              </span>
+            </div>
+          );
+        },
       },
       {
         id: 'expectedDeliveryDate',

@@ -24,6 +24,9 @@ export const createOrderSchema = z.object({
       'Started',
       'Delivered',
       'Cancelled',
+      // Terminal status for a parent order that has been split into two child orders.
+      // Distinct from 'Cancelled' — the order was superseded, not abandoned.
+      'Split',
     ])
     .optional()
     .default('Pending Accounts Approval'),
@@ -65,6 +68,9 @@ export const updateOrderSchema = z.object({
       'Started',
       'Delivered',
       'Cancelled',
+      // Terminal status for a parent order that has been split into two child orders.
+      // Distinct from 'Cancelled' — the order was superseded, not abandoned.
+      'Split',
     ])
     .optional(),
   deliveryAddress: z.string().nullable().optional(),

@@ -64,10 +64,12 @@ export class AdminAccountsService {
       throw new AppError('Order not found', 404);
     }
 
-    // Check if billNo already exists
+    // Check if billNo already exists on another order. excludeOrderId=orderId ensures this
+    // order's own account row (e.g. a split Dispatch child's inherited Bill No) is never
+    // mistaken for a conflicting duplicate of itself.
     if (billNo) {
-      const duplicateBill = await this.repository.findByBillNo(billNo);
-      if (duplicateBill && duplicateBill.orderId !== Number(orderId)) {
+      const duplicateBill = await this.repository.findByBillNo(billNo, orderId);
+      if (duplicateBill) {
         throw new AppError(`Bill Number '${billNo}' already exists`, 400);
       }
     }
@@ -147,10 +149,11 @@ export class AdminAccountsService {
       throw new AppError('Order not found', 404);
     }
 
-    // Check if billNo already exists
+    // Check if billNo already exists on another order (see acceptOrder for why excludeOrderId
+    // matters — it prevents an order's own account row from being flagged as its own duplicate).
     if (billNo) {
-      const duplicateBill = await this.repository.findByBillNo(billNo);
-      if (duplicateBill && duplicateBill.orderId !== Number(orderId)) {
+      const duplicateBill = await this.repository.findByBillNo(billNo, orderId);
+      if (duplicateBill) {
         throw new AppError(`Bill Number '${billNo}' already exists`, 400);
       }
     }

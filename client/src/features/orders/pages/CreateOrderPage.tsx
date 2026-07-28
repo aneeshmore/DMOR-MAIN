@@ -200,6 +200,9 @@ const CreateOrderPage: React.FC = () => {
           case 'On Hold':
             className = 'bg-yellow-100 text-yellow-800 border-yellow-200';
             break;
+          case 'Split':
+            className = 'bg-slate-100 text-slate-700 border-slate-300';
+            break;
           case 'Cancelled':
           case 'Rejected':
             variant = 'destructive';
@@ -428,8 +431,13 @@ const CreateOrderPage: React.FC = () => {
   return (
     <div className="container mx-auto pb-10">
       <div className="space-y-6 animate-fade-in">
-        {/* Header with Mode Toggle */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        {/* Header with Mode Toggle — on lg+ this is a true left / center / right layout: the
+            header stays pinned left, the toggle sits in the horizontal middle of the row
+            (not flush against the right edge), and a matching spacer column on the right
+            balances it so the centering is against the full row width, not just the
+            leftover space after the header. Drops to a stacked, centered layout on
+            narrower screens where there isn't room for three columns. */}
+        <div className="flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-center gap-4">
           <PageHeader
             title={
               editingOrder
@@ -450,6 +458,8 @@ const CreateOrderPage: React.FC = () => {
           <div className="flex items-center justify-center">
             <ModeSwitcher viewMode={viewMode} onModeChange={setViewMode} />
           </div>
+
+          <div className="hidden lg:block" />
         </div>
 
         {/* Mode Indicator Banner

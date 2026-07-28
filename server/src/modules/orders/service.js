@@ -302,12 +302,32 @@ export class OrdersService {
         ? `${salesperson.firstName} ${salesperson.lastName}`
         : 'Salesperson';
 
+      // Detect a split child from the "Split from Order #X" marker already written to the
+      // order's own remark at split time, so the notification names the portion and its
+      // parent instead of reading like an unrelated new order. Each notification carries
+      // this order's own totalAmount, so the two children show their own values.
+      const splitMatch = order.notes && order.notes.match(/Split from Order #?(\S+)/);
+      // A custom remark typed on the split form is stored as a prefix before
+      // " - Split from Order #X" — recover it so it surfaces in the notification too.
+      const customRemark =
+        splitMatch && !order.notes.startsWith('Split from Order')
+          ? order.notes.split(' - Split from Order')[0]
+          : null;
+      const splitInfo = splitMatch
+        ? {
+            portion: order.notes.includes('(Balance)') ? 'Balance' : 'Dispatch',
+            originalOrderNumber: splitMatch[1],
+            customRemark,
+          }
+        : null;
+
       await this.notificationsService.createNewOrderNotification(
         order.orderId,
         customerName,
         order.totalAmount,
         salesPersonName,
-        order.orderNumber
+        order.orderNumber,
+        splitInfo
       );
       logger.info(`Notification sent for new order #${order.orderId}`);
     } catch (notifErr) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Search } from 'lucide-react';
 import { DiscardForm } from '../components/DiscardForm';
 import { DiscardTable } from '../components/DiscardTable';
 import { discardApi } from '../api/discardApi';
@@ -14,6 +15,9 @@ export const DiscardDashboard: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiscardEntry | null>(null);
   const [activeTab, setActiveTab] = useState<'ALL' | 'RM' | 'PM' | 'FG'>('ALL');
+  // Client-side filter over the already-loaded history: no extra API call, and it composes
+  // with the RM/PM/FG tabs rather than replacing them.
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadDiscards();
@@ -102,30 +106,48 @@ export const DiscardDashboard: React.FC = () => {
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">Discard History</h2>
-        <div className="flex gap-2">
-          {(['ALL', 'RM', 'PM', 'FG'] as const).map(tab => (
-            <Button
-              key={tab}
-              variant={activeTab === tab ? 'primary' : 'secondary'}
-              onClick={() => setActiveTab(tab)}
-              size="sm"
-            >
-              {tab === 'ALL'
-                ? 'All'
-                : tab === 'RM'
-                  ? 'Raw Material'
-                  : tab === 'PM'
-                    ? 'Packaging Material'
-                    : 'Finished Good'}
-            </Button>
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start gap-3 sm:gap-6">
+          <div className="flex gap-2">
+            {(['ALL', 'RM', 'PM', 'FG'] as const).map(tab => (
+              <Button
+                key={tab}
+                variant={activeTab === tab ? 'primary' : 'secondary'}
+                onClick={() => setActiveTab(tab)}
+                size="sm"
+              >
+                {tab === 'ALL'
+                  ? 'All'
+                  : tab === 'RM'
+                    ? 'Raw Material'
+                    : tab === 'PM'
+                      ? 'Packaging Material'
+                      : 'Finished Good'}
+              </Button>
+            ))}
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              placeholder="Search by product name..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] transition-all"
+            />
+          </div>
         </div>
 
         {isLoading ? (
           <div className="text-center py-8 text-[var(--text-secondary)]">Loading...</div>
         ) : (
           <DiscardTable
-            data={discards.filter(d => activeTab === 'ALL' || d.productType === activeTab)}
+            data={discards.filter(
+              d =>
+                (activeTab === 'ALL' || d.productType === activeTab) &&
+                (searchQuery.trim() === '' ||
+                  (d.productName || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+            )}
           />
         )}
       </div>
