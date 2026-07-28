@@ -47,7 +47,8 @@ export class InwardService {
           Number(item.quantity),
           unitPrice,
           item.productId, // SKU ID for FG, undefined for RM/PM
-          createdInward?.inwardId || null // Inward ID for transaction logging
+          createdInward?.inwardId || null, // Inward ID for transaction logging
+          item.skipCostUpdate || false     // If true, skip updating masterProductFG.purchaseCost
         );
 
         // Note: Inventory transaction is now recorded inside updateMasterProductStock
