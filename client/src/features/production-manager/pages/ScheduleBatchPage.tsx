@@ -1824,9 +1824,7 @@ export default function ScheduleBatchPage() {
 
       const doc = new jsPDF();
 
-      // Full Page Border
-      doc.setLineWidth(0.5);
-      doc.rect(5, 5, 200, 287);
+      // Page border is handled by addPdfFooter
 
       // Header
       doc.setFontSize(16);

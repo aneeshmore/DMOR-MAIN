@@ -199,7 +199,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
           Batch Production Report No.: {batch.batchNo}
         </h2>
         <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-          Date: {formatDate(new Date().toISOString())}
+          Date: {formatDate(batch.completedAt || new Date().toISOString())}
         </span>
       </div>
 
@@ -227,6 +227,12 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
           <div className="flex justify-between">
             <span className="font-semibold text-gray-600">Labours:</span>
             <span className="text-gray-900">{batch.labourNames || '-'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">End Date:</span>
+            <span className="text-gray-900">
+              {batch.completedAt ? formatDate(batch.completedAt) : '-'}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="font-semibold text-gray-600">Total Time:</span>
@@ -443,12 +449,24 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
               <table className="w-full text-xs border-collapse border border-gray-300">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="border border-gray-300 px-3 py-2 text-left">Seq</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left">Product</th>
-                    <th className="border border-gray-300 px-3 py-2 text-right">Percentage (%)</th>
-                    <th className="border border-gray-300 px-3 py-2 text-right">Actual</th>
-                    <th className="border border-gray-300 px-3 py-2 text-right">Rate</th>
-                    <th className="border border-gray-300 px-3 py-2 text-right">Amount</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left whitespace-nowrap">
+                      Seq
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-left whitespace-nowrap">
+                      Product
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-right whitespace-nowrap">
+                      Percentage (%)
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-right whitespace-nowrap">
+                      Actual
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-right whitespace-nowrap">
+                      Rate
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-right whitespace-nowrap">
+                      Amount
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1026,7 +1044,7 @@ const BatchProductionReport = () => {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(colorGray700[0], colorGray700[1], colorGray700[2]);
       doc.text(
-        `Date: ${formatDate(new Date().toISOString())}`,
+        `Date: ${formatDate(batch.completedAt || new Date().toISOString())}`,
         pageWidth - margin,
         headerEndY - 5,
         { align: 'right' }
@@ -1044,6 +1062,7 @@ const BatchProductionReport = () => {
         [`Planned Quantity (kg):`, plannedQtyDisplay],
         [`Supervisor:`, batch.supervisor || '-'],
         [`Labours:`, batch.labourNames || '-'],
+        [`End Date:`, batch.completedAt ? formatDate(batch.completedAt) : '-'],
         [
           `Total Time:`,
           (() => {
@@ -1173,7 +1192,6 @@ const BatchProductionReport = () => {
 
       // 4. Ingredients Body WITH Rate and Amount for Accounts
       const ingredientsBody = ingredients.map((rm, index) => {
-        const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumber3(rm.computedPercentage);
         const actualVal = formatNumber3(rm.effectiveActual);
         const rateVal =
           rm.unitPrice !== null && rm.unitPrice !== undefined ? formatNumber(rm.unitPrice) : '-';
@@ -1181,7 +1199,14 @@ const BatchProductionReport = () => {
           (rm.effectiveActual ?? parseNumber(rm.actualQty ?? rm.percentage ?? '0')) *
             (rm.unitPrice !== null && rm.unitPrice !== undefined ? parseNumber(rm.unitPrice) : 0)
         );
-        return [index + 1, rm.rawMaterialName, pctVal, actualVal, rateVal, amountVal];
+        return [
+          index + 1,
+          rm.rawMaterialName,
+          formatNumber(rm.computedPercentage),
+          actualVal,
+          rateVal,
+          amountVal,
+        ];
       });
 
       // Option 1: Packing Table - Actual Packed Mass
@@ -1216,7 +1241,7 @@ const BatchProductionReport = () => {
       doc.setTextColor(0, 0, 0);
       doc.text('Ingredients Formulation', margin, tableY - 2);
 
-      // Ingredients Table (Accounts: 6 columns)
+      // Ingredients Table (Accounts: 5 columns)
       autoTable(doc, {
         startY: tableY,
         margin: { left: margin, right: 110 },
@@ -1236,24 +1261,25 @@ const BatchProductionReport = () => {
           fillColor: colorGray100,
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 10,
+          fontSize: 9,
+          valign: 'middle',
           lineWidth: 0.1,
           lineColor: [229, 231, 235],
         },
         columnStyles: {
           0: { cellWidth: 8, halign: 'center' },
           1: { cellWidth: 25, halign: 'left' },
-          2: { cellWidth: 18, halign: 'right' },
+          2: { cellWidth: 20, halign: 'right' },
           3: { cellWidth: 12, halign: 'right' },
           4: { cellWidth: 11, halign: 'right' },
-          5: { cellWidth: 17, halign: 'right' },
+          5: { cellWidth: 15, halign: 'right' },
         },
         tableWidth: 91,
         foot: [
           [
             '',
             'Total',
-            formatNumber3(totalPercentage),
+            formatNumber(totalPercentage),
             formatNumber3(totalActualWeight),
             '',
             formatNumber(totalAmount),
@@ -1269,10 +1295,6 @@ const BatchProductionReport = () => {
         },
         showFoot: 'lastPage',
         didParseCell: data => {
-          // Reduce font size of Percentage / Actual / Rate / Amount headers by 0.5 pt
-          if (data.section === 'head' && data.column.index >= 2) {
-            data.cell.styles.fontSize = 8.0;
-          }
           if (data.section === 'body' && data.column.index === 1) {
             const rm = ingredients[data.row.index];
             const isHighlighted = rm && (rm.isAdditional ? anyExceeds100 : rm.isReduced);
@@ -2438,9 +2460,13 @@ const BatchProductionReport = () => {
                         <table className="w-full text-sm text-left bg-[var(--surface)] rounded-lg border border-[var(--border)]">
                           <thead className="bg-[var(--color-neutral-100)] text-[var(--text-secondary)]">
                             <tr>
-                              <th className="px-4 py-2">Material Name</th>
-                              <th className="px-4 py-2 text-right">Percentage (%)</th>
-                              <th className="px-4 py-2 text-right">Actual Weight</th>
+                              <th className="px-4 py-2 whitespace-nowrap">Material Name</th>
+                              <th className="px-4 py-2 text-right whitespace-nowrap">
+                                Percentage (%)
+                              </th>
+                              <th className="px-4 py-2 text-right whitespace-nowrap">
+                                Actual Weight
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[var(--border)]">
