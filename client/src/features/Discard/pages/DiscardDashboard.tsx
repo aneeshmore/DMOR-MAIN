@@ -92,7 +92,8 @@ export const DiscardDashboard: React.FC = () => {
   return (
     <div className="p-6 space-y-6 bg-[var(--background)] min-h-screen">
       {/* Page Header */}
-      <PageHeader metadataPath="/operations/discard"
+      <PageHeader
+        metadataPath="/operations/discard"
         title="Material Discard"
         description="Record and track damaged or expired inventory"
       />
@@ -153,4 +154,4 @@ export const DiscardDashboard: React.FC = () => {
       </div>
     </div>
   );
-}
+};

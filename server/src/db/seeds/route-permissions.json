@@ -1176,7 +1176,7 @@
       },
       {
         "id": "field-intelligence",
-        "path": "/operations/field-intelligence",
+        "path": "/operations/smart-crm",
         "label": "SMART CRM",
         "permission": {
           "module": "field_intelligence"
@@ -1241,17 +1241,12 @@
             "route": "/field-intelligence/customer-unlinked-history",
             "method": "GET",
             "label": "View Customer Unlinked History"
-          },
-          {
-            "route": "/field-intelligence/link-customer",
-            "method": "POST",
-            "label": "Link Customer Reports"
           }
         ],
         "children": [
           {
             "id": "field-intelligence-new",
-            "path": "/operations/field-intelligence/new",
+            "path": "/operations/smart-crm/new",
             "label": "New Report",
             "permission": {
               "module": "field_intelligence"
@@ -1260,7 +1255,7 @@
           },
           {
             "id": "field-intelligence-edit",
-            "path": "/operations/field-intelligence/:id/edit",
+            "path": "/operations/smart-crm/:id/edit",
             "label": "Edit Report",
             "permission": {
               "module": "field_intelligence"
@@ -1269,7 +1264,7 @@
           },
           {
             "id": "field-intelligence-customer-dashboard",
-            "path": "/operations/field-intelligence/customer/:customerId",
+            "path": "/operations/smart-crm/customer/:customerId",
             "label": "Customer Intelligence Dashboard",
             "permission": {
               "module": "field_intelligence"
@@ -1278,7 +1273,7 @@
           },
           {
             "id": "field-intelligence-view",
-            "path": "/operations/field-intelligence/:id",
+            "path": "/operations/smart-crm/:id",
             "label": "View Report",
             "permission": {
               "module": "field_intelligence"
@@ -1287,7 +1282,7 @@
           },
           {
             "id": "field-intelligence-dashboard",
-            "path": "/operations/field-intelligence/dashboard",
+            "path": "/operations/smart-crm/dashboard",
             "label": "Dashboard",
             "permission": {
               "module": "field_intelligence"
@@ -1393,7 +1388,7 @@
         "path": "/reports/batch-production",
         "label": "Batch Reports For Accounts",
         "permission": {
-          "module": "report-batch"
+          "module": "report-batch-accounts"
         },
         "apis": [
           {

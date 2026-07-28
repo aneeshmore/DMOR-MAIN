@@ -606,7 +606,8 @@ const SplitOrderPage: React.FC = () => {
     <div className="w-full min-h-screen bg-[var(--background)] py-6 overflow-y-auto">
       <div className="max-w-7xl mx-auto px-4">
         {/* Page Header */}
-        <PageHeader metadataPath="/operations/split-order"
+        <PageHeader
+          metadataPath="/operations/split-order"
           title="Split Orders"
           description="Divide orders based on stock availability"
           showBackButton={true}
@@ -685,10 +686,11 @@ const SplitOrderPage: React.FC = () => {
                         <div className="flex items-center justify-between p-3">
                           <div className="flex items-center gap-2">
                             <div
-                              className={`p-1.5 rounded ${group.totalAvailable >= group.totalOrdered
-                                ? 'bg-[var(--success)]/10 text-[var(--success)]'
-                                : 'bg-[var(--warning)]/10 text-[var(--warning)]'
-                                }`}
+                              className={`p-1.5 rounded ${
+                                group.totalAvailable >= group.totalOrdered
+                                  ? 'bg-[var(--success)]/10 text-[var(--success)]'
+                                  : 'bg-[var(--warning)]/10 text-[var(--warning)]'
+                              }`}
                             >
                               <Package className="w-4 h-4" />
                             </div>
@@ -749,10 +751,11 @@ const SplitOrderPage: React.FC = () => {
                               return (
                                 <div
                                   key={product.productId}
-                                  className={`p-3 flex items-center gap-3 ${idx !== group.products.length - 1
-                                    ? 'border-b border-[var(--border)]/50'
-                                    : ''
-                                    }`}
+                                  className={`p-3 flex items-center gap-3 ${
+                                    idx !== group.products.length - 1
+                                      ? 'border-b border-[var(--border)]/50'
+                                      : ''
+                                  }`}
                                 >
                                   {/* Product Info */}
                                   <div className="flex-1 min-w-0">
@@ -806,10 +809,11 @@ const SplitOrderPage: React.FC = () => {
                                               'q1'
                                             )
                                           }
-                                          className={`w-12 px-1.5 py-1 text-center text-sm font-semibold rounded focus:outline-none focus:ring-1 ${q1 > product.availableQty
-                                            ? 'bg-[var(--danger)]/10 border border-[var(--danger)]/30 text-[var(--danger)] focus:ring-[var(--danger)]/50'
-                                            : 'bg-[var(--success)]/10 border border-[var(--success)]/30 text-[var(--success)] focus:ring-[var(--success)]/50'
-                                            }`}
+                                          className={`w-12 px-1.5 py-1 text-center text-sm font-semibold rounded focus:outline-none focus:ring-1 ${
+                                            q1 > product.availableQty
+                                              ? 'bg-[var(--danger)]/10 border border-[var(--danger)]/30 text-[var(--danger)] focus:ring-[var(--danger)]/50'
+                                              : 'bg-[var(--success)]/10 border border-[var(--success)]/30 text-[var(--success)] focus:ring-[var(--success)]/50'
+                                          }`}
                                         />
                                         <button
                                           onClick={() => adjustQty(product.productId, 1)}

@@ -1,10 +1,7 @@
 import React from 'react';
 import { BackButton } from '@/components/ui';
 import { cn } from '@/utils/cn';
-import {
-  getModuleTitleByPath,
-  getModuleDescriptionByPath,
-} from '@/config/moduleDisplayMetadata';
+import { getModuleTitleByPath, getModuleDescriptionByPath } from '@/config/moduleDisplayMetadata';
 
 interface PageHeaderProps {
   title: string;

@@ -64,15 +64,12 @@ interface SortableDashboardCardProps {
   navigate: (path: string) => void;
 }
 
-const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isEditing, navigate }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({
+  card,
+  isEditing,
+  navigate,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.title,
     disabled: !isEditing,
   });
@@ -107,11 +104,11 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
         if (!isEditing) navigate(card.path);
       }}
       className={cn(
-        "group relative overflow-hidden rounded-xl border p-6 text-left transition-all select-none",
+        'group relative overflow-hidden rounded-xl border p-6 text-left transition-all select-none',
         MODULE_CARD_SIZE,
         isEditing
-          ? "border-2 border-dashed border-[var(--primary)]/60 bg-[var(--surface-highlight)]/10 cursor-grab active:cursor-grabbing hover:border-[var(--primary)] hover:shadow-lg"
-          : "border-[var(--border)] bg-[var(--surface)] hover:shadow-lg hover:border-[var(--primary)] cursor-pointer"
+          ? 'border-2 border-dashed border-[var(--primary)]/60 bg-[var(--surface-highlight)]/10 cursor-grab active:cursor-grabbing hover:border-[var(--primary)] hover:shadow-lg'
+          : 'border-[var(--border)] bg-[var(--surface)] hover:shadow-lg hover:border-[var(--primary)] cursor-pointer'
       )}
     >
       {isEditing && (
@@ -119,7 +116,7 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
           <GripHorizontal className="h-4 w-4 text-[var(--primary)]" />
         </div>
       )}
-      <div className={cn("flex flex-col h-full", isDragging && "opacity-50")}>
+      <div className={cn('flex flex-col h-full', isDragging && 'opacity-50')}>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className={`inline-flex p-3 rounded-lg ${card.bg} mb-4`}>
@@ -159,12 +156,7 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
         )}
@@ -326,7 +318,7 @@ export const Dashboard: React.FC = () => {
           path: '/operations/pm-dashboard',
           color: 'text-orange-500',
           bg: 'bg-orange-500/10',
-        }
+        },
       ];
     }
 
@@ -432,19 +424,23 @@ export const Dashboard: React.FC = () => {
 
     // Filter default cards based on permissions
     return defaultCards.filter(
-      card => !card.permission || hasPermission(card.permission.module, card.permission.action as any)
+      card =>
+        !card.permission || hasPermission(card.permission.module, card.permission.action as any)
     );
   };
 
-  const rawVisibleCards = useMemo(() => getCards(), [
-    employeeCount,
-    customerCount,
-    productCount,
-    activeProductionCount,
-    lowStockCount,
-    user,
-    hasPermission
-  ]);
+  const rawVisibleCards = useMemo(
+    () => getCards(),
+    [
+      employeeCount,
+      customerCount,
+      productCount,
+      activeProductionCount,
+      lowStockCount,
+      user,
+      hasPermission,
+    ]
+  );
 
   const storageKey = `morex_tab_order_${user?.EmployeeID || 'default'}_dashboard`;
 
@@ -472,7 +468,8 @@ export const Dashboard: React.FC = () => {
     }
   }, [rawVisibleCards, storageKey]);
 
-  const isAdmin = user?.Role?.toLowerCase() === 'admin' || user?.Role?.toLowerCase() === 'superadmin';
+  const isAdmin =
+    user?.Role?.toLowerCase() === 'admin' || user?.Role?.toLowerCase() === 'superadmin';
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -552,7 +549,8 @@ export const Dashboard: React.FC = () => {
   const getSubHeaderText = () => {
     const role = user?.Role?.toLowerCase() || '';
     if (role.includes('sales')) return 'Manage your sales, orders, and customers';
-    if (role.includes('production') || role.includes('factory')) return 'Manage production, reports, and batches';
+    if (role.includes('production') || role.includes('factory'))
+      return 'Manage production, reports, and batches';
     if (role.includes('account')) return 'Manage approvals, orders, and quotations';
     return 'Enterprise Resource Planning System';
   };
@@ -561,12 +559,8 @@ export const Dashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-[var(--text-primary)]">
-            {getHeaderText()}
-          </h1>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            {getSubHeaderText()}
-          </p>
+          <h1 className="text-3xl font-semibold text-[var(--text-primary)]">{getHeaderText()}</h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">{getSubHeaderText()}</p>
         </div>
         {isAdmin && items.length > 1 && (
           <div className="flex items-center gap-2 self-end md:self-auto">
@@ -605,15 +599,8 @@ export const Dashboard: React.FC = () => {
 
       <AlertsTicker />
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={items.map(item => item.title)}
-          strategy={rectSortingStrategy}
-        >
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={items.map(item => item.title)} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
             {items.map(card => (
               <SortableDashboardCard

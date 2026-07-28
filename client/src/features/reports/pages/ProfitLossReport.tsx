@@ -51,7 +51,10 @@ const ProfitLossReport = () => {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
   useEffect(() => {
-    companyApi.get().then(res => setCompanyInfo(res.data.data)).catch(console.error);
+    companyApi
+      .get()
+      .then(res => setCompanyInfo(res.data.data))
+      .catch(console.error);
   }, []);
 
   // Filter states
@@ -537,7 +540,8 @@ const ProfitLossReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader metadataPath="/reports/profit-loss"
+      <PageHeader
+        metadataPath="/reports/profit-loss"
         title="Profit Loss Report"
         description="Detailed analysis of production costs vs sales revenue."
       />

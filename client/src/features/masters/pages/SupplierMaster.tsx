@@ -148,11 +148,11 @@ const SupplierForm = ({
       // Uniqueness check
       const dup = val.trim()
         ? existingSuppliers.find(
-          s =>
-            ((s.mobileNo && s.mobileNo === val.trim()) ||
-              (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
-            s.supplierId !== item?.supplierId
-        )
+            s =>
+              ((s.mobileNo && s.mobileNo === val.trim()) ||
+                (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
+              s.supplierId !== item?.supplierId
+          )
         : null;
       if (dup) {
         setFieldError('mobileNo', `Mobile number already used by another ${dup.supplierName}`);
@@ -169,11 +169,11 @@ const SupplierForm = ({
       // Uniqueness check
       const dup = val.trim()
         ? existingSuppliers.find(
-          s =>
-            ((s.mobileNo && s.mobileNo === val.trim()) ||
-              (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
-            s.supplierId !== item?.supplierId
-        )
+            s =>
+              ((s.mobileNo && s.mobileNo === val.trim()) ||
+                (s.mobileNo2 && s.mobileNo2 === val.trim())) &&
+              s.supplierId !== item?.supplierId
+          )
         : null;
       if (dup) {
         setFieldError('mobileNo2', `Mobile number already used by another ${dup.supplierName}`);
@@ -190,11 +190,11 @@ const SupplierForm = ({
       // Uniqueness check
       const dup = val.trim()
         ? existingSuppliers.find(
-          s =>
-            s.gstNo &&
-            s.gstNo.toUpperCase() === val.trim().toUpperCase() &&
-            s.supplierId !== item?.supplierId
-        )
+            s =>
+              s.gstNo &&
+              s.gstNo.toUpperCase() === val.trim().toUpperCase() &&
+              s.supplierId !== item?.supplierId
+          )
         : null;
       if (dup) {
         setFieldError('gstNo', `GST already used by another ${dup.supplierName}`);
@@ -660,7 +660,9 @@ export default function SupplierMaster() {
     },
     {
       accessorKey: 'supplierName',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier Company Name" />,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Supplier Company Name" />
+      ),
       cell: ({ row }) => <span className="font-medium">{row.original.supplierName}</span>,
     },
     {
@@ -756,9 +758,9 @@ export default function SupplierMaster() {
               editingSupplier
                 ? initiateUpdate
                 : item => {
-                  setPendingItem(item);
-                  setIsAddConfirmModalOpen(true);
-                }
+                    setPendingItem(item);
+                    setIsAddConfirmModalOpen(true);
+                  }
             }
             onCancel={() => {
               setEditingSupplier(null);
@@ -790,7 +792,9 @@ export default function SupplierMaster() {
               <p>{pendingItem?.supplierId}</p>
             </div>
             <div>
-              <span className="font-semibold text-[var(--text-secondary)]">Supplier Company Name:</span>
+              <span className="font-semibold text-[var(--text-secondary)]">
+                Supplier Company Name:
+              </span>
               <p>{pendingItem?.supplierName}</p>
             </div>
             {pendingItem?.contactPerson && (
@@ -852,7 +856,9 @@ export default function SupplierMaster() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="col-span-2">
-              <span className="font-semibold text-[var(--text-secondary)]">Supplier Company Name:</span>
+              <span className="font-semibold text-[var(--text-secondary)]">
+                Supplier Company Name:
+              </span>
               <p>{pendingItem?.supplierName}</p>
             </div>
             {pendingItem?.contactPerson && (
