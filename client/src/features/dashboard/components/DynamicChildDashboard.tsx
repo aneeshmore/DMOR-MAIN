@@ -12,10 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { routeRegistry, findRouteByPath, RouteNode } from '@/config/routeRegistry';
-import {
-  getModuleTitleByPath,
-  getModuleDescriptionByPath,
-} from '@/config/moduleDisplayMetadata';
+import { getModuleTitleByPath, getModuleDescriptionByPath } from '@/config/moduleDisplayMetadata';
 import { cn } from '@/utils/cn';
 import {
   MODULE_CARD_SIZE,
@@ -301,14 +298,7 @@ interface SortableRouteCardProps {
 }
 
 const SortableRouteCard: React.FC<SortableRouteCardProps> = ({ route, isEditing, navigate }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: route.id,
     disabled: !isEditing,
   });
@@ -324,10 +314,7 @@ const SortableRouteCard: React.FC<SortableRouteCardProps> = ({ route, isEditing,
   const bgClass = meta.iconBg || DEFAULT_META.iconBg;
   const colorClass = meta.iconColor || DEFAULT_META.iconColor;
   // Central display metadata wins; existing local description stays as fallback.
-  const desc = getModuleDescriptionByPath(
-    route.path,
-    meta.description || DEFAULT_META.description
-  );
+  const desc = getModuleDescriptionByPath(route.path, meta.description || DEFAULT_META.description);
   const displayTitle = getModuleTitleByPath(route.path, route.label);
 
   return (
@@ -336,11 +323,11 @@ const SortableRouteCard: React.FC<SortableRouteCardProps> = ({ route, isEditing,
       style={style}
       {...(isEditing ? { ...attributes, ...listeners } : {})}
       className={cn(
-        "card p-6 group relative select-none",
+        'card p-6 group relative select-none',
         MODULE_CARD_SIZE,
         isEditing
-          ? "border-2 border-dashed border-[var(--primary)]/60 bg-[var(--surface-highlight)]/10 cursor-grab active:cursor-grabbing hover:border-[var(--primary)] hover:shadow-md transition-shadow"
-          : "hover-lift cursor-pointer"
+          ? 'border-2 border-dashed border-[var(--primary)]/60 bg-[var(--surface-highlight)]/10 cursor-grab active:cursor-grabbing hover:border-[var(--primary)] hover:shadow-md transition-shadow'
+          : 'hover-lift cursor-pointer'
       )}
       onClick={() => {
         if (!isEditing) navigate(route.path);
@@ -351,7 +338,7 @@ const SortableRouteCard: React.FC<SortableRouteCardProps> = ({ route, isEditing,
           <GripHorizontal className="h-4 w-4 text-[var(--primary)]" />
         </div>
       )}
-      <div className={cn("flex flex-col h-full", isDragging && "opacity-50")}>
+      <div className={cn('flex flex-col h-full', isDragging && 'opacity-50')}>
         <div
           className={`w-12 h-12 rounded-lg flex items-center justify-center mb-4 ${bgClass} ${colorClass}`}
         >
@@ -433,7 +420,8 @@ export const DynamicChildDashboard: React.FC<DynamicChildDashboardProps> = ({
     }
   }, [visibleRoutes, storageKey]);
 
-  const isAdmin = user?.Role?.toLowerCase() === 'admin' || user?.Role?.toLowerCase() === 'superadmin';
+  const isAdmin =
+    user?.Role?.toLowerCase() === 'admin' || user?.Role?.toLowerCase() === 'superadmin';
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -552,15 +540,8 @@ export const DynamicChildDashboard: React.FC<DynamicChildDashboardProps> = ({
         )}
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={items.map(item => item.id)}
-          strategy={rectSortingStrategy}
-        >
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={items.map(item => item.id)} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
             {items.map((route: RouteNode) => (
               <SortableRouteCard
@@ -578,8 +559,8 @@ export const DynamicChildDashboard: React.FC<DynamicChildDashboardProps> = ({
                   No Accessible Modules
                 </h3>
                 <p className="text-[var(--text-secondary)] mt-2 max-w-md mx-auto">
-                  You don&apos;t have permission to access any modules in this section. Please contact
-                  your administrator.
+                  You don&apos;t have permission to access any modules in this section. Please
+                  contact your administrator.
                 </p>
               </div>
             )}

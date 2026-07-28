@@ -362,7 +362,8 @@ export default function PaymentReport() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <PageHeader metadataPath="/reports/payments"
+      <PageHeader
+        metadataPath="/reports/payments"
         title="Payment Report"
         description="View all customer balances and expand to see detailed transaction history."
         actions={

@@ -700,7 +700,8 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
   return (
     <div className="container mx-auto pb-10">
       <div className="space-y-6 animate-fade-in">
-        <PageHeader metadataPath="/operations/inward-from-po"
+        <PageHeader
+          metadataPath="/operations/inward-from-po"
           title="Inward From Purchase Order"
           description="Receive materials from outstanding purchase orders and auto-update stock levels"
         />
