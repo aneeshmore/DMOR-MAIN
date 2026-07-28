@@ -362,6 +362,7 @@ async function syncPermissions() {
       'inward-from-po',
       'split-order',
       'report-batch',
+      'report-batch-accounts',
       'report-inward',
       'report-stock',
       'test_certificate', // Test Certificate permission for Production Manager
@@ -395,6 +396,32 @@ async function syncPermissions() {
     // Inclusions: admin-dashboard, orders, quotations
     const dealerIncluded = ['admin-dashboard', 'orders', 'quotations', 'quotation-maker'];
     await grantToRole('Dealer', dealerIncluded);
+
+    // 6. Backward compatibility: ensure any role that currently has 'report-batch' also gets 'report-batch-accounts'
+    const reportBatchPerm = allPerms.find(p => p.name === 'report-batch');
+    const reportBatchAccountsPerm = allPerms.find(p => p.name === 'report-batch-accounts');
+
+    if (reportBatchPerm && reportBatchAccountsPerm) {
+      const rolesWithBatchReport = existingRolePerms.filter(
+        rp => rp.permissionId === reportBatchPerm.id
+      );
+      for (const rp of rolesWithBatchReport) {
+        const key = `${rp.roleId}_${reportBatchAccountsPerm.id}`;
+        if (!existingMappings.has(key)) {
+          const desiredApis = Array.isArray(reportBatchAccountsPerm.apis)
+            ? reportBatchAccountsPerm.apis
+            : [];
+          await db.insert(rolePermissions).values({
+            roleId: rp.roleId,
+            permissionId: reportBatchAccountsPerm.id,
+            grantedActions: desiredApis,
+          });
+          console.log(
+            `   ✓ [Backward Compatibility] Granted report-batch-accounts to roleId: ${rp.roleId}`
+          );
+        }
+      }
+    }
 
     console.log(`\n✅ CLEAN SYNC complete! Permissions matched to route registry.`);
   } catch (error) {

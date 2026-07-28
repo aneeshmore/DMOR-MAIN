@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, desc, and, or, isNull } from 'drizzle-orm';
+import { eq, ne, desc, and, or, isNull } from 'drizzle-orm';
 import db from '../../db/index.js';
 import {
   orders,
@@ -72,8 +72,21 @@ export class AdminAccountsRepository {
     return result[0];
   }
 
-  async findByBillNo(billNo) {
-    const result = await db.select().from(accounts).where(eq(accounts.billNo, billNo)).limit(1);
+  // excludeOrderId scopes the duplicate check to "does another order own this Bill No",
+  // not "does a row with this Bill No exist". Without it, a plain WHERE billNo = X LIMIT 1
+  // can return an arbitrary matching row (e.g. a split parent's row that legitimately shares
+  // its Bill No with the child that inherited it), which the caller has no reliable way to
+  // recognize as "not actually a conflict" after the fact.
+  async findByBillNo(billNo, excludeOrderId = null) {
+    const result = await db
+      .select()
+      .from(accounts)
+      .where(
+        excludeOrderId
+          ? and(eq(accounts.billNo, billNo), ne(accounts.orderId, Number(excludeOrderId)))
+          : eq(accounts.billNo, billNo)
+      )
+      .limit(1);
 
     return result[0];
   }

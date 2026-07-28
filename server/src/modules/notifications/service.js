@@ -386,11 +386,26 @@ export class NotificationsService {
     customerName,
     totalAmount,
     salesPersonName,
-    orderNumber = null
+    orderNumber = null,
+    // { portion: 'Dispatch' | 'Balance', originalOrderNumber, customRemark } for a split
+    // child order, or null for a normal order. Optional and defaulted, so every existing
+    // caller keeps its current behaviour unchanged.
+    splitInfo = null
   ) {
     const displayId = orderNumber ? `${orderNumber}` : `Order #${orderId}`;
-    const title = `Pending Order: ${customerName}`;
-    const message = `New order from ${customerName} (₹${totalAmount}) by ${salesPersonName}. Check payment.`;
+    // A split produces two children at once. Without naming the portion and the parent,
+    // both arrive as identical "Pending Order" entries and the Accounts Manager cannot tell
+    // the dispatch half from the balance half.
+    const title = splitInfo
+      ? `Pending Split Order (${splitInfo.portion}): ${customerName}`
+      : `Pending Order: ${customerName}`;
+    const message = splitInfo
+      ? `Split order — ${splitInfo.portion} portion${
+          splitInfo.originalOrderNumber ? ` of ${splitInfo.originalOrderNumber}` : ''
+        } — from ${customerName} (₹${totalAmount}) by ${salesPersonName}.${
+          splitInfo.customRemark ? ` Remark: "${splitInfo.customRemark}".` : ''
+        } Check payment.`
+      : `New order from ${customerName} (₹${totalAmount}) by ${salesPersonName}. Check payment.`;
 
     // [ROLE-BASED VISIBILITY] New orders pending accounts approval go to the
     // Accounts Manager subscribers. Admins see all events via the /all view.
@@ -405,7 +420,21 @@ export class NotificationsService {
         type: 'NewOrder',
         title,
         message,
-        data: { orderId, orderNumber, customerName, status: 'Pending Accounts Approval' },
+        data: {
+          orderId,
+          orderNumber,
+          customerName,
+          status: 'Pending Accounts Approval',
+          // Present only for split children, so the UI can label the portion and link back
+          // to the parent without re-parsing the remark text.
+          ...(splitInfo
+            ? {
+                isSplit: true,
+                splitPortion: splitInfo.portion,
+                parentOrderNumber: splitInfo.originalOrderNumber || null,
+              }
+            : {}),
+        },
         priority: 'normal',
         isRead: false,
       });

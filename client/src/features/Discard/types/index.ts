@@ -3,7 +3,14 @@ export interface DiscardEntry {
   productId: number;
   productName?: string;
   productType?: 'FG' | 'RM' | 'PM';
+  /** Live/current stock of the product right now — used in the per-product summary only. */
   currentStock?: number;
+  /**
+   * Stock remaining immediately after THIS specific discard event (point-in-time), read
+   * from the inventory transaction logged for it. Undefined for events whose audit row
+   * is missing, in which case the UI shows '-' rather than a misleading figure.
+   */
+  stockAfterDiscard?: number;
   discardDate: string;
   quantity: number;
   reason?: string;

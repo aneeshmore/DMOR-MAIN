@@ -1,4 +1,4 @@
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
   materialDiscard,
@@ -13,7 +13,15 @@ import { AppError } from '../../utils/AppError.js';
 
 export class DiscardRepository {
   async findAllDiscards(filters) {
-    // Get all discards with basic info
+    // Get all discards, left-joined to the inventory transaction already logged for that
+    // specific discard event (referenceType='Discard', referenceId=discardId). That row's
+    // balanceAfter is the stock as it stood immediately after the discard, so the history
+    // can show a true point-in-time figure per event instead of the product's live stock —
+    // reusing data DMOR already writes, with no new column and no recalculation.
+    //
+    // The referenceType filter is essential: referenceId is only unique *within* a
+    // reference type, so without it a discard could match a Batch/Order/Dispatch row that
+    // happens to share the same numeric id.
     const discards = await db
       .select({
         discardId: materialDiscard.discardId,
@@ -24,8 +32,16 @@ export class DiscardRepository {
         reason: materialDiscard.reason,
         notes: materialDiscard.notes,
         createdAt: materialDiscard.createdAt,
+        stockAfterDiscard: inventoryTransactions.balanceAfter,
       })
       .from(materialDiscard)
+      .leftJoin(
+        inventoryTransactions,
+        and(
+          eq(inventoryTransactions.referenceType, 'Discard'),
+          eq(inventoryTransactions.referenceId, materialDiscard.discardId)
+        )
+      )
       .orderBy(desc(materialDiscard.discardDate));
 
     // Enrich each discard with product name and stock based on type

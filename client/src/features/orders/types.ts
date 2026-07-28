@@ -28,7 +28,9 @@ export interface Order {
   | 'Started'
   | 'Delivered'
   | 'Verified'
-  | 'Cancelled';
+  | 'Cancelled'
+  // Terminal status for a parent order superseded by two split child orders.
+  | 'Split';
   priority?: 'Low' | 'Normal' | 'High' | 'Urgent';
   totalAmount: number;
   expectedDeliveryDate?: string; // Production manager field
