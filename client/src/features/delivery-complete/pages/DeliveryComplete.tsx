@@ -35,7 +35,11 @@ export const DeliveryComplete: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--background)] p-6 md:p-8 space-y-8 animate-fade-in">
       {/* Header */}
-      <PageHeader metadataPath="/operations/delivery-complete" title="Return Delivery" description="Manage return confirmations" />
+      <PageHeader
+        metadataPath="/operations/delivery-complete"
+        title="Return Delivery"
+        description="Manage return confirmations"
+      />
 
       {/* Actions */}
       <div className="flex items-center gap-3 justify-end">

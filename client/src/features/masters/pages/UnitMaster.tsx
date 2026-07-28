@@ -465,9 +465,9 @@ export default function UnitMaster() {
             <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              variant="primary" 
-              onClick={confirmDelete} 
+            <Button
+              variant="primary"
+              onClick={confirmDelete}
               disabled={isAdding}
               className="!bg-red-500 hover:!bg-red-600 !border-red-500 text-white"
             >

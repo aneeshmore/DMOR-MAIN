@@ -159,7 +159,8 @@ export const InwardDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <PageHeader metadataPath="/operations/pm-inward"
+      <PageHeader
+        metadataPath="/operations/pm-inward"
         title="Material Inward"
         description="Manage incoming raw materials, packaging materials, and finished goods returns"
       />

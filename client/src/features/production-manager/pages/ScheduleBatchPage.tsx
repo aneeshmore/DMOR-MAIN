@@ -1824,9 +1824,7 @@ export default function ScheduleBatchPage() {
 
       const doc = new jsPDF();
 
-      // Full Page Border
-      doc.setLineWidth(0.5);
-      doc.rect(5, 5, 200, 287);
+      // Page border is handled by addPdfFooter
 
       // Header
       doc.setFontSize(16);
@@ -2030,7 +2028,8 @@ export default function ScheduleBatchPage() {
   return (
     <>
       <div className="space-y-6">
-        <PageHeader metadataPath="/operations/create-batch"
+        <PageHeader
+          metadataPath="/operations/create-batch"
           title="Create Production Batch"
           description="Consolidate orders and create batch production"
         />

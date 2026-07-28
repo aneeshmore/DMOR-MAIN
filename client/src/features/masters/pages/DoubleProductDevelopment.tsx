@@ -1412,7 +1412,8 @@ const DoubleProductDevelopment = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader metadataPath="/masters/double-development"
+      <PageHeader
+        metadataPath="/masters/double-development"
         title="2K Product Development Form"
         description="Manage formulations for Base and Linked Hardener"
       />

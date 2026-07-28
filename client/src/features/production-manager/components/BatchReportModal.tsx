@@ -230,8 +230,7 @@ export default function BatchReportModal({
     });
     const productNameText = (batch.masterProductName || 'N/A').trimStart();
 
-    doc.setLineWidth(0.5);
-    doc.rect(5, 5, 200, 287);
+    // Page border is handled by addPdfFooter
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');

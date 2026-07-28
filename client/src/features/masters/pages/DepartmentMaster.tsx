@@ -558,7 +558,7 @@ export default function DepartmentMaster() {
   // Delete Modals States
   const [isDeleteDeptModalOpen, setIsDeleteDeptModalOpen] = useState(false);
   const [deptToDelete, setDeptToDelete] = useState<number | null>(null);
-  
+
   const [isDeleteRoleModalOpen, setIsDeleteRoleModalOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<number | null>(null);
 
@@ -848,7 +848,7 @@ export default function DepartmentMaster() {
         {/* Page Header */}
         <PageHeader
           metadataPath="/masters/departments"
-        title="Department Master"
+          title="Department Master"
           description="Manage your department records and associated roles"
         />
 
@@ -1015,13 +1015,18 @@ export default function DepartmentMaster() {
       >
         <div className="space-y-4">
           <p className="text-sm text-[var(--text-secondary)]">
-            Are you sure you want to delete this department? This will also remove any roles associated with it. This action cannot be undone.
+            Are you sure you want to delete this department? This will also remove any roles
+            associated with it. This action cannot be undone.
           </p>
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--border)]">
             <Button variant="ghost" onClick={() => setIsDeleteDeptModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={confirmDeleteDept} className="bg-red-600 hover:bg-red-700 text-white border-transparent">
+            <Button
+              variant="primary"
+              onClick={confirmDeleteDept}
+              className="bg-red-600 hover:bg-red-700 text-white border-transparent"
+            >
               Delete
             </Button>
           </div>
@@ -1043,7 +1048,11 @@ export default function DepartmentMaster() {
             <Button variant="ghost" onClick={() => setIsDeleteRoleModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={confirmDeleteRole} className="bg-red-600 hover:bg-red-700 text-white border-transparent">
+            <Button
+              variant="primary"
+              onClick={confirmDeleteRole}
+              className="bg-red-600 hover:bg-red-700 text-white border-transparent"
+            >
               Delete
             </Button>
           </div>

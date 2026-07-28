@@ -211,7 +211,7 @@ const NewBatchProductionReport = () => {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(colorGray700[0], colorGray700[1], colorGray700[2]);
       doc.text(
-        `Date: ${formatDate(new Date().toISOString())}`,
+        `Date: ${formatDate(batch.completedAt || new Date().toISOString())}`,
         pageWidth - margin,
         headerEndY - 5,
         { align: 'right' }
@@ -233,6 +233,9 @@ const NewBatchProductionReport = () => {
         [`Planned Quantity (kg):`, plannedQtyDisplay],
         [`Supervisor:`, batch.supervisor || '-'],
         [`Labours:`, batch.labourNames || '-'],
+        // End Date from the completed batch (snapshot). Was shown in the UI but
+        // missing from the PDF — now printed here too.
+        [`End Date:`, batch.completedAt ? formatDate(batch.completedAt) : '-'],
         [
           `Total Time:`,
           (() => {
@@ -391,8 +394,7 @@ const NewBatchProductionReport = () => {
 
       // 4. Tables Section - Side by Side
       const ingredientsBody = ingredients.map((rm, index) => {
-        const pctVal = rm.computedPercentage <= 0.0001 ? '-' : formatNumber3(rm.computedPercentage);
-        return [index + 1, rm.rawMaterialName, pctVal, formatNumber3(rm.effectiveActual)];
+        return [index + 1, rm.rawMaterialName, formatNumber3(rm.effectiveActual)];
       });
 
       const totalAmount = 0;
@@ -434,7 +436,7 @@ const NewBatchProductionReport = () => {
       autoTable(doc, {
         startY: tableY,
         margin: { left: margin, right: 110 },
-        head: [['Seq', 'Product', 'Percentage', 'Actual']],
+        head: [['Seq', 'Product', 'Actual']],
         body: ingredientsBody,
         theme: 'grid',
         styles: {
@@ -456,12 +458,11 @@ const NewBatchProductionReport = () => {
         },
         columnStyles: {
           0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 43, halign: 'left' },
-          2: { cellWidth: 22, halign: 'right' },
-          3: { cellWidth: 16, halign: 'right' },
+          1: { cellWidth: 65, halign: 'left' },
+          2: { cellWidth: 16, halign: 'right' },
         },
         tableWidth: 91,
-        foot: [['', 'Total', formatNumber3(totalPercentage), formatNumber3(totalActualWeight)]],
+        foot: [['', 'Total', formatNumber3(totalActualWeight)]],
         footStyles: {
           fillColor: colorSuccess, // Green
           textColor: [255, 255, 255], // White
@@ -1308,7 +1309,8 @@ const NewBatchProductionReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader metadataPath="/reports/new-batch-production"
+      <PageHeader
+        metadataPath="/reports/new-batch-production"
         title="Batch Production Reports"
         description="Comprehensive view of all production batches"
         actions={
@@ -1766,7 +1768,7 @@ const NewBatchProductionReport = () => {
                 Batch Production Report No.: {previewBatch.batchNo}
               </h2>
               <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-                Date: {formatDate(new Date().toISOString())}
+                Date: {formatDate(previewBatch.completedAt || new Date().toISOString())}
               </span>
             </div>
 
@@ -1796,6 +1798,12 @@ const NewBatchProductionReport = () => {
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Labours:</span>
                   <span className="text-gray-900">{previewBatch.labourNames || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-gray-600">End Date:</span>
+                  <span className="text-gray-900">
+                    {previewBatch.completedAt ? formatDate(previewBatch.completedAt) : '-'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-600">Total Time:</span>
@@ -2015,10 +2023,6 @@ const NewBatchProductionReport = () => {
                 const regular = allMaterials.filter(rm => !rm.isAdditional);
                 const additional = allMaterials.filter(rm => rm.isAdditional);
 
-                const totalPercentage = allMaterials.reduce(
-                  (s, rm) => s + rm.computedPercentage,
-                  0
-                );
                 const totalActual = allMaterials.reduce(
                   (s, rm) =>
                     s + (rm.effectiveActual ?? parseNumber(rm.actualQty || rm.percentage || '0')),
@@ -2043,9 +2047,6 @@ const NewBatchProductionReport = () => {
                         <tr>
                           <th className="border border-gray-300 px-2 py-1 text-left">Seq</th>
                           <th className="border border-gray-300 px-2 py-1 text-left">Product</th>
-                          <th className="border border-gray-300 px-2 py-1 text-right">
-                            Percentage
-                          </th>
                           <th className="border border-gray-300 px-2 py-1 text-right">Actual</th>
                         </tr>
                       </thead>
@@ -2066,9 +2067,6 @@ const NewBatchProductionReport = () => {
                                 )}
                               </td>
                               <td className="border border-gray-300 px-2 py-1 text-right">
-                                {formatNumber3(rm.computedPercentage)}
-                              </td>
-                              <td className="border border-gray-300 px-2 py-1 text-right">
                                 {formatNumber3(rm.effectiveActual)}
                               </td>
                             </tr>
@@ -2077,10 +2075,6 @@ const NewBatchProductionReport = () => {
                         {/* Additional Materials */}
                         {additional.map((rm, idx) => {
                           const isUnderlinedOrBold = anyExceeds100;
-                          const pctVal =
-                            rm.computedPercentage <= 0.0001
-                              ? '-'
-                              : formatNumber3(rm.computedPercentage);
                           return (
                             <tr key={`add-${idx}`}>
                               <td className="border border-gray-300 px-2 py-1 text-center">
@@ -2094,9 +2088,6 @@ const NewBatchProductionReport = () => {
                                 )}
                               </td>
                               <td className="border border-gray-300 px-2 py-1 text-right">
-                                {pctVal}
-                              </td>
-                              <td className="border border-gray-300 px-2 py-1 text-right">
                                 {formatNumber3(rm.effectiveActual)}
                               </td>
                             </tr>
@@ -2107,9 +2098,6 @@ const NewBatchProductionReport = () => {
                         <tr>
                           <td className="border border-gray-300 px-2 py-1" colSpan={2}>
                             Total
-                          </td>
-                          <td className="border border-gray-300 px-2 py-1 text-right">
-                            {formatNumber3(totalPercentage)}
                           </td>
                           <td className="border border-gray-300 px-2 py-1 text-right">
                             {formatNumber3(totalActual)}

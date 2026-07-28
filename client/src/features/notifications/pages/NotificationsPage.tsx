@@ -221,9 +221,10 @@ const NotificationsPage = () => {
     shortageMap.forEach(val => {
       const orderCount = val.orderMap.size;
       val.affectedOrders = Array.from(val.orderMap.values());
-      val.message = orderCount > 0 
-        ? `Shortage affecting ${orderCount} Order(s). Total Required: ${val.totalRequired} ${val.unit}`
-        : `Low Stock Alert. Total Required: ${val.totalRequired} ${val.unit}`;
+      val.message =
+        orderCount > 0
+          ? `Shortage affecting ${orderCount} Order(s). Total Required: ${val.totalRequired} ${val.unit}`
+          : `Low Stock Alert. Total Required: ${val.totalRequired} ${val.unit}`;
       val.notificationId = val.ids[0];
       grouped.push(val);
     });
@@ -378,7 +379,7 @@ const NotificationsPage = () => {
     try {
       const orderIds = Array.from(group.orderMap.keys()) as number[];
       const validOrderIds = orderIds.filter(id => id != null);
-      
+
       let ordersData: any[] = [];
       if (validOrderIds.length > 0) {
         ordersData = await Promise.all(
@@ -392,7 +393,14 @@ const NotificationsPage = () => {
                 orderNumber: basicInfo?.orderNumber || `#${id}`,
                 customerName: basicInfo?.customerName || 'Unknown',
                 orderCreatedDate: null,
-                items: [{ productName: group.materialName, size: '-', quantity: basicInfo?.requiredQty || 0, unit: group.unit || '' }],
+                items: [
+                  {
+                    productName: group.materialName,
+                    size: '-',
+                    quantity: basicInfo?.requiredQty || 0,
+                    unit: group.unit || '',
+                  },
+                ],
                 status: 'Unknown',
               };
             }
@@ -477,7 +485,7 @@ const NotificationsPage = () => {
     // Group logic (keep existing specific logic for shortages if needed, else merge)
     if (n.isGroup) {
       // Material Shortage Group
-      
+
       // Determine badge color
       const typeBadgeClass: Record<string, string> = {
         FG: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
@@ -491,7 +499,12 @@ const NotificationsPage = () => {
         <div className="mt-2 text-sm text-red-500 bg-red-500/5 p-3 rounded border border-red-500/20">
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-2">
-              <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-bold border uppercase', badgeStyle)}>
+              <span
+                className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded font-bold border uppercase',
+                  badgeStyle
+                )}
+              >
                 {typeLabel}
               </span>
               <span className="font-semibold">
@@ -520,9 +533,7 @@ const NotificationsPage = () => {
             </div>
           </div>
           {n.affectedOrders && n.affectedOrders.length > 0 && (
-            <p className="text-xs text-red-500 mt-2">
-              Affecting {n.affectedOrders.length} orders.
-            </p>
+            <p className="text-xs text-red-500 mt-2">Affecting {n.affectedOrders.length} orders.</p>
           )}
         </div>
       );
@@ -577,87 +588,91 @@ const NotificationsPage = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader metadataPath="/masters/notifications" title="Notification Management" description="Dashboard" />
+      <PageHeader
+        metadataPath="/masters/notifications"
+        title="Notification Management"
+        description="Dashboard"
+      />
 
       {/* Stats Cards — scoped to the user's visible sections */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {visibleSections.includes('pending') && (
-        <div
-          onClick={() => setActiveTab('pending')}
-          className={cn(
-            'p-4 rounded-lg border shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md',
-            activeTab === 'pending'
-              ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700'
-              : 'bg-[var(--surface)] border-[var(--border)]'
-          )}
-        >
-          <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-full text-orange-600 dark:text-orange-400">
-            <Clock />
+          <div
+            onClick={() => setActiveTab('pending')}
+            className={cn(
+              'p-4 rounded-lg border shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md',
+              activeTab === 'pending'
+                ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700'
+                : 'bg-[var(--surface)] border-[var(--border)]'
+            )}
+          >
+            <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-full text-orange-600 dark:text-orange-400">
+              <Clock />
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">Pending Accounts Approval</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.pending}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-[var(--text-secondary)]">Pending Accounts Approval</p>
-            <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.pending}</p>
-          </div>
-        </div>
         )}
         {visibleSections.includes('accepted') && (
-        <div
-          onClick={() => setActiveTab('accepted')}
-          className={cn(
-            'p-4 rounded-lg border shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md',
-            activeTab === 'accepted'
-              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
-              : 'bg-[var(--surface)] border-[var(--border)]'
-          )}
-        >
-          <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600 dark:text-blue-400">
-            <CheckSquare />
+          <div
+            onClick={() => setActiveTab('accepted')}
+            className={cn(
+              'p-4 rounded-lg border shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md',
+              activeTab === 'accepted'
+                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
+                : 'bg-[var(--surface)] border-[var(--border)]'
+            )}
+          >
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600 dark:text-blue-400">
+              <CheckSquare />
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Order approved by accounts / Pending Factory Approval
+              </p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.accepted}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Order approved by accounts / Pending Factory Approval
-            </p>
-            <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.accepted}</p>
-          </div>
-        </div>
         )}
         {visibleSections.includes('dispatch') && (
-        <div
-          onClick={() => setActiveTab('dispatch')}
-          className={cn(
-            'p-4 rounded-lg border shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md',
-            activeTab === 'dispatch'
-              ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
-              : 'bg-[var(--surface)] border-[var(--border)]'
-          )}
-        >
-          <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600 dark:text-green-400">
-            <Truck />
+          <div
+            onClick={() => setActiveTab('dispatch')}
+            className={cn(
+              'p-4 rounded-lg border shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md',
+              activeTab === 'dispatch'
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+                : 'bg-[var(--surface)] border-[var(--border)]'
+            )}
+          >
+            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600 dark:text-green-400">
+              <Truck />
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">Dispatched</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.dispatch}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-[var(--text-secondary)]">Dispatched</p>
-            <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.dispatch}</p>
-          </div>
-        </div>
         )}
         {visibleSections.includes('low-stock') && (
-        <div
-          onClick={() => setActiveTab('low-stock')}
-          className={cn(
-            'p-4 rounded-lg border shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md',
-            activeTab === 'low-stock'
-              ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
-              : 'bg-[var(--surface)] border-[var(--border)]'
-          )}
-        >
-          <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600 dark:text-red-400">
-            <AlertTriangle />
+          <div
+            onClick={() => setActiveTab('low-stock')}
+            className={cn(
+              'p-4 rounded-lg border shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md',
+              activeTab === 'low-stock'
+                ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+                : 'bg-[var(--surface)] border-[var(--border)]'
+            )}
+          >
+            <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600 dark:text-red-400">
+              <AlertTriangle />
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">Low Stock</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.lowStock}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-[var(--text-secondary)]">Low Stock</p>
-            <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.lowStock}</p>
-          </div>
-        </div>
         )}
       </div>
 

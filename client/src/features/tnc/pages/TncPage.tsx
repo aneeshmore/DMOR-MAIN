@@ -123,7 +123,8 @@ const TncPage: React.FC = () => {
   return (
     <div className="container mx-auto pb-10 space-y-6 animate-fade-in">
       {/* Page Header */}
-      <PageHeader metadataPath="/masters/terms"
+      <PageHeader
+        metadataPath="/masters/terms"
         title="Terms & Conditions"
         description="Manage payment terms, delivery terms, and other conditions for quotations"
       />

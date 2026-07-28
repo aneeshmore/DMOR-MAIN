@@ -75,7 +75,10 @@ const CustomerContactReport: React.FC = () => {
 
   // Fetch company info
   useEffect(() => {
-    companyApi.get().then(res => setCompanyInfo(res.data.data)).catch(console.error);
+    companyApi
+      .get()
+      .then(res => setCompanyInfo(res.data.data))
+      .catch(console.error);
   }, []);
 
   // Fetch customers and orders on component mount or year change
@@ -201,8 +204,10 @@ const CustomerContactReport: React.FC = () => {
         }
 
         return (
-          (customer.customerName && decodeHtml(customer.customerName).toLowerCase().includes(query)) ||
-          (customer.companyName && decodeHtml(customer.companyName).toLowerCase().includes(query)) ||
+          (customer.customerName &&
+            decodeHtml(customer.customerName).toLowerCase().includes(query)) ||
+          (customer.companyName &&
+            decodeHtml(customer.companyName).toLowerCase().includes(query)) ||
           customer.customerId.toString().includes(query) ||
           (customer.location && decodeHtml(customer.location).toLowerCase().includes(query)) ||
           customer.mobile1?.includes(query) ||
@@ -601,7 +606,8 @@ const CustomerContactReport: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <PageHeader metadataPath="/reports/customer-contact"
+      <PageHeader
+        metadataPath="/reports/customer-contact"
         title="Customer Contact Report"
         description="View and manage all customer information and contact details"
       />
@@ -622,8 +628,9 @@ const CustomerContactReport: React.FC = () => {
                   setSelectedSalesperson(e.target.value);
                   setCurrentPage(1);
                 }}
-                className={`input ${user?.Role === 'Sales Person' ? 'opacity-60 cursor-not-allowed' : ''
-                  }`}
+                className={`input ${
+                  user?.Role === 'Sales Person' ? 'opacity-60 cursor-not-allowed' : ''
+                }`}
               >
                 {user?.Role !== 'Sales Person' && <option value="">All Salespersons</option>}
                 {salespersons.map(sp => (
@@ -990,10 +997,11 @@ const CustomerContactReport: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <span
-                            className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${customer.isActive
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                              }`}
+                            className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                              customer.isActive
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
                           >
                             {customer.isActive ? 'Active' : 'Inactive'}
                           </span>

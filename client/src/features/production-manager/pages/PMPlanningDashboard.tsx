@@ -414,8 +414,9 @@ function StatCard({ icon, label, value, color, onClick }: StatCardProps) {
 
   return (
     <div
-      className={`bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 transition-all ${onClick ? 'cursor-pointer hover:border-[var(--primary)] hover:shadow-md' : ''
-        }`}
+      className={`bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 transition-all ${
+        onClick ? 'cursor-pointer hover:border-[var(--primary)] hover:shadow-md' : ''
+      }`}
       onClick={onClick}
     >
       <div className="flex items-center gap-3">
@@ -442,10 +443,11 @@ function ViewToggle({ active, onClick, children, icon }: ViewToggleProps) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${active
-        ? 'bg-[var(--primary)] text-white shadow-sm'
-        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-        }`}
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+        active
+          ? 'bg-[var(--primary)] text-white shadow-sm'
+          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+      }`}
     >
       {icon}
       {children}
@@ -473,10 +475,11 @@ function TabButton({ active, onClick, children, color }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${active
-        ? activeColor + ' shadow-sm'
-        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-        }`}
+      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+        active
+          ? activeColor + ' shadow-sm'
+          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+      }`}
     >
       {children}
     </button>
@@ -564,10 +567,11 @@ function ProductCard({
 
   return (
     <div
-      className={`bg-[var(--surface)] rounded-xl border transition-all overflow-hidden ${isExpanded
-        ? 'border-[var(--primary)]/40 shadow-lg shadow-[var(--primary)]/5'
-        : 'border-[var(--border)] hover:border-[var(--border-hover)]'
-        }`}
+      className={`bg-[var(--surface)] rounded-xl border transition-all overflow-hidden ${
+        isExpanded
+          ? 'border-[var(--primary)]/40 shadow-lg shadow-[var(--primary)]/5'
+          : 'border-[var(--border)] hover:border-[var(--border-hover)]'
+      }`}
     >
       {/* Header Row */}
       <div
@@ -585,8 +589,9 @@ function ProductCard({
           </button>
 
           <div
-            className={`w-1.5 h-10 sm:h-12 rounded-full flex-shrink-0 ${needsProduction ? 'bg-[var(--warning)]' : 'bg-[var(--success)]'
-              }`}
+            className={`w-1.5 h-10 sm:h-12 rounded-full flex-shrink-0 ${
+              needsProduction ? 'bg-[var(--warning)]' : 'bg-[var(--success)]'
+            }`}
           />
 
           <div className="flex-1 min-w-0">
@@ -623,10 +628,11 @@ function ProductCard({
               Available
             </p>
             <p
-              className={`font-bold ${group.totalAvailableQty >= group.totalOrderQty
-                ? 'text-[var(--success)]'
-                : 'text-[var(--danger)]'
-                }`}
+              className={`font-bold ${
+                group.totalAvailableQty >= group.totalOrderQty
+                  ? 'text-[var(--success)]'
+                  : 'text-[var(--danger)]'
+              }`}
             >
               {group.totalAvailableQty}
             </p>
@@ -738,10 +744,11 @@ function ProductCard({
                       <div className="text-center">
                         <p className="text-[10px] text-[var(--text-tertiary)] uppercase">Avail</p>
                         <p
-                          className={`font-medium ${product.availableQty >= product.totalOrderQty
-                            ? 'text-[var(--success)]'
-                            : 'text-[var(--danger)]'
-                            }`}
+                          className={`font-medium ${
+                            product.availableQty >= product.totalOrderQty
+                              ? 'text-[var(--success)]'
+                              : 'text-[var(--danger)]'
+                          }`}
                         >
                           {product.availableQty}
                         </p>
@@ -787,8 +794,8 @@ function ProductCard({
                     No Recipe Configured
                   </p>
                   <p className="text-xs text-[var(--text-secondary)] text-center mt-1">
-                    This product doesn&apos;t have a 1K Product Development formula. Please configure
-                    Raw Materials in 1K Product Development first.
+                    This product doesn&apos;t have a 1K Product Development formula. Please
+                    configure Raw Materials in 1K Product Development first.
                   </p>
                 </div>
               ) : (
@@ -800,10 +807,11 @@ function ProductCard({
                     return (
                       <div
                         key={idx}
-                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 rounded-lg border ${isAvailable
-                          ? 'bg-[var(--success)]/5 border-[var(--success)]/20'
-                          : 'bg-[var(--danger)]/5 border-[var(--danger)]/20'
-                          }`}
+                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 rounded-lg border ${
+                          isAvailable
+                            ? 'bg-[var(--success)]/5 border-[var(--success)]/20'
+                            : 'bg-[var(--danger)]/5 border-[var(--danger)]/20'
+                        }`}
                       >
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           {isAvailable ? (
@@ -820,8 +828,9 @@ function ProductCard({
                             {material.requiredQuantity.toFixed(1)} kg
                           </span>
                           <span
-                            className={`font-medium ${isAvailable ? 'text-[var(--success)]' : 'text-[var(--danger)]'
-                              }`}
+                            className={`font-medium ${
+                              isAvailable ? 'text-[var(--success)]' : 'text-[var(--danger)]'
+                            }`}
                           >
                             {isAvailable ? '✓' : `-${shortage.toFixed(1)} kg`}
                           </span>

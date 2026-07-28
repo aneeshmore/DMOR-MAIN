@@ -10,7 +10,11 @@ const UpdateProduct = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader metadataPath="/masters/update-product" title="Update Product" description="Manage product details across categories." />
+      <PageHeader
+        metadataPath="/masters/update-product"
+        title="Update Product"
+        description="Manage product details across categories."
+      />
 
       {/* Tabs */}
       <div className="flex justify-center w-full">
