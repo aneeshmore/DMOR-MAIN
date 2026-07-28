@@ -253,8 +253,7 @@ const MaterialInwardReport = () => {
     return [...result].sort((a, b) => {
       const dateDiff = new Date(b.inwardDate).getTime() - new Date(a.inwardDate).getTime();
       if (dateDiff !== 0) return dateDiff;
-      const timeDiff =
-        new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      const timeDiff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
       if (timeDiff !== 0) return timeDiff;
       return (b.inwardId || 0) - (a.inwardId || 0);
     });
@@ -585,7 +584,9 @@ const MaterialInwardReport = () => {
       },
       {
         accessorKey: 'totalCost',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Total Inward Value" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Total Inward Value" />
+        ),
         cell: ({ row }) => {
           const inwardValue = getInwardValue(row.original);
           return (
@@ -613,23 +614,16 @@ const MaterialInwardReport = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader metadataPath="/reports/material-inward"
+      <PageHeader
+        metadataPath="/reports/material-inward"
         title="Material Inward Report"
         description="Track all incoming materials and products"
         actions={
           <div className="flex gap-2">
-            <Button
-              variant="primary"
-              onClick={handleExportCsv}
-              leftIcon={<FileDown size={20} />}
-            >
+            <Button variant="primary" onClick={handleExportCsv} leftIcon={<FileDown size={20} />}>
               Export CSV
             </Button>
-            <Button
-              variant="secondary"
-              onClick={handleExport}
-              leftIcon={<FileDown size={20} />}
-            >
+            <Button variant="secondary" onClick={handleExport} leftIcon={<FileDown size={20} />}>
               Export PDF
             </Button>
           </div>

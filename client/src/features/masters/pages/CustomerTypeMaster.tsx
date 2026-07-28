@@ -344,9 +344,9 @@ export default function CustomerTypeMaster() {
                   editingCustomerType
                     ? initiateUpdate
                     : item => {
-                      setPendingItem(item);
-                      setIsAddConfirmModalOpen(true);
-                    }
+                        setPendingItem(item);
+                        setIsAddConfirmModalOpen(true);
+                      }
                 }
                 onCancel={() => {
                   setEditingCustomerType(null);

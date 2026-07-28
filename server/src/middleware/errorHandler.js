@@ -13,6 +13,12 @@ export const errorHandler = (err, req, res, next) => {
     method: req.method,
     ip: req.ip,
     statusCode: err.statusCode,
+    ...(err.cause && {
+      causeMessage: err.cause.message,
+      causeCode: err.cause.code,
+      causeDetail: err.cause.detail,
+      causeStack: err.cause.stack,
+    }),
   });
 
   // A raw ZodError (e.g. schema.parse(req.body) in a controller, thrown without being wrapped
@@ -49,14 +55,14 @@ export const errorHandler = (err, req, res, next) => {
   // Handle database constraint violations (23xxx codes)
   // Drizzle ORM often wraps the original error in `cause`
   const code = err.code || (err.cause && err.cause.code);
-  
+
   if (code && String(code).startsWith('23')) {
     return res.status(400).json({
       success: false,
       message: 'Database constraint violation',
       ...(process.env.NODE_ENV === 'development' && {
         stack: err.stack,
-        code: code,
+        code,
         detail: err.detail || (err.cause && err.cause.detail),
       }),
     });

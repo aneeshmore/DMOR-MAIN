@@ -194,7 +194,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
             )}
           >
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm border border-gray-100 overflow-hidden">
-              <img src="/morex-logo.png" alt="Morex Logo" className="w-full h-full object-contain" />
+              <img
+                src="/morex-logo.png"
+                alt="Morex Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
             {!isCollapsed && (
               <div className="flex flex-col min-w-0">
@@ -295,7 +299,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
                               className={cn(
                                 'transition-transform duration-200',
                                 (isMobile ? isMobileExpanded || searchQuery : isExpanded) &&
-                                'rotate-180'
+                                  'rotate-180'
                               )}
                             />
                           )}
