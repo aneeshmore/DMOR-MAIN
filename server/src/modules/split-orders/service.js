@@ -31,23 +31,49 @@ export class SplitOrdersService {
       throw new AppError('Order is already cancelled', 400);
     }
 
-    // 2. Mark original order as Cancelled
-    logger.info(`Cancelling original order ${originalOrderId}`);
-    const cancellationRemark = 'Order cancled by Split Order.';
+    if (originalOrder.status === 'Split') {
+      throw new AppError('Order has already been split', 400);
+    }
+
+    // Quantity conservation: the combined quantities of both child orders must exactly equal
+    // the parent order's quantities, per product. Enforced here on the server because the
+    // client is not authoritative — without this, a malformed or bypassed request could
+    // silently create or lose stock-bearing quantity during the split.
+    this._assertQuantitiesConserved(originalOrder, order1, order2);
+
+    // 2. Mark the original order as 'Split' — not 'Cancelled'. The order was not cancelled,
+    // it was superseded by two child orders, and conflating the two put split parents into
+    // the Cancelled Orders Report as if the business had lost them. 'Split' is a terminal
+    // status: the parent is no longer processed directly, and both children carry the work
+    // forward. The parent stays discoverable via order search and via the "Split from
+    // Order #X" remark on each child.
+    logger.info(`Marking original order ${originalOrderId} as Split`);
+    const splitRemark = 'Order split into two orders.';
 
     await this.ordersService.updateOrder(
       originalOrderId,
       {
-        status: 'Cancelled',
-        notes: (originalOrder.remarks ? originalOrder.remarks + '\n' : '') + cancellationRemark,
+        status: 'Split',
+        notes: (originalOrder.remarks ? originalOrder.remarks + '\n' : '') + splitRemark,
       },
       true
     );
 
-    // Update account remarks for the original order so it shows up in Cancelled Orders Report
+    // Record the split on the parent's accounts row for audit/history.
+    //
+    // If the parent already had a Bill No, it is cleared here (not merely left in place) —
+    // that Bill No is inherited by Child A below, and "inherit" means the live claim to that
+    // number transfers to the child, not that parent and child both keep it simultaneously.
+    // Leaving it on the parent's row previously caused a real bug: with two accounts rows
+    // (parent + Child A) carrying the same billNo, the accounts-approval duplicate check
+    // (admin-accounts findByBillNo, unscoped) could return the parent's row instead of the
+    // child's own, so accepting Child A with its own inherited Bill No was wrongly rejected
+    // as "Bill Number already exists". Clearing the parent's copy removes the collision at
+    // its source; the parent is 'Split' (terminal) and was never going to be billed itself.
+    const parentHadBillNo = !!originalOrder.billNo;
     await db
       .update(accounts)
-      .set({ remarks: cancellationRemark })
+      .set({ remarks: splitRemark, ...(parentHadBillNo ? { billNo: null } : {}) })
       .where(eq(accounts.orderId, originalOrder.orderId));
 
     // 3. Create first new order
@@ -56,11 +82,20 @@ export class SplitOrdersService {
     logger.info('Creating first split order');
     const newOrder1 = await this.ordersService.createOrder(newOrder1Data);
 
-    // Update Bill No in accounts for newOrder1
-    if (order1.billNo) {
+    // Child Order A (Dispatch) automatically inherits the parent order's Bill Number so the
+    // dispatched portion keeps invoice continuity with the order it came from. It is shown
+    // read-only in Accounts Approval — the Accounts Manager cannot change it, they only
+    // review and approve the order. If the parent has no Bill No yet, leave this blank and
+    // fall back to normal manual entry (same as Child Order B).
+    //
+    // Inheriting a Bill No does NOT approve the order or skip any stage: the child is still
+    // created at 'Pending Accounts Approval' and must be accepted by Accounts, then pass
+    // Factory Approval and the rest of the workflow independently, exactly like any other order.
+    const inheritedBillNo = order1.billNo || originalOrder.billNo;
+    if (inheritedBillNo) {
       await db
         .update(accounts)
-        .set({ billNo: order1.billNo })
+        .set({ billNo: inheritedBillNo })
         .where(eq(accounts.orderId, newOrder1.orderId));
     }
 
@@ -71,7 +106,9 @@ export class SplitOrdersService {
       logger.info('Creating second split order');
       newOrder2 = await this.ordersService.createOrder(newOrder2Data);
 
-      // Update Bill No in accounts for newOrder2
+      // Child Order B (Balance) never inherits the parent's Bill Number — the Accounts
+      // Manager must enter a new, unique one manually during Accounts Approval, exactly
+      // like any normal newly created order. Only an explicitly supplied Bill No is used.
       if (order2.billNo) {
         await db
           .update(accounts)
@@ -83,7 +120,7 @@ export class SplitOrdersService {
     }
 
     return {
-      originalOrder: { ...originalOrder, status: 'Cancelled' },
+      originalOrder: { ...originalOrder, status: 'Split' },
       newOrder1,
       newOrder2,
     };
@@ -145,6 +182,57 @@ export class SplitOrdersService {
     }
 
     throw new AppError('Order not found', 404);
+  }
+
+  /**
+   * Verify that Child A + Child B quantities reconcile exactly against the parent order.
+   * Throws AppError(400) on any mismatch, so the split is rejected before any order is
+   * created and the parent is left untouched.
+   */
+  _assertQuantitiesConserved(originalOrder, order1, order2) {
+    // Tolerance for floating point noise only (quantities are numeric/decimal in the DB).
+    const EPSILON = 0.0001;
+
+    const totals = new Map();
+    for (const detail of originalOrder.orderDetails || []) {
+      const productId = Number(detail.productId);
+      const qty = parseFloat(detail.quantity) || 0;
+      totals.set(productId, (totals.get(productId) || 0) + qty);
+    }
+
+    const childTotals = new Map();
+    for (const child of [order1, order2]) {
+      for (const item of child?.orderDetails || []) {
+        const productId = Number(item.productId);
+        const qty = parseFloat(item.quantity) || 0;
+        if (qty < 0) {
+          throw new AppError('Split quantities cannot be negative', 400);
+        }
+        childTotals.set(productId, (childTotals.get(productId) || 0) + qty);
+      }
+    }
+
+    // A product appearing in the children that was never on the parent order is quantity
+    // created out of nothing.
+    for (const productId of childTotals.keys()) {
+      if (!totals.has(productId)) {
+        throw new AppError(
+          `Split is invalid: product ${productId} is not part of the original order`,
+          400
+        );
+      }
+    }
+
+    for (const [productId, parentQty] of totals.entries()) {
+      const childQty = childTotals.get(productId) || 0;
+      if (Math.abs(parentQty - childQty) > EPSILON) {
+        throw new AppError(
+          `Split quantity mismatch for product ${productId}: original ${parentQty}, split total ${childQty}. ` +
+            'The combined quantity of both split orders must equal the original order quantity.',
+          400
+        );
+      }
+    }
   }
 
   _prepareNewOrderData(originalOrder, newOrderPartial) {

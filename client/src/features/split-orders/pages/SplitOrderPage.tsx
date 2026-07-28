@@ -4,12 +4,9 @@ import {
   X,
   Package,
   ArrowRight,
-  ChevronDown,
-  ChevronUp,
   Check,
   AlertTriangle,
   Layers,
-  Hash,
   Building2,
   Calendar,
   MapPin,
@@ -19,7 +16,6 @@ import {
   TrendingUp,
   Minus,
   Plus,
-  Zap,
   Info,
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
@@ -84,7 +80,6 @@ const SplitOrderPage: React.FC = () => {
   );
 
   // Split mode: 'quantity', 'product', or 'preference'
-  const [splitMode, setSplitMode] = useState<'quantity' | 'product' | 'preference'>('quantity');
 
   // Expanded master product groups
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
@@ -95,8 +90,12 @@ const SplitOrderPage: React.FC = () => {
   // Fetch pending orders
   const fetchPendingOrders = useCallback(async () => {
     try {
+      // 'Pending Factory Approval' and 'Factory Approved' were missing, which hid every order
+      // sitting in the two most common states of the current workflow — financially cleared
+      // but not yet in production, i.e. exactly the point where splitting is decided. Legacy
+      // status names are kept so historical orders remain splittable.
       const statuses =
-        'On Hold,Accepted,Confirmed,Scheduled for Production,In Production,Ready for Dispatch,Started';
+        'On Hold,Pending Factory Approval,Factory Approved,Scheduled for Production,In Production,Ready for Dispatch,Accepted,Confirmed,Started';
       const recent = await ordersApi.getAll({ limit: 50, offset: 0, status: statuses });
       setPendingOrders(recent || []);
     } catch (err) {
@@ -400,7 +399,7 @@ const SplitOrderPage: React.FC = () => {
       const originalQty = parseFloat(item.quantity as any);
       const newVal = value === '' ? 0 : parseFloat(value);
 
-      if (splitMode !== 'preference' && newVal > originalQty) {
+      if (newVal > originalQty) {
         showToast.error("Can't exceed original quantity");
         return;
       }
@@ -415,7 +414,7 @@ const SplitOrderPage: React.FC = () => {
             : { q1: otherVal >= 0 ? otherVal.toString() : '0', q2: value },
       }));
     },
-    [originalOrder, products, splitMode]
+    [originalOrder, products]
   );
 
   const handleAssignGroupToOrder = useCallback(
@@ -427,9 +426,8 @@ const SplitOrderPage: React.FC = () => {
         const availableQty = p.availableQty;
 
         if (targetOrder === 1) {
-          // In preference mode, assign full quantity to Order 1; otherwise respect stock
-          const dispatchQty =
-            splitMode === 'preference' ? originalQty : Math.min(originalQty, availableQty);
+          // Assign as much as available stock allows to the Dispatch order
+          const dispatchQty = Math.min(originalQty, availableQty);
           const balanceQty = originalQty - dispatchQty;
           newDistributions[p.productId] = {
             q1: dispatchQty.toString(),
@@ -445,20 +443,8 @@ const SplitOrderPage: React.FC = () => {
 
       setDistributions(newDistributions);
     },
-    [distributions, splitMode]
+    [distributions]
   );
-
-  const toggleGroupExpand = (masterProductId: number) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(masterProductId)) {
-        newSet.delete(masterProductId);
-      } else {
-        newSet.add(masterProductId);
-      }
-      return newSet;
-    });
-  };
 
   // Calculate summary
   const orderSummaries = useMemo(() => {
@@ -495,6 +481,42 @@ const SplitOrderPage: React.FC = () => {
       showToast.error('Dispatch Order must have at least one item');
       return false;
     }
+
+    const totalOriginalQty =
+      originalOrder?.orderDetails.reduce(
+        (sum, d) => sum + (parseFloat(d.quantity as any) || 0),
+        0
+      ) || 0;
+
+    if (orderSummaries.order1Qty <= 0) {
+      showToast.error('Dispatch quantity must be greater than 0');
+      return false;
+    }
+    if (orderSummaries.order1Qty >= totalOriginalQty) {
+      showToast.error(
+        'Dispatch quantity must be less than the total ordered quantity — splitting the full quantity is not required'
+      );
+      return false;
+    }
+
+    // Quantity conservation: per product, Dispatch + Balance must equal the original
+    // quantity. Preference mode does not cap the entry against the original quantity, so
+    // without this a value above the original would silently create quantity that was never
+    // ordered. The server re-checks this independently.
+    for (const item of originalOrder?.orderDetails || []) {
+      const dist = distributions[item.productId];
+      const originalQty = parseFloat(item.quantity as any) || 0;
+      const q1 = parseFloat(dist?.q1 || '0') || 0;
+      const q2 = parseFloat(dist?.q2 || '0') || 0;
+      if (Math.abs(originalQty - (q1 + q2)) > 0.0001) {
+        showToast.error(
+          `Quantity mismatch for ${item.productName || `product ${item.productId}`}: ` +
+            `${q1} + ${q2} must equal the ordered quantity ${originalQty}`
+        );
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -512,11 +534,16 @@ const SplitOrderPage: React.FC = () => {
         const q1 = parseFloat(dist.q1 || '0');
         const q2 = parseFloat(dist.q2 || '0');
 
+        // Carry the parent line's unit price AND discount onto each child line. The server
+        // recomputes each child's total from its own quantities using the existing order
+        // calculation (qty × unitPrice × (1 - discount/100)), so dropping the discount here
+        // would inflate both children and break "Dispatch + Balance = Parent".
         if (q1 > 0) {
           order1Items.push({
             productId: item.productId,
             quantity: q1,
             unitPrice: item.unitPrice,
+            discount: item.discount || 0,
           });
         }
         if (q2 > 0) {
@@ -524,6 +551,7 @@ const SplitOrderPage: React.FC = () => {
             productId: item.productId,
             quantity: q2,
             unitPrice: item.unitPrice,
+            discount: item.discount || 0,
           });
         }
       }
@@ -531,7 +559,10 @@ const SplitOrderPage: React.FC = () => {
       const payload: any = {
         order1: {
           billNo: '',
-          orderNumber: `${originalOrder.orderId}-1`,
+          // Dispatch portion gets the "-A" suffix on the parent's own order number
+          // (e.g. ORD-2026-07-0034-A), falling back to the internal id only for legacy
+          // orders that never received a formatted order number.
+          orderNumber: `${originalOrder.orderNumber || originalOrder.orderId}-A`,
           customerId: originalOrder.customerId,
           salespersonId: originalOrder.salespersonId || 0,
           orderDetails: order1Items,
@@ -544,7 +575,8 @@ const SplitOrderPage: React.FC = () => {
       if (order2Items.length > 0) {
         payload.order2 = {
           billNo: '',
-          orderNumber: `${originalOrder.orderId}-2`,
+          // Balance portion always gets the "-B" suffix on the parent's own order number.
+          orderNumber: `${originalOrder.orderNumber || originalOrder.orderId}-B`,
           customerId: originalOrder.customerId,
           salespersonId: originalOrder.salespersonId || 0,
           orderDetails: order2Items,
@@ -634,68 +666,14 @@ const SplitOrderPage: React.FC = () => {
 
                 {/* Form Content */}
                 <div className="p-6">
-                  {/* Split Mode Toggle */}
-                  <div className="mb-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-[var(--primary)]" />
-                        Split Configuration
-                      </h3>
-                      <div className="flex items-center gap-1 p-1 bg-[var(--surface-secondary)] rounded-lg">
-                        <button
-                          onClick={() => setSplitMode('quantity')}
-                          className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
-                            splitMode === 'quantity'
-                              ? 'bg-[var(--primary)] text-white shadow'
-                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                          }`}
-                        >
-                          <Hash className="w-3 h-3" />
-                          By Quantity
-                        </button>
-                        <button
-                          onClick={() => setSplitMode('product')}
-                          className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
-                            splitMode === 'product'
-                              ? 'bg-[var(--primary)] text-white shadow'
-                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                          }`}
-                        >
-                          <Package className="w-3 h-3" />
-                          By Product
-                        </button>
-                        <button
-                          onClick={() => setSplitMode('preference')}
-                          className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
-                            splitMode === 'preference'
-                              ? 'bg-[var(--warning)] text-white shadow'
-                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                          }`}
-                          title="Split by your preference - ignores stock availability"
-                        >
-                          <Zap className="w-3 h-3" />
-                          By Preference
-                        </button>
-                      </div>
-                    </div>
+                  {/* Split Product Header */}
+                  <div className="mb-4 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[var(--primary)]" />
+                    <h3 className="font-semibold text-[var(--text-primary)]">Split Product</h3>
+                    <span className="text-xs text-[var(--text-secondary)] font-normal">
+                      — adjust quantities per item, or assign a whole product group at once
+                    </span>
                   </div>
-
-                  {/* Preference Mode Info Banner */}
-                  {splitMode === 'preference' && (
-                    <div className="mb-5 p-3 bg-[var(--warning)]/10 border border-[var(--warning)]/30 rounded-lg flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <Zap className="w-5 h-5 text-[var(--warning)] shrink-0 mt-0.5" />
-                      <div className="text-sm">
-                        <p className="font-semibold text-[var(--warning)] mb-1">
-                          Preference Mode Active
-                        </p>
-                        <p className="text-[var(--text-secondary)]">
-                          Stock availability checks are disabled. You can split orders freely based
-                          on your preference, even when current stock is 0. Useful for urgent orders
-                          when you know production is imminent.
-                        </p>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Products by Master Product Group */}
                   <div className="space-y-3 mb-5">
@@ -705,10 +683,7 @@ const SplitOrderPage: React.FC = () => {
                         className="bg-[var(--background)] rounded-lg border border-[var(--border)] overflow-hidden"
                       >
                         {/* Group Header */}
-                        <div
-                          className="flex items-center justify-between p-3 cursor-pointer hover:bg-[var(--surface-secondary)]/50 transition-colors"
-                          onClick={() => toggleGroupExpand(group.masterProductId)}
-                        >
+                        <div className="flex items-center justify-between p-3">
                           <div className="flex items-center gap-2">
                             <div
                               className={`p-1.5 rounded ${
@@ -739,44 +714,33 @@ const SplitOrderPage: React.FC = () => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {splitMode === 'product' && (
-                              <div
-                                className="flex items-center gap-1"
-                                onClick={e => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={() => handleAssignGroupToOrder(group, 1)}
-                                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${
-                                    group.isFullyAssignedToOrder1
-                                      ? 'bg-[var(--success)] text-white'
-                                      : 'bg-[var(--success)]/10 text-[var(--success)] hover:bg-[var(--success)]/20'
-                                  }`}
-                                >
-                                  <TrendingUp className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={() => handleAssignGroupToOrder(group, 2)}
-                                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${
-                                    group.isFullyAssignedToOrder2
-                                      ? 'bg-[var(--warning)] text-white'
-                                      : 'bg-[var(--warning)]/10 text-[var(--warning)] hover:bg-[var(--warning)]/20'
-                                  }`}
-                                >
-                                  <Package className="w-3 h-3" />
-                                </button>
-                              </div>
-                            )}
-                            {expandedGroups.has(group.masterProductId) ? (
-                              <ChevronUp className="w-4 h-4 text-[var(--text-secondary)]" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4 text-[var(--text-secondary)]" />
-                            )}
+                            <button
+                              onClick={() => handleAssignGroupToOrder(group, 1)}
+                              title="Assign whole group to Dispatch Order"
+                              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${group.isFullyAssignedToOrder1
+                                ? 'bg-[var(--success)] text-white'
+                                : 'bg-[var(--success)]/10 text-[var(--success)] hover:bg-[var(--success)]/20'
+                                }`}
+                            >
+                              <TrendingUp className="w-4 h-4" />
+                              Dispatch
+                            </button>
+                            <button
+                              onClick={() => handleAssignGroupToOrder(group, 2)}
+                              title="Assign whole group to Balance Order"
+                              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${group.isFullyAssignedToOrder2
+                                ? 'bg-[var(--warning)] text-white'
+                                : 'bg-[var(--warning)]/10 text-[var(--warning)] hover:bg-[var(--warning)]/20'
+                                }`}
+                            >
+                              <Package className="w-4 h-4" />
+                              Balance
+                            </button>
                           </div>
                         </div>
 
-                        {/* Products List */}
-                        {expandedGroups.has(group.masterProductId) && (
-                          <div className="border-t border-[var(--border)]">
+                        {/* Products List — always shown, no collapse */}
+                        <div className="border-t border-[var(--border)]">
                             {group.products.map((product, idx) => {
                               const dist = distributions[product.productId] || { q1: '0', q2: '0' };
                               const orderedQty = parseFloat(product.quantity as any) || 0;
@@ -854,11 +818,7 @@ const SplitOrderPage: React.FC = () => {
                                         <button
                                           onClick={() => adjustQty(product.productId, 1)}
                                           className="p-1 rounded bg-[var(--surface-secondary)] hover:bg-[var(--border)] transition-colors"
-                                          disabled={
-                                            splitMode === 'preference'
-                                              ? q1 >= orderedQty
-                                              : q1 >= Math.min(orderedQty, product.availableQty)
-                                          }
+                                          disabled={q1 >= Math.min(orderedQty, product.availableQty)}
                                         >
                                           <Plus className="w-3 h-3 text-[var(--text-secondary)]" />
                                         </button>
@@ -888,8 +848,7 @@ const SplitOrderPage: React.FC = () => {
                                 </div>
                               );
                             })}
-                          </div>
-                        )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -969,8 +928,8 @@ const SplitOrderPage: React.FC = () => {
                   <div className="text-xs text-[var(--text-secondary)] bg-[var(--warning)]/5 p-3 rounded-lg border border-[var(--warning)]/20 mb-5 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-[var(--warning)] shrink-0 mt-0.5" />
                     <span>
-                      Both split orders will go to Admin for approval. Original order will be
-                      cancelled.
+                      Both split orders will go to Admin for approval. The original order will be
+                      marked as Split.
                     </span>
                   </div>
 

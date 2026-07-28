@@ -159,8 +159,10 @@ export const moduleDisplayMetadata: Record<string, ModuleDisplayMetadata> = {
       'Record inward entries for raw materials, packaging materials, consumables, and other supplies',
   },
   '/operations/split-order': {
-    title: 'Split Production Order',
-    description: 'Divide an order into multiple production batches',
+    // Splitting acts on the customer sales order and its bill, not on production batches —
+    // the title/description now describe what the screen actually does.
+    title: 'Split Customer Orders and Bills',
+    description: 'Divide an order into a dispatch order and a balance order',
     aliases: ['PM-Split Order', 'Split Order'],
   },
   '/operations/discard': {
