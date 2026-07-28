@@ -266,7 +266,7 @@ const EmployeeForm = ({
         setFormData(prev => ({
           ...prev,
           RoleID: dealerRole.value,
-          JoiningDate: new Date().toISOString().split('T')[0] // Default to today
+          JoiningDate: new Date().toISOString().split('T')[0], // Default to today
         }));
       }
     }
@@ -366,13 +366,14 @@ const EmployeeForm = ({
             AddressCity: details.District,
             AddressState: details.State,
             Area: details.Name, // Auto-fill Area with Post Office name as a suggestion
-            AddressComplete: prev.AddressComplete || `${details.Name}, ${details.District}, ${details.State}`
+            AddressComplete:
+              prev.AddressComplete || `${details.Name}, ${details.District}, ${details.State}`,
           }));
           // Re-validate Area as we auto-filled it
           if (details.Name) validateField('Area', details.Name);
         }
       } catch (err) {
-        console.error("Failed to fetch pincode details", err);
+        console.error('Failed to fetch pincode details', err);
       }
     }
   };
@@ -396,7 +397,8 @@ const EmployeeForm = ({
 
         case 'LastName':
           if (!value?.trim()) error = 'Last name is required';
-          else if (value.length < 2 || value.length > 50) error = 'Last name must be 2-50 characters';
+          else if (value.length < 2 || value.length > 50)
+            error = 'Last name must be 2-50 characters';
           else if (!/^[a-zA-Z\s]*$/.test(value))
             error = 'Last name cannot contain numbers or special characters';
 
@@ -408,7 +410,8 @@ const EmployeeForm = ({
           if (!isEditMode || showCredentialsEdit) {
             if (!value?.trim()) error = 'Username is required';
             else if (value.includes(' ')) error = 'No spaces allowed';
-            else if (value.length < 5 || value.length > 50) error = 'Length must be 5-50 characters';
+            else if (value.length < 5 || value.length > 50)
+              error = 'Length must be 5-50 characters';
             else if (!/^[a-zA-Z0-9._]+$/.test(value)) error = 'Allowed: alphabets, numbers, . or _';
             else if (/^[_.]|[_.]$/.test(value)) error = 'Cannot start/end with . or _';
             else if (
@@ -490,7 +493,7 @@ const EmployeeForm = ({
             if (!value?.trim()) {
               error = 'Pincode is required';
             } else if (!/^\d{6}$/.test(value)) {
-              // Only show error if it's NOT 6 digits. 
+              // Only show error if it's NOT 6 digits.
               error = 'Invalid Pincode';
             }
 
@@ -1289,7 +1292,6 @@ const EmployeeForm = ({
                   className="h-11"
                 />
               </div>
-
             </div>
           </div>
         )}
@@ -1487,9 +1489,10 @@ export default function EmployeeMaster() {
       const response = await employeeApi.update(id, { ...employee, Status: newStatus });
       if (response && response.success) {
         await loadEmployees(); // Reload to get fresh data
-        const message = newStatus === 'Inactive'
-          ? `Employee "${employee.FirstName} ${employee.LastName}" hidden successfully!`
-          : `Employee "${employee.FirstName} ${employee.LastName}" restored successfully!`;
+        const message =
+          newStatus === 'Inactive'
+            ? `Employee "${employee.FirstName} ${employee.LastName}" hidden successfully!`
+            : `Employee "${employee.FirstName} ${employee.LastName}" restored successfully!`;
         showToast.success(message);
       }
     } catch (error) {
@@ -1607,8 +1610,8 @@ export default function EmployeeMaster() {
             row.original.Status === 'Active'
               ? 'bg-green-100 text-green-700'
               : row.original.Status === 'Inactive'
-              ? 'bg-red-100 text-red-700'
-              : 'bg-gray-100 text-gray-700'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-gray-100 text-gray-700'
           }`}
         >
           {row.original.Status}
@@ -1659,7 +1662,11 @@ export default function EmployeeMaster() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <PageHeader title="Employee Master" description="Manage your employee records" />
+      <PageHeader
+        metadataPath="/masters/employees"
+        title="Employee Master"
+        description="Manage your employee records"
+      />
 
       {/* View Employee Details Modal */}
       <Modal
@@ -1717,10 +1724,10 @@ export default function EmployeeMaster() {
                   <p className="text-[var(--text-primary)] font-medium">
                     {viewingEmployee.DOB
                       ? new Date(viewingEmployee.DOB).toLocaleDateString('en-IN', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })
                       : '-'}
                   </p>
                 </div>
@@ -1805,10 +1812,10 @@ export default function EmployeeMaster() {
                   <p className="text-[var(--text-primary)] font-medium">
                     {viewingEmployee.JoiningDate
                       ? new Date(viewingEmployee.JoiningDate).toLocaleDateString('en-IN', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })
                       : '-'}
                   </p>
                 </div>
@@ -1820,8 +1827,8 @@ export default function EmployeeMaster() {
                         viewingEmployee.Status === 'Active'
                           ? 'bg-green-100 text-green-700'
                           : viewingEmployee.Status === 'Inactive'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-gray-100 text-gray-700'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-700'
                       }`}
                     >
                       {viewingEmployee.Status}
@@ -1862,12 +1869,13 @@ export default function EmployeeMaster() {
                     Employee Type
                   </span>
                   <p
-                    className={`font-medium ${viewingEmployee.EmployeeType === 'SalesPerson'
-                      ? 'text-green-600'
-                      : viewingEmployee.EmployeeType === 'Supervisor'
-                        ? 'text-purple-600'
-                        : 'text-blue-600'
-                      }`}
+                    className={`font-medium ${
+                      viewingEmployee.EmployeeType === 'SalesPerson'
+                        ? 'text-green-600'
+                        : viewingEmployee.EmployeeType === 'Supervisor'
+                          ? 'text-purple-600'
+                          : 'text-blue-600'
+                    }`}
                   >
                     {viewingEmployee.EmployeeType === 'SalesPerson'
                       ? 'Sales Person'
@@ -1923,8 +1931,7 @@ export default function EmployeeMaster() {
             // This covers both explicit type assignment and role-based matching
             return (
               e.Status === 'Active' &&
-              (e.EmployeeType === 'SalesPerson' ||
-              e.Role?.toLowerCase().includes('sales'))
+              (e.EmployeeType === 'SalesPerson' || e.Role?.toLowerCase().includes('sales'))
             );
           })}
         />

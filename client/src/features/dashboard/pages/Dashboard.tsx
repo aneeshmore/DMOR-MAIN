@@ -22,6 +22,11 @@ import { AlertsTicker } from '@/features/notifications/components/AlertsTicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/utils/cn';
 import {
+  MODULE_CARD_SIZE,
+  MODULE_CARD_TITLE_CLAMP,
+  MODULE_CARD_DESCRIPTION_CLAMP,
+} from '../constants/cardLayout';
+import {
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -39,6 +44,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { confirmDialog } from '@/components/ui';
+import { getModuleTitleByPath } from '@/config/moduleDisplayMetadata';
 
 // Define Card Interface
 interface DashboardCard {
@@ -58,15 +64,12 @@ interface SortableDashboardCardProps {
   navigate: (path: string) => void;
 }
 
-const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isEditing, navigate }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({
+  card,
+  isEditing,
+  navigate,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.title,
     disabled: !isEditing,
   });
@@ -79,6 +82,19 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
 
   const Icon = card.icon;
 
+  // Display-only resolution through the central module metadata, keyed by the
+  // card's existing stable `path`. The local title/description stay as
+  // fallbacks so unmapped cards keep their current text. Navigation, the
+  // dnd-kit sortable id and the React key intentionally continue to use the
+  // raw card.title / card.path so ordering and routing are unaffected.
+  const displayTitle = getModuleTitleByPath(card.path, card.title);
+  // Main dashboard cards intentionally show the live count/status, not the
+  // module description (matching the approved PaintOS dashboard). Central
+  // metadata descriptions are therefore NOT resolved here - they remain in
+  // moduleDisplayMetadata.ts for the sub-dashboard cards and page headings.
+  // Only a card's own local description (if any) is honoured.
+  const displayDescription = card.description;
+
   return (
     <button
       ref={setNodeRef}
@@ -88,10 +104,11 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
         if (!isEditing) navigate(card.path);
       }}
       className={cn(
-        "group relative overflow-hidden rounded-xl border p-6 text-left transition-all select-none",
+        'group relative overflow-hidden rounded-xl border p-6 text-left transition-all select-none',
+        MODULE_CARD_SIZE,
         isEditing
-          ? "border-2 border-dashed border-[var(--primary)]/60 bg-[var(--surface-highlight)]/10 cursor-grab active:cursor-grabbing hover:border-[var(--primary)] hover:shadow-lg"
-          : "border-[var(--border)] bg-[var(--surface)] hover:shadow-lg hover:border-[var(--primary)] cursor-pointer"
+          ? 'border-2 border-dashed border-[var(--primary)]/60 bg-[var(--surface-highlight)]/10 cursor-grab active:cursor-grabbing hover:border-[var(--primary)] hover:shadow-lg'
+          : 'border-[var(--border)] bg-[var(--surface)] hover:shadow-lg hover:border-[var(--primary)] cursor-pointer'
       )}
     >
       {isEditing && (
@@ -99,37 +116,47 @@ const SortableDashboardCard: React.FC<SortableDashboardCardProps> = ({ card, isE
           <GripHorizontal className="h-4 w-4 text-[var(--primary)]" />
         </div>
       )}
-      <div className={cn("flex flex-col h-full", isDragging && "opacity-50")}>
+      <div className={cn('flex flex-col h-full', isDragging && 'opacity-50')}>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className={`inline-flex p-3 rounded-lg ${card.bg} mb-4`}>
               <Icon className={`h-6 w-6 ${card.color}`} />
             </div>
-            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
-              {card.title}
+            <h3
+              className={cn(
+                'text-lg font-semibold text-[var(--text-primary)] mb-1',
+                MODULE_CARD_TITLE_CLAMP
+              )}
+            >
+              {displayTitle}
             </h3>
-            {card.description ? (
-              <p className="text-sm text-[var(--text-secondary)]">{card.description}</p>
+            {displayDescription ? (
+              <p
+                className={cn(
+                  'text-sm text-[var(--text-secondary)]',
+                  MODULE_CARD_DESCRIPTION_CLAMP
+                )}
+              >
+                {displayDescription}
+              </p>
             ) : (
               <p className="text-2xl font-bold text-[var(--text-primary)]">{card.count}</p>
             )}
           </div>
         </div>
-        {!isEditing && (
+        {/* Cards with a description are self-explanatory and fully clickable, so
+            the redundant "Access" affordance is not rendered for them. Cards
+            without a description keep the "View details" hint. */}
+        {!isEditing && !displayDescription && (
           <div className="mt-4 flex items-center text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">
-            {card.description ? 'Access' : 'View details'}
+            View details
             <svg
               className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
         )}
@@ -291,7 +318,7 @@ export const Dashboard: React.FC = () => {
           path: '/operations/pm-dashboard',
           color: 'text-orange-500',
           bg: 'bg-orange-500/10',
-        }
+        },
       ];
     }
 
@@ -397,19 +424,23 @@ export const Dashboard: React.FC = () => {
 
     // Filter default cards based on permissions
     return defaultCards.filter(
-      card => !card.permission || hasPermission(card.permission.module, card.permission.action as any)
+      card =>
+        !card.permission || hasPermission(card.permission.module, card.permission.action as any)
     );
   };
 
-  const rawVisibleCards = useMemo(() => getCards(), [
-    employeeCount,
-    customerCount,
-    productCount,
-    activeProductionCount,
-    lowStockCount,
-    user,
-    hasPermission
-  ]);
+  const rawVisibleCards = useMemo(
+    () => getCards(),
+    [
+      employeeCount,
+      customerCount,
+      productCount,
+      activeProductionCount,
+      lowStockCount,
+      user,
+      hasPermission,
+    ]
+  );
 
   const storageKey = `morex_tab_order_${user?.EmployeeID || 'default'}_dashboard`;
 
@@ -437,7 +468,8 @@ export const Dashboard: React.FC = () => {
     }
   }, [rawVisibleCards, storageKey]);
 
-  const isAdmin = user?.Role?.toLowerCase() === 'admin' || user?.Role?.toLowerCase() === 'superadmin';
+  const isAdmin =
+    user?.Role?.toLowerCase() === 'admin' || user?.Role?.toLowerCase() === 'superadmin';
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -517,7 +549,8 @@ export const Dashboard: React.FC = () => {
   const getSubHeaderText = () => {
     const role = user?.Role?.toLowerCase() || '';
     if (role.includes('sales')) return 'Manage your sales, orders, and customers';
-    if (role.includes('production') || role.includes('factory')) return 'Manage production, reports, and batches';
+    if (role.includes('production') || role.includes('factory'))
+      return 'Manage production, reports, and batches';
     if (role.includes('account')) return 'Manage approvals, orders, and quotations';
     return 'Enterprise Resource Planning System';
   };
@@ -526,12 +559,8 @@ export const Dashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-[var(--text-primary)]">
-            {getHeaderText()}
-          </h1>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            {getSubHeaderText()}
-          </p>
+          <h1 className="text-3xl font-semibold text-[var(--text-primary)]">{getHeaderText()}</h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">{getSubHeaderText()}</p>
         </div>
         {isAdmin && items.length > 1 && (
           <div className="flex items-center gap-2 self-end md:self-auto">
@@ -570,16 +599,9 @@ export const Dashboard: React.FC = () => {
 
       <AlertsTicker />
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={items.map(item => item.title)}
-          strategy={rectSortingStrategy}
-        >
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={items.map(item => item.title)} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
             {items.map(card => (
               <SortableDashboardCard
                 key={card.title}

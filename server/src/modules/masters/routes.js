@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { mastersController } from './controller.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { authenticate } from '../../middleware/auth.js';
-import { sanitizeBody } from '../../utils/sanitize.js';
+import { sanitizeBody, sanitizePlainTextBody } from '../../utils/sanitize.js';
 
 const router = Router();
 
@@ -106,13 +106,37 @@ router.get(
 router.post(
   '/customers',
   requirePermission('POST:/masters/customers'),
-  sanitizeBody(['CompanyName', 'ContactPerson', 'Address', 'City', 'State', 'Notes', 'Email']),
+  // Plain-text sanitisation: dangerous markup is still stripped, but business
+  // characters (& / ' ") are stored as typed. HTML-entity escaping on write
+  // re-encoded the value on every edit (& -> &amp; -> &amp;amp;).
+  sanitizePlainTextBody([
+    'CompanyName',
+    'ContactPerson',
+    'Address',
+    'City',
+    'State',
+    'Notes',
+    'Email',
+    'Location',
+    'Area',
+  ]),
   mastersController.createCustomer
 );
 router.put(
   '/customers/:id',
   requirePermission('PUT:/masters/customers/:id'),
-  sanitizeBody(['CompanyName', 'ContactPerson', 'Address', 'City', 'State', 'Notes', 'Email']),
+  // Same plain-text sanitisation as create - prevents re-encoding on each save.
+  sanitizePlainTextBody([
+    'CompanyName',
+    'ContactPerson',
+    'Address',
+    'City',
+    'State',
+    'Notes',
+    'Email',
+    'Location',
+    'Area',
+  ]),
   mastersController.updateCustomer
 );
 router.delete(

@@ -84,7 +84,10 @@ const DailyConsumptionReport: React.FC = () => {
 
   useEffect(() => {
     fetchReport();
-    companyApi.get().then(res => setCompanyInfo(res.data.data)).catch(console.error);
+    companyApi
+      .get()
+      .then(res => setCompanyInfo(res.data.data))
+      .catch(console.error);
   }, [date]);
 
   // Filter data
@@ -187,10 +190,13 @@ const DailyConsumptionReport: React.FC = () => {
     if (filteredData.length === 0) return null;
 
     // 1. Consumption by Type (Pie)
-    const typeDistribution = filteredData.reduce((acc, item) => {
-      acc[item.productType] = (acc[item.productType] || 0) + item.consumption;
-      return acc;
-    }, {} as Record<string, number>);
+    const typeDistribution = filteredData.reduce(
+      (acc, item) => {
+        acc[item.productType] = (acc[item.productType] || 0) + item.consumption;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     const typeLabels = Object.keys(typeDistribution);
     const typeValues = Object.values(typeDistribution);
@@ -276,7 +282,9 @@ const DailyConsumptionReport: React.FC = () => {
         accessorKey: 'masterProductName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Material Name" />,
         cell: ({ row }) => (
-          <div className="font-medium text-[var(--text-primary)]">{row.original.masterProductName}</div>
+          <div className="font-medium text-[var(--text-primary)]">
+            {row.original.masterProductName}
+          </div>
         ),
       },
       {
@@ -284,12 +292,13 @@ const DailyConsumptionReport: React.FC = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
         cell: ({ row }) => (
           <Badge
-            className={`${row.original.productType === 'RM'
-              ? 'bg-blue-500 hover:bg-blue-600 text-white'
-              : row.original.productType === 'PM'
-                ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                : 'bg-gray-500 text-white'
-              }`}
+            className={`${
+              row.original.productType === 'RM'
+                ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                : row.original.productType === 'PM'
+                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                  : 'bg-gray-500 text-white'
+            }`}
           >
             {row.original.productType}
           </Badge>
@@ -329,6 +338,7 @@ const DailyConsumptionReport: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
+        metadataPath="/reports/daily-consumption"
         title="Daily Consumption Report"
         description="Track daily material consumption and inventory levels"
         actions={
@@ -479,10 +489,11 @@ const DailyConsumptionReport: React.FC = () => {
                   <button
                     key={type}
                     onClick={() => setProductTypeFilter(type)}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${productTypeFilter === type
-                      ? 'bg-slate-800 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100'
-                      }`}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      productTypeFilter === type
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
                   >
                     {type}
                   </button>

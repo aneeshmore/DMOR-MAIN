@@ -63,11 +63,12 @@ export const CancelOrderPage: React.FC = () => {
     // Apply Search Filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      data = data.filter(order =>
-      (order.orderNumber?.toString().toLowerCase().includes(query) ||
-        order.orderId.toString().includes(query) ||
-        (order.companyName || order.customerName)?.toLowerCase().includes(query) ||
-        order.billNo?.toLowerCase().includes(query))
+      data = data.filter(
+        order =>
+          order.orderNumber?.toString().toLowerCase().includes(query) ||
+          order.orderId.toString().includes(query) ||
+          (order.companyName || order.customerName)?.toLowerCase().includes(query) ||
+          order.billNo?.toLowerCase().includes(query)
       );
     }
 
@@ -94,14 +95,15 @@ export const CancelOrderPage: React.FC = () => {
     setActiveTab(tab);
     setDateFilter(filter);
     // Reset search when switching major contexts if desired, but keeping it might be better UX
-    // setSearchQuery(''); 
+    // setSearchQuery('');
   };
 
   const getCardStyle = (isActive: boolean) => {
-    return `bg-[var(--surface)] rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md ${isActive
+    return `bg-[var(--surface)] rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md ${
+      isActive
         ? 'border-[var(--primary)] ring-1 ring-[var(--primary)]'
         : 'border-[var(--border)] hover:border-[var(--primary)]/50'
-      }`;
+    }`;
   };
 
   const tabs: { id: TabType; label: string; count: number }[] = [
@@ -113,6 +115,7 @@ export const CancelOrderPage: React.FC = () => {
     <div className="min-h-screen bg-[var(--background)] p-6 md:p-8 space-y-6 animate-fade-in">
       {/* Header */}
       <PageHeader
+        metadataPath="/operations/cancel-order"
         title="Cancel Order"
         description="Manage order cancellations and view cancelled orders"
       />
@@ -196,17 +199,19 @@ export const CancelOrderPage: React.FC = () => {
                   setActiveTab(tab.id);
                   if (tab.id === 'cancelled') setDateFilter('all');
                 }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab.id
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                  activeTab === tab.id
                     ? 'bg-[var(--primary)] text-white shadow-lg'
                     : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:border-[var(--primary)]'
-                  }`}
+                }`}
               >
                 {tab.label}
                 <span
-                  className={`px-1.5 py-0.5 rounded text-xs ${activeTab === tab.id
+                  className={`px-1.5 py-0.5 rounded text-xs ${
+                    activeTab === tab.id
                       ? 'bg-white/20 text-white'
                       : 'bg-[var(--surface-secondary)] text-[var(--text-secondary)]'
-                    }`}
+                  }`}
                 >
                   {tab.count}
                 </span>
@@ -219,7 +224,7 @@ export const CancelOrderPage: React.FC = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search orders..."
               className="w-full pl-9 pr-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] outline-none"
             />

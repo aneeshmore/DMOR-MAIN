@@ -1,6 +1,7 @@
 import React from 'react';
 import { BackButton } from '@/components/ui';
 import { cn } from '@/utils/cn';
+import { getModuleTitleByPath, getModuleDescriptionByPath } from '@/config/moduleDisplayMetadata';
 
 interface PageHeaderProps {
   title: string;
@@ -8,6 +9,17 @@ interface PageHeaderProps {
   actions?: React.ReactNode;
   showBackButton?: boolean;
   className?: string;
+  /**
+   * Stable route path of the module this page represents (e.g.
+   * '/operations/admin-accounts'). OPT-IN ONLY: when supplied, the module's
+   * approved title/description from `moduleDisplayMetadata` are shown, with the
+   * `title`/`description` props kept as fallbacks.
+   *
+   * Deliberately explicit - the header is not derived from useLocation, because
+   * PageHeader is also used by create/edit/detail screens whose action-specific
+   * headings ("Add New Customer", "Create Quotation") must not be replaced.
+   */
+  metadataPath?: string;
 }
 
 /**
@@ -21,7 +33,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
   showBackButton = true,
   className,
+  metadataPath,
 }) => {
+  // Resolve only when a module path is explicitly provided; otherwise the
+  // caller's own title/description are used exactly as before.
+  const displayTitle = metadataPath ? getModuleTitleByPath(metadataPath, title) : title;
+  const displayDescription = metadataPath
+    ? getModuleDescriptionByPath(metadataPath, description)
+    : description;
+
   return (
     <div className={cn('space-y-4', className)}>
       {/* Main Header Row: Back Button + Title/Description */}
@@ -38,10 +58,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">
-                {title}
+                {displayTitle}
               </h1>
-              {description && (
-                <p className="text-base text-[var(--text-secondary)] mt-2">{description}</p>
+              {displayDescription && (
+                <p className="text-base text-[var(--text-secondary)] mt-2">{displayDescription}</p>
               )}
             </div>
 

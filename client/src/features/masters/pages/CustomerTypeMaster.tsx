@@ -320,7 +320,11 @@ export default function CustomerTypeMaster() {
     <>
       <div className="space-y-6 animate-fade-in">
         {/* Page Header */}
-        <PageHeader title="Customer Type Master" description="Manage your customer type records" />
+        <PageHeader
+          metadataPath="/masters/customer-types"
+          title="Customer Type Master"
+          description="Manage your customer type records"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Customer Type Form Section - Left Side (1/3 width) */}
@@ -340,9 +344,9 @@ export default function CustomerTypeMaster() {
                   editingCustomerType
                     ? initiateUpdate
                     : item => {
-                      setPendingItem(item);
-                      setIsAddConfirmModalOpen(true);
-                    }
+                        setPendingItem(item);
+                        setIsAddConfirmModalOpen(true);
+                      }
                 }
                 onCancel={() => {
                   setEditingCustomerType(null);

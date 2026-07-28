@@ -49,7 +49,10 @@ const LowStockReport = () => {
 
   useEffect(() => {
     fetchData();
-    companyApi.get().then(res => setCompanyInfo(res.data.data)).catch(console.error);
+    companyApi
+      .get()
+      .then(res => setCompanyInfo(res.data.data))
+      .catch(console.error);
   }, []);
 
   const fetchData = async () => {
@@ -285,9 +288,9 @@ const LowStockReport = () => {
             borderColor: 'rgb(239, 68, 68)',
             borderWidth: 1,
             stack: 'Stack 0',
-          }
-        ]
-      }
+          },
+        ],
+      },
     };
   }, [filteredData, chartLimit]);
 
@@ -319,12 +322,13 @@ const LowStockReport = () => {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
         cell: ({ row }) => (
           <Badge
-            className={`${row.original.productType === 'FG'
-              ? 'bg-green-100 text-green-700 border-green-200'
-              : row.original.productType === 'RM'
-                ? 'bg-blue-100 text-blue-700 border-blue-200'
-                : 'bg-yellow-100 text-yellow-700 border-yellow-200'
-              }`}
+            className={`${
+              row.original.productType === 'FG'
+                ? 'bg-green-100 text-green-700 border-green-200'
+                : row.original.productType === 'RM'
+                  ? 'bg-blue-100 text-blue-700 border-blue-200'
+                  : 'bg-yellow-100 text-yellow-700 border-yellow-200'
+            }`}
           >
             {row.original.productType}
           </Badge>
@@ -362,7 +366,6 @@ const LowStockReport = () => {
         },
       },
 
-
       {
         accessorKey: 'isActive',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
@@ -382,6 +385,7 @@ const LowStockReport = () => {
   return (
     <div className="space-y-6">
       <PageHeader
+        metadataPath="/reports/low-stock"
         title="Low Stock Report"
         description="Monitoring critical inventory levels and shortages"
         actions={
@@ -419,10 +423,11 @@ const LowStockReport = () => {
                   size="sm"
                   variant={productTypeFilter === type ? 'primary' : 'secondary'}
                   onClick={() => setProductTypeFilter(type)}
-                  className={`min-w-[4rem] px-4 transition-all duration-200 ${productTypeFilter === type
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                    }`}
+                  className={`min-w-[4rem] px-4 transition-all duration-200 ${
+                    productTypeFilter === type
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                  }`}
                 >
                   {type}
                 </Button>
@@ -483,10 +488,11 @@ const LowStockReport = () => {
                     <button
                       key={option}
                       onClick={() => setChartLimit(limit)}
-                      className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${isSelected
-                        ? 'bg-blue-600 text-white'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--color-neutral-100)]'
-                        }`}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                        isSelected
+                          ? 'bg-blue-600 text-white'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--color-neutral-100)]'
+                      }`}
                     >
                       {option}
                     </button>
@@ -517,8 +523,8 @@ const LowStockReport = () => {
                       },
                       y: {
                         stacked: true,
-                      }
-                    }
+                      },
+                    },
                   }}
                 />
               </div>

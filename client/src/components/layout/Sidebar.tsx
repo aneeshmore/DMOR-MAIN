@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LogOut, ChevronLeft, ChevronRight, Search, ChevronDown, X } from 'lucide-react';
 import { NavItem } from '@/config/routeRegistry';
+import { getModuleAliasesByPath } from '@/config/moduleDisplayMetadata';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/utils/cn';
@@ -114,12 +115,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
     (acc, [group, items]) => {
       const filtered = items
         .map(item => {
-          const parentMatches = item.label.toLowerCase().includes(searchQuery.toLowerCase());
+          // Match the visible friendly title OR any legacy alias, so users can
+          // still search by the previous module name. Aliases are never shown.
+          const matchesQuery = (label: string, path?: string) => {
+            const q = searchQuery.toLowerCase();
+            if (label.toLowerCase().includes(q)) return true;
+            return getModuleAliasesByPath(path).some(alias => alias.toLowerCase().includes(q));
+          };
+
+          const parentMatches = matchesQuery(item.label, item.path);
 
           // Filter children by search query only
           const matchingChildren = item.children?.filter(child => {
             if (!searchQuery) return true; // No search = show all
-            return child.label.toLowerCase().includes(searchQuery.toLowerCase()) || parentMatches;
+            return matchesQuery(child.label, child.path) || parentMatches;
           });
 
           const hasMatchingChildren = matchingChildren && matchingChildren.length > 0;
@@ -185,7 +194,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
             )}
           >
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm border border-gray-100 overflow-hidden">
-              <img src="/morex-logo.png" alt="Morex Logo" className="w-full h-full object-contain" />
+              <img
+                src="/morex-logo.png"
+                alt="Morex Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
             {!isCollapsed && (
               <div className="flex flex-col min-w-0">
@@ -286,7 +299,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, activePath, onNavigate,
                               className={cn(
                                 'transition-transform duration-200',
                                 (isMobile ? isMobileExpanded || searchQuery : isExpanded) &&
-                                'rotate-180'
+                                  'rotate-180'
                               )}
                             />
                           )}

@@ -773,6 +773,7 @@ const ProductDevelopment = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
+        metadataPath="/masters/development"
         title="1K Product Development Form"
         description="Create and manage product recipes"
       />
