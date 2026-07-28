@@ -1080,7 +1080,7 @@ export const routeRegistry: RouteNode[] = [
         label: 'Batch Reports For Accounts',
         icon: BarChart3,
         component: BatchProductionReport,
-        permission: { module: 'report-batch' },
+        permission: { module: 'report-batch-accounts' },
         apis: [{ route: '/reports/batch-production', method: 'GET', label: 'View Batch Report' }],
       },
       {
