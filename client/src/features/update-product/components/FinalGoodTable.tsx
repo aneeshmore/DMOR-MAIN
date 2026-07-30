@@ -7,6 +7,7 @@ import { updateProductApi } from '../api';
 import UpdateConfirmationModal from './UpdateConfirmationModal';
 import EditableName from './EditableName';
 import { handleEnterKeyNavigation } from './EnterKeyNavigation';
+import CalculateMinStockButton from './CalculateMinStockButton';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -117,14 +118,17 @@ const FinalGoodTable = () => {
           newValue: changes.hsnCode || 'N/A',
         });
       }
-      
+
       const inwardCost = Number(product.costPrice) || 0;
       const packCapacity = Number(product.pmCapacity) || 1;
       const packingCost = Number(product.packingCost) || 0;
       const devUnitCost = (Number(product.devCostPrice) || 0) * packCapacity + packingCost;
       const oldCp = inwardCost > 0 ? inwardCost : devUnitCost;
-      
-      if (changes.costPrice !== undefined && Number(changes.costPrice) !== Number(oldCp.toFixed(2))) {
+
+      if (
+        changes.costPrice !== undefined &&
+        Number(changes.costPrice) !== Number(oldCp.toFixed(2))
+      ) {
         changeRecord.changes.push({
           field: 'costPrice',
           oldValue: oldCp.toFixed(2),
@@ -238,10 +242,23 @@ const FinalGoodTable = () => {
               <th className="px-4 py-3 font-medium">Product Name (SKU)</th>
               <th className="px-4 py-3 font-medium text-[var(--text-secondary)]">Cost Price</th>
               <th className="px-4 py-3 font-medium">Selling Price</th>
-              <th className="px-4 py-3 font-medium text-[var(--text-secondary)]">Profit / Loss (%)</th>
+              <th className="px-4 py-3 font-medium text-[var(--text-secondary)]">
+                Profit / Loss (%)
+              </th>
               <th className="px-4 py-3 font-medium">HSN Code</th>
               <th className="px-4 py-3 font-medium">GST (%)</th>
-              <th className="px-4 py-3 font-medium">Min Stock</th>
+              <th className="px-4 py-3 font-medium">
+                <div className="flex flex-col items-start gap-0.5 leading-tight">
+                  <CalculateMinStockButton
+                    section="FG"
+                    products={(products?.data ?? []).map((p: any) => ({ id: p.productId }))}
+                    onCompleted={() =>
+                      queryClient.invalidateQueries({ queryKey: ['update-products-fg'] })
+                    }
+                  />
+                  <span>Min Stock</span>
+                </div>
+              </th>
               <th className="px-4 py-3 font-medium">Filling Density</th>
               <th className="px-4 py-3 font-medium">Incentives</th>
             </tr>
@@ -265,7 +282,10 @@ const FinalGoodTable = () => {
               const packingCost = Number(product.packingCost) || 0;
               const devUnitCost = (Number(product.devCostPrice) || 0) * packCapacity + packingCost;
 
-              const cp = Number(edits[product.productId]?.costPrice) || (inwardCost > 0 ? inwardCost : devUnitCost) || 0;
+              const cp =
+                Number(edits[product.productId]?.costPrice) ||
+                (inwardCost > 0 ? inwardCost : devUnitCost) ||
+                0;
               const sp = Number(currentSellingPrice) || 0;
               let profitLossPercent: number | null = null;
               if (cp > 0) {
@@ -301,13 +321,16 @@ const FinalGoodTable = () => {
                         type="number"
                         data-column="1"
                         className="w-24 bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 focus:ring-1 focus:ring-[var(--primary)] outline-none"
-                        value={edits[product.productId]?.costPrice ?? (inwardCost > 0 ? inwardCost : devUnitCost).toFixed(2)}
+                        value={
+                          edits[product.productId]?.costPrice ??
+                          (inwardCost > 0 ? inwardCost : devUnitCost).toFixed(2)
+                        }
                         onChange={e =>
                           handleInputChange(product.productId, 'costPrice', e.target.value)
                         }
                         onKeyDown={handleEnterKeyNavigation}
                       />
-                      {(!product.costPrice || Number(product.costPrice) === 0) ? (
+                      {!product.costPrice || Number(product.costPrice) === 0 ? (
                         <span className="text-[10px] text-blue-500 font-normal mt-0.5 leading-none absolute -bottom-3 whitespace-nowrap">
                           (Production Cost)
                         </span>
@@ -333,8 +356,11 @@ const FinalGoodTable = () => {
                   {/* Profit / Loss % */}
                   <td className="px-4 py-3">
                     {profitLossPercent !== null ? (
-                      <span className={`text-sm font-medium ${profitLossPercent > 0 ? 'text-green-600' : profitLossPercent < 0 ? 'text-red-600' : 'text-[var(--text-secondary)]'}`}>
-                        {profitLossPercent > 0 ? '+' : ''}{profitLossPercent.toFixed(2)}%
+                      <span
+                        className={`text-sm font-medium ${profitLossPercent > 0 ? 'text-green-600' : profitLossPercent < 0 ? 'text-red-600' : 'text-[var(--text-secondary)]'}`}
+                      >
+                        {profitLossPercent > 0 ? '+' : ''}
+                        {profitLossPercent.toFixed(2)}%
                       </span>
                     ) : (
                       <span className="text-xs italic text-[var(--text-secondary)]">—</span>
