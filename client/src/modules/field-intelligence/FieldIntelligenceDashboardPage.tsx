@@ -106,7 +106,7 @@ export const FieldIntelligenceDashboardPage: React.FC = () => {
             <span className="bg-primary-500 text-white p-1 rounded-lg">
               <Activity className="h-6 w-6" />
             </span>
-            SMART CRM Dashboard
+            CRM Dashboard
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             Real-time market insights, customer acquisitions, and competitor movements

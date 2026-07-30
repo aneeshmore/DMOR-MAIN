@@ -190,7 +190,7 @@ const ROUTE_METADATA: Record<
     iconColor: 'text-zinc-600',
   },
   'field-intelligence': {
-    description: 'Smart CRM Operations and Business Intelligence',
+    description: 'CRM Operations and Business Intelligence',
     iconBg: 'bg-cyan-50',
     iconColor: 'text-cyan-600',
     icon: Cpu,

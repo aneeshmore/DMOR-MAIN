@@ -231,7 +231,7 @@ const AILockedPanel: React.FC<{ currentVisits: number }> = ({ currentVisits }) =
         <span>AI Intelligence Available After More History</span>
       </div>
       <p className="text-xs leading-relaxed text-slate-600">
-        AI insights become available once this customer has at least 3 completed Smart CRM visits.
+        AI insights become available once this customer has at least 3 completed CRM visits.
       </p>
 
       <div className="bg-white p-3 rounded-xl border border-amber-100/70 space-y-2">
@@ -716,9 +716,7 @@ export const FieldIntelligenceForm: React.FC<FormProps> = ({
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-sm border mb-4">
         <div>
           <h2 className="text-xl font-bold text-gray-800">
-            {initialData
-              ? `Edit Report: ${initialData.reportNumber}`
-              : 'New SMART CRM Visit Report'}
+            {initialData ? `Edit Report: ${initialData.reportNumber}` : 'New CRM Visit Report'}
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
             {initialData

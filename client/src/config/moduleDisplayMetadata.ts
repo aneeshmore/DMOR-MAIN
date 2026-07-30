@@ -171,9 +171,11 @@ export const moduleDisplayMetadata: Record<string, ModuleDisplayMetadata> = {
     aliases: ['Admin - Material Discard', 'Material Discard'],
   },
   '/operations/smart-crm': {
-    title: 'Customer & Sales Management',
+    // Display name only. Route path, component and permission module
+    // (field_intelligence) are unchanged.
+    title: 'CRM',
     description: 'Manage customers, enquiries, follow-ups, and sales activities',
-    aliases: ['Smart CRM', 'SMART CRM', 'CRM'],
+    aliases: ['Smart CRM', 'SMART CRM', 'CRM', 'Customer & Sales Management'],
   },
   '/operations/test-certificate': {
     title: 'Generate Test Certificate / CoA',

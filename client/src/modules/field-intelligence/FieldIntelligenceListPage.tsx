@@ -118,7 +118,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
       return;
     try {
       await fieldIntelligenceApi.delete(visitId);
-      showToast.success('Smart CRM visit report deleted successfully.');
+      showToast.success('CRM visit report deleted successfully.');
       setVisits(prev => prev.filter(v => v.id !== visitId));
       onRefreshNeeded?.();
     } catch (err) {
@@ -228,116 +228,118 @@ const CustomerRow: React.FC<CustomerRowProps> = ({
               ) : visits.length === 0 ? (
                 <p className="text-sm text-gray-400 py-4 px-2">No visit history found.</p>
               ) : (
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="text-xs font-semibold text-gray-500 border-b border-gray-200">
-                      <th className="py-2.5 px-4 font-medium">Visit Date</th>
-                      <th className="py-2.5 px-4 font-medium">Report No</th>
-                      <th className="py-2.5 px-4 font-medium" />
-                      <th className="py-2.5 px-4 font-medium">Category</th>
-                      <th className="py-2.5 px-4 font-medium">Status</th>
-                      <th className="py-2.5 px-4 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visits.map((visit: any) => (
-                      <tr
-                        key={visit.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-white/70 transition-colors"
-                      >
-                        {/* Visit Date — first one in orange/primary */}
-                        <td className="py-2.5 px-4">
-                          <span
-                            className={`text-sm ${
-                              visit === visits[0]
-                                ? 'text-orange-500 font-semibold'
-                                : 'text-gray-600'
-                            }`}
-                          >
-                            {formatDate(visit.visitDate)}
-                          </span>
-                        </td>
-
-                        {/* Report No — monospaced blue */}
-                        <td className="py-2.5 px-4">
-                          <span className="font-mono text-xs text-[#4f46e5] font-semibold tracking-wide">
-                            {visit.reportNumber}
-                          </span>
-                        </td>
-
-                        {/* Empty spacer aligned with customer name column */}
-                        <td className="py-2.5 px-4" />
-
-                        {/* Category = visitType with bullet */}
-                        <td className="py-2.5 px-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
-                            {visit.visitType || 'General'}
-                          </span>
-                        </td>
-
-                        {/* Status badge */}
-                        <td className="py-2.5 px-4">
-                          <span
-                            className={`text-xs font-medium ${
-                              STATUS_BADGE[visit.status] || 'text-gray-500 text-xs'
-                            }`}
-                          >
-                            {visit.status}
-                          </span>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-2.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() =>
-                                navigate(
-                                  `/operations/smart-crm/${encodeURIComponent(visit.reportNumber || visit.id)}`
-                                )
-                              }
-                              className="p-1.5 rounded text-gray-400 hover:text-[var(--primary)] hover:bg-blue-50 transition-colors"
-                              title="View"
+                <div className="overflow-x-auto -mx-2 px-2">
+                  <table className="w-full text-left text-sm min-w-[640px]">
+                    <thead>
+                      <tr className="text-xs font-semibold text-gray-500 border-b border-gray-200">
+                        <th className="py-2.5 px-4 font-medium">Visit Date</th>
+                        <th className="py-2.5 px-4 font-medium">Report No</th>
+                        <th className="py-2.5 px-4 font-medium" />
+                        <th className="py-2.5 px-4 font-medium">Category</th>
+                        <th className="py-2.5 px-4 font-medium">Status</th>
+                        <th className="py-2.5 px-4 font-medium text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visits.map((visit: any) => (
+                        <tr
+                          key={visit.id}
+                          className="border-b border-gray-100 last:border-0 hover:bg-white/70 transition-colors"
+                        >
+                          {/* Visit Date — first one in orange/primary */}
+                          <td className="py-2.5 px-4">
+                            <span
+                              className={`text-sm ${
+                                visit === visits[0]
+                                  ? 'text-orange-500 font-semibold'
+                                  : 'text-gray-600'
+                              }`}
                             >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            {/* Edit only for Draft reports (admin or owner). Submitted → no Edit. */}
-                            {visit.status === 'Draft' &&
-                              (user?.Role === 'Admin' ||
+                              {formatDate(visit.visitDate)}
+                            </span>
+                          </td>
+
+                          {/* Report No — monospaced blue */}
+                          <td className="py-2.5 px-4">
+                            <span className="font-mono text-xs text-[#4f46e5] font-semibold tracking-wide">
+                              {visit.reportNumber}
+                            </span>
+                          </td>
+
+                          {/* Empty spacer aligned with customer name column */}
+                          <td className="py-2.5 px-4" />
+
+                          {/* Category = visitType with bullet */}
+                          <td className="py-2.5 px-4 text-sm text-gray-600">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                              {visit.visitType || 'General'}
+                            </span>
+                          </td>
+
+                          {/* Status badge */}
+                          <td className="py-2.5 px-4">
+                            <span
+                              className={`text-xs font-medium ${
+                                STATUS_BADGE[visit.status] || 'text-gray-500 text-xs'
+                              }`}
+                            >
+                              {visit.status}
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-2.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() =>
+                                  navigate(
+                                    `/operations/smart-crm/${encodeURIComponent(visit.reportNumber || visit.id)}`
+                                  )
+                                }
+                                className="p-1.5 rounded text-gray-400 hover:text-[var(--primary)] hover:bg-blue-50 transition-colors"
+                                title="View"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              {/* Edit only for Draft reports (admin or owner). Submitted → no Edit. */}
+                              {visit.status === 'Draft' &&
+                                (user?.Role === 'Admin' ||
+                                  user?.Role === 'SuperAdmin' ||
+                                  Number(visit.executiveId) === Number(user?.EmployeeID) ||
+                                  Number(visit.createdBy) === Number(user?.EmployeeID)) && (
+                                  <button
+                                    onClick={() =>
+                                      navigate(
+                                        `/operations/smart-crm/${encodeURIComponent(visit.reportNumber || visit.id)}/edit`
+                                      )
+                                    }
+                                    className="p-1.5 rounded text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition-colors"
+                                    title="Edit"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                )}
+                              {(user?.Role === 'Admin' ||
                                 user?.Role === 'SuperAdmin' ||
-                                Number(visit.executiveId) === Number(user?.EmployeeID) ||
-                                Number(visit.createdBy) === Number(user?.EmployeeID)) && (
+                                (visit.status === 'Draft' &&
+                                  (Number(visit.executiveId) === Number(user?.EmployeeID) ||
+                                    Number(visit.createdBy) === Number(user?.EmployeeID)))) && (
                                 <button
-                                  onClick={() =>
-                                    navigate(
-                                      `/operations/smart-crm/${encodeURIComponent(visit.reportNumber || visit.id)}/edit`
-                                    )
-                                  }
-                                  className="p-1.5 rounded text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition-colors"
-                                  title="Edit"
+                                  onClick={() => handleDeleteVisit(visit.id)}
+                                  className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                  title="Delete"
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
                               )}
-                            {(user?.Role === 'Admin' ||
-                              user?.Role === 'SuperAdmin' ||
-                              (visit.status === 'Draft' &&
-                                (Number(visit.executiveId) === Number(user?.EmployeeID) ||
-                                  Number(visit.createdBy) === Number(user?.EmployeeID)))) && (
-                              <button
-                                onClick={() => handleDeleteVisit(visit.id)}
-                                className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </td>
@@ -379,7 +381,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
       setCustomerData(data);
     } catch (err) {
       console.error('Failed to load customer data', err);
-      setError('Could not load Smart CRM data. Please try again.');
+      setError('Could not load CRM data. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -452,7 +454,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Export failed', err);
-      showToast.error('Failed to export Smart CRM data.');
+      showToast.error('Failed to export CRM data.');
     } finally {
       setExporting(false);
     }
@@ -465,7 +467,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-1">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 leading-tight">
-            {getModuleTitleByPath('/operations/smart-crm', 'Smart CRM')}
+            {getModuleTitleByPath('/operations/smart-crm', 'CRM')}
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
             {loading
@@ -503,7 +505,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
       {/* ── Filters Row ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
+        <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[200px] sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           <input
             type="text"
@@ -566,25 +568,25 @@ export const FieldIntelligenceListPage: React.FC = () => {
         )}
 
         {/* Date range */}
-        <div className="flex items-center gap-1.5">
-          <div className="relative">
+        <div className="flex flex-1 sm:flex-none items-center gap-1.5 min-w-0">
+          <div className="relative flex-1 sm:flex-none min-w-0">
             <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
             <input
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className="pl-8 pr-2 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] w-[130px]"
+              className="pl-8 pr-2 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] w-full sm:w-[130px]"
               title="Start date"
             />
           </div>
-          <span className="text-gray-400 text-sm">→</span>
-          <div className="relative">
+          <span className="text-gray-400 text-sm shrink-0">→</span>
+          <div className="relative flex-1 sm:flex-none min-w-0">
             <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
             <input
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              className="pl-8 pr-2 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] w-[130px]"
+              className="pl-8 pr-2 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] w-full sm:w-[130px]"
               title="End date"
             />
           </div>
@@ -605,7 +607,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
       {loading ? (
         <div className="bg-white rounded-xl border border-gray-100 p-16 flex items-center justify-center gap-3">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--primary)]" />
-          <span className="text-gray-500 font-medium text-sm">Loading Smart CRM data...</span>
+          <span className="text-gray-500 font-medium text-sm">Loading CRM data...</span>
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center text-red-700">
@@ -626,7 +628,7 @@ export const FieldIntelligenceListPage: React.FC = () => {
           <p className="text-gray-400 text-sm mt-1">
             {search || statusFilter || moodFilter || startDate || endDate
               ? 'Try adjusting your filters.'
-              : 'Create your first Smart CRM visit report to get started.'}
+              : 'Create your first CRM visit report to get started.'}
           </p>
           {!search && !statusFilter && !moodFilter && !startDate && !endDate && (
             <button
@@ -640,48 +642,50 @@ export const FieldIntelligenceListPage: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/60">
-                <th className="py-3 pl-4 pr-2 w-10" />
-                <th className="py-3 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th className="py-3 px-3 w-12" />
-                <th className="py-3 px-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Total Visits
-                </th>
-                <th className="py-3 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Latest Visit Date
-                </th>
-                <th className="py-3 px-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider pr-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Linked Customers */}
-              {filteredLinked.map((customer: any) => (
-                <CustomerRow
-                  key={`linked-${customer.customerId}`}
-                  customer={customer}
-                  onOpenDashboard={id => navigate(`/operations/smart-crm/customer/${id}`)}
-                  onRefreshNeeded={() => fetchCustomers()}
-                />
-              ))}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[720px]">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/60">
+                  <th className="py-3 pl-4 pr-2 w-10" />
+                  <th className="py-3 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th className="py-3 px-3 w-12" />
+                  <th className="py-3 px-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Total Visits
+                  </th>
+                  <th className="py-3 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Latest Visit Date
+                  </th>
+                  <th className="py-3 px-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider pr-4">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Linked Customers */}
+                {filteredLinked.map((customer: any) => (
+                  <CustomerRow
+                    key={`linked-${customer.customerId}`}
+                    customer={customer}
+                    onOpenDashboard={id => navigate(`/operations/smart-crm/customer/${id}`)}
+                    onRefreshNeeded={() => fetchCustomers()}
+                  />
+                ))}
 
-              {/* Unlinked Customers */}
-              {filteredUnlinked.map((customer: any) => (
-                <CustomerRow
-                  key={`unlinked-${customer.customerName}`}
-                  customer={customer}
-                  isUnlinked
-                  onOpenDashboard={() => {}}
-                  onRefreshNeeded={() => fetchCustomers()}
-                />
-              ))}
-            </tbody>
-          </table>
+                {/* Unlinked Customers */}
+                {filteredUnlinked.map((customer: any) => (
+                  <CustomerRow
+                    key={`unlinked-${customer.customerName}`}
+                    customer={customer}
+                    isUnlinked
+                    onOpenDashboard={() => {}}
+                    onRefreshNeeded={() => fetchCustomers()}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {/* Footer count */}
           <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/40 flex items-center justify-between">
