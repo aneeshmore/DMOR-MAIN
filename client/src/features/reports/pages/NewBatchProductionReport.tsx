@@ -62,6 +62,28 @@ const NewBatchProductionReport = () => {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [previewBatch, setPreviewBatch] = useState<BatchProductionReportItem | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  // PM balances for the "Balance" column of Packaging Materials Used. Sourced from
+  // the existing Current Stock Report API (PM section) so the value shown is exactly
+  // the same "Total Available Qty" the Current Stock Report displays. Keyed by
+  // masterProductId, which is what batch.packagingMaterials[].packagingId holds.
+  const [pmBalanceMap, setPmBalanceMap] = useState<Map<number, number>>(new Map());
+
+  // Fetch PM balances from the Current Stock Report (existing API, no new endpoint)
+  useEffect(() => {
+    const fetchPmBalances = async () => {
+      try {
+        const pmStock = await reportsApi.getStockReport('PM');
+        const map = new Map<number, number>();
+        (pmStock || []).forEach(item => {
+          map.set(Number(item.productId), Number(item.availableQuantity));
+        });
+        setPmBalanceMap(map);
+      } catch (err) {
+        console.error('Failed to fetch PM stock balances', err);
+      }
+    };
+    fetchPmBalances();
+  }, []);
 
   // Fetch Company Info
   useEffect(() => {
@@ -612,17 +634,24 @@ const NewBatchProductionReport = () => {
         doc.setTextColor(0, 0, 0);
         doc.text('Packaging Materials Used', rightTableX, rightStackY - 2);
 
-        const packagingBody = filteredPackagingMaterials.map(pm => [
-          pm.packagingName,
-          formatNumber(pm.actualQty),
-        ]);
+        // Balance = "Total Available Qty" of this Packaging Material as shown in the
+        // Current Stock Report (PM section). Value is displayed as-is (not calculated),
+        // matched on the existing packaging identifier (masterProductId).
+        const packagingBody = filteredPackagingMaterials.map(pm => {
+          const bal = pmBalanceMap.get(Number(pm.packagingId));
+          return [
+            pm.packagingName,
+            formatNumber(pm.actualQty),
+            bal === undefined ? '-' : Number(bal).toFixed(2),
+          ];
+        });
 
         const totalActualPM = filteredPackagingMaterials.reduce((sum, pm) => sum + pm.actualQty, 0);
 
         autoTable(doc, {
           startY: rightStackY,
           margin: { left: rightTableX, right: margin },
-          head: [['Packaging Name', 'Qty']],
+          head: [['Packaging Name', 'Qty', 'Balance']],
           body: packagingBody,
           theme: 'grid',
           styles: {
@@ -642,11 +671,12 @@ const NewBatchProductionReport = () => {
             lineColor: [229, 231, 235],
           },
           columnStyles: {
-            0: { cellWidth: 68, halign: 'left' },
-            1: { cellWidth: 18, halign: 'right' },
+            0: { cellWidth: 50, halign: 'left' },
+            1: { cellWidth: 16, halign: 'right' },
+            2: { cellWidth: 20, halign: 'right' },
           },
           tableWidth: rightTableWidth,
-          foot: [['Total', formatNumber(totalActualPM)]],
+          foot: [['Total', formatNumber(totalActualPM), '']],
           footStyles: {
             fillColor: colorSuccess,
             textColor: [255, 255, 255],
@@ -728,7 +758,7 @@ const NewBatchProductionReport = () => {
       doc.save(`Batch_Report_${batch.batchNo}.pdf`);
       showToast.success(`Downloaded report for batch ${batch.batchNo}`);
     },
-    [companyInfo]
+    [companyInfo, pmBalanceMap]
   );
 
   const handleExportAll = () => {
