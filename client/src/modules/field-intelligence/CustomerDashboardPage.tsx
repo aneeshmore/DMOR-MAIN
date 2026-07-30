@@ -618,7 +618,7 @@ export const CustomerDashboardPage: React.FC = () => {
           onClick={() => navigate('/operations/smart-crm')}
           className="btn bg-[var(--primary)] text-white px-5 py-2.5 font-bold shadow-md rounded-xl transition-all cursor-pointer"
         >
-          Back to SMART CRM
+          Back to CRM
         </button>
       </div>
     );

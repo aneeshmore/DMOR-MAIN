@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { PageHeader } from '@/components/common';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { Button, Modal, Input, SearchableSelect, confirmDialog } from '@/components/ui';
@@ -15,7 +15,7 @@ import {
   CreatePurchaseOrderInput,
 } from '../api/purchaseOrdersApi';
 import apiClient from '@/api/client';
-import { masterProductApi } from '@/features/master-products/api';
+import { masterProductApi, productApi } from '@/features/master-products/api';
 import { unitApi } from '@/features/masters/api/unitApi';
 import { companyApi } from '@/features/company/api/companyApi';
 import { tncApi } from '@/features/tnc/api/tncApi';
@@ -67,6 +67,16 @@ const emptyItem = (): Omit<
   gst: '',
 });
 
+// ── Purchase type (form-only; never sent to the API) ───────────
+type PoProductType = 'RM' | 'PM' | 'SUB';
+
+const PO_TYPE_OPTIONS: { key: PoProductType; label: string }[] = [
+  // FG is sourced from Product Variants & SKU's; RM/PM from the Paint Product Catalogue.
+  { key: 'SUB', label: 'FG' },
+  { key: 'RM', label: 'RM' },
+  { key: 'PM', label: 'PM' },
+];
+
 // ── Create PO Form ─────────────────────────────────────────────
 interface CreatePOFormProps {
   suppliers: SupplierOption[];
@@ -102,7 +112,13 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const tempValuesRef = React.useRef<Record<string, string | number>>({});
 
-  const [masterProducts, setMasterProducts] = useState<any[]>([]);
+  // Purchase type. RM and PM come from the Paint Product Catalogue (master products);
+  // Sub-Product comes from Product Variants & SKU's (products). Purely a product-source
+  // selector for the form — nothing about it is sent to or stored by the API.
+  const [poType, setPoType] = useState<PoProductType>('SUB');
+  const [rmProducts, setRmProducts] = useState<any[]>([]);
+  const [pmProducts, setPmProducts] = useState<any[]>([]);
+  const [subProducts, setSubProducts] = useState<any[]>([]);
   const [unitsList, setUnitsList] = useState<any[]>([]);
   const [loadingMasterData, setLoadingMasterData] = useState(false);
   const [deliveryTermsList, setDeliveryTermsList] = useState<any[]>([]);
@@ -114,7 +130,11 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         setLoadingMasterData(true);
         const mpResponse = await masterProductApi.getAll();
         const allMps = mpResponse.success && mpResponse.data ? mpResponse.data : [];
-        const filteredMps = allMps.filter(p => p.productType === 'RM' || p.productType === 'PM');
+
+        // Product Variants & SKU's — same source as the Sub Product master page.
+        const subResponse = await productApi.getAll().catch(() => null);
+        const allSubs =
+          subResponse && subResponse.success && subResponse.data ? subResponse.data : [];
 
         const unitsResponse = await unitApi.getAll();
         const allUnits = unitsResponse.success && unitsResponse.data ? unitsResponse.data : [];
@@ -126,7 +146,62 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
         );
 
         if (isMounted) {
-          setMasterProducts(filteredMps);
+          setRmProducts(allMps.filter(p => p.productType === 'RM'));
+          setPmProducts(allMps.filter(p => p.productType === 'PM'));
+          // Normalise variants to the master-product shape the form already consumes,
+          // so every downstream behaviour (GST/unit autofill, HSN, unit lock) is reused.
+          // Unit / GST / HSN / rate fall back to the variant's parent entry in the
+          // Paint Product Catalogue when the SKU itself doesn't carry the value.
+          const mpById = new Map<number, any>(
+            (allMps as any[]).map(m => [Number(m.masterProductId), m])
+          );
+          // Keeps 0 as a real value (0% GST is valid); only skips missing/blank.
+          // NaN counts as missing — master_products.gst is a varchar, so a value like
+          // "18%" or a stray label can parse to NaN upstream and must not win.
+          const firstDefined = (...vals: any[]) =>
+            vals.find(
+              v =>
+                v !== undefined &&
+                v !== null &&
+                v !== '' &&
+                !(typeof v === 'number' && Number.isNaN(v))
+            ) ?? null;
+          // For a rate, 0 means "not priced" so it should fall through to the parent.
+          const firstPositive = (...vals: any[]) => vals.find(v => Number(v) > 0) ?? null;
+          // GST is stored as varchar; accept 18, "18", "18%", " 18.5 % " etc.
+          const toGst = (...vals: any[]) => {
+            for (const v of vals) {
+              if (v === undefined || v === null || v === '') continue;
+              if (typeof v === 'number') {
+                if (!Number.isNaN(v)) return v;
+                continue;
+              }
+              const m = String(v).match(/-?\d+(\.\d+)?/);
+              if (m) return parseFloat(m[0]);
+            }
+            return null;
+          };
+
+          setSubProducts(
+            (allSubs as any[]).map(p => {
+              const parent = mpById.get(Number(p.MasterProductID ?? p.masterProductId));
+              return {
+                masterProductId: p.ProductID ?? p.productId,
+                masterProductName: p.ProductName ?? p.productName,
+                productType: 'FG',
+                gst: toGst(p.gst, p.GST, parent?.gst, parent?.GST),
+                defaultUnitId: firstDefined(p.UnitID, p.unitId, parent?.defaultUnitId),
+                unitName: firstDefined(p.UnitName, p.unitName),
+                hsnCode: firstDefined(p.hsnCode, p.HSNCode, parent?.hsnCode, parent?.HSNCode) ?? '',
+                purchaseCost: firstPositive(
+                  p.PurchaseCost,
+                  p.purchaseCost,
+                  parent?.PurchaseCost,
+                  parent?.purchaseCost
+                ),
+              };
+            })
+          );
           setUnitsList(allUnits);
           setDeliveryTermsList(filteredTnc);
         }
@@ -143,6 +218,23 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       isMounted = false;
     };
   }, []);
+
+  // Options offered in the product picker for the currently selected type. This is a
+  // browsing filter only — a single PO may freely mix RM, PM and Sub-Product lines.
+  const selectableProducts = useMemo(() => {
+    if (poType === 'PM') return pmProducts;
+    if (poType === 'SUB') return subProducts;
+    return rmProducts;
+  }, [poType, rmProducts, pmProducts, subProducts]);
+
+  // Lookup pool for everything that resolves an already-chosen item (GST, unit, HSN,
+  // unit lock, edit re-hydration). It spans all three sources so items stay fully
+  // resolved regardless of which type the picker is currently showing.
+  // RM first, then PM, then Sub-Product, so existing RM/PM resolution is unchanged.
+  const masterProducts = useMemo(
+    () => [...rmProducts, ...pmProducts, ...subProducts],
+    [rmProducts, pmProducts, subProducts]
+  );
 
   // Populate form when editing
   useEffect(() => {
@@ -179,7 +271,26 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
       setItems([emptyItem()]);
       setErrors({});
     }
-  }, [editingPO, masterProducts, factoryAddressDefault]);
+    // Intentionally keyed to editingPO alone. This effect clears the form, so it must
+    // run only when the user enters or leaves edit mode. Master products and the
+    // company address load asynchronously; including them here made the form wipe
+    // itself mid-typing the moment either request resolved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingPO]);
+
+  // Backfill GST on the loaded items once master data arrives. Only fills values that
+  // are still empty — never overwrites anything the user has entered.
+  useEffect(() => {
+    if (!editingPO || masterProducts.length === 0) return;
+    setItems(prev =>
+      prev.map(it => {
+        const hasGst = it.gst !== '' && it.gst !== null && it.gst !== undefined;
+        if (hasGst || !it.itemDescription) return it;
+        const mp = masterProducts.find(p => p.masterProductName === it.itemDescription);
+        return mp && mp.gst !== undefined && mp.gst !== null ? { ...it, gst: mp.gst } : it;
+      })
+    );
+  }, [editingPO, masterProducts]);
 
   // Load Company Details for default Delivery Address
   useEffect(() => {
@@ -192,7 +303,9 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
           if (isMounted) {
             setFactoryAddressDefault(factoryAddr);
             if (!isEditing) {
-              setDeliveryAddress(factoryAddr);
+              // Only seed the default when the user hasn't typed an address yet —
+              // this request can resolve after they've started filling the form.
+              setDeliveryAddress(prev => (prev && prev.trim() ? prev : factoryAddr));
             }
           }
         }
@@ -348,6 +461,13 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
   const addItem = () => setItems(prev => [...prev, emptyItem()]);
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
 
+  // The type buttons only filter which products the picker offers. A single PO can
+  // mix RM, PM and FG lines, so switching never clears or alters existing items.
+  const handlePoTypeChange = (next: PoProductType) => {
+    if (next === poType) return;
+    setPoType(next);
+  };
+
   return (
     <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 shadow-sm space-y-6">
       <h2 className="text-lg font-semibold text-[var(--text-primary)]">
@@ -460,6 +580,34 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
 
       {/* Line Items */}
       <div>
+        {/* Product filter — switches which catalogue the picker below lists.
+            A single PO can contain RM, PM and FG lines together. */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 pb-3 border-b border-[var(--border)]">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-semibold text-[var(--text-primary)]">Show Products</span>
+            <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-[var(--surface-highlight,#f1f5f9)] border border-[var(--border)]">
+              {PO_TYPE_OPTIONS.map(opt => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  disabled={loadingMasterData}
+                  onClick={() => handlePoTypeChange(opt.key)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                    poType === opt.key
+                      ? 'bg-slate-800 text-white shadow-sm'
+                      : 'bg-transparent text-gray-600 hover:bg-white hover:text-gray-900'
+                  } ${loadingMasterData ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <span className="text-xs text-[var(--text-secondary)]">
+            Filters the product list only — one PO can include RM, PM and FG items.
+          </span>
+        </div>
+
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">Items</h3>
           <Button variant="ghost" size="sm" onClick={addItem}>
@@ -489,17 +637,25 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                   <td className="p-2 min-w-[200px] relative focus-within:z-50">
                     <SearchableSelect
                       options={[
+                        // Keep the row's current selection visible even when the picker
+                        // is filtered to a different type, so mixed POs never blank out.
                         ...(item.itemDescription &&
-                        !masterProducts.some(p => p.masterProductName === item.itemDescription)
+                        !selectableProducts.some(p => p.masterProductName === item.itemDescription)
                           ? [
                               {
-                                id: `custom-${item.itemDescription}`,
+                                id: `current-${idx}-${item.itemDescription}`,
                                 label: item.itemDescription,
+                                subLabel: (() => {
+                                  const known = masterProducts.find(
+                                    p => p.masterProductName === item.itemDescription
+                                  );
+                                  return known ? `(${known.productType})` : undefined;
+                                })(),
                                 value: item.itemDescription,
                               },
                             ]
                           : []),
-                        ...masterProducts.map(p => ({
+                        ...selectableProducts.map(p => ({
                           id: p.masterProductId,
                           label: p.masterProductName,
                           subLabel: `(${p.productType})`,
@@ -520,7 +676,9 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                             mp.gst !== undefined && mp.gst !== null ? mp.gst : ''
                           );
 
-                          // Auto-populate Unit from Product Master (always reset first)
+                          // Auto-populate Unit from Product Master (always reset first).
+                          // Falls back to the unit name carried on the SKU itself when
+                          // no unit id resolves (sub-products may only have the name).
                           if (mp.defaultUnitId) {
                             const matchingUnit = unitsList.find(
                               u => String(u.UnitID ?? u.unitId) === String(mp.defaultUnitId)
@@ -530,11 +688,16 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                               'unit',
                               matchingUnit
                                 ? (matchingUnit.UnitName ?? matchingUnit.unitName ?? '')
-                                : ''
+                                : (mp.unitName ?? '')
                             );
                           } else {
-                            // No defaultUnitId configured — clear the unit field
-                            updateItem(idx, 'unit', '');
+                            updateItem(idx, 'unit', mp.unitName ?? '');
+                          }
+
+                          // FG/SKU lines only: seed the rate from the master's purchase
+                          // cost. Still editable. RM/PM behaviour is unchanged.
+                          if (mp.productType === 'FG' && Number(mp.purchaseCost) > 0) {
+                            updateItem(idx, 'unitPrice', Number(mp.purchaseCost));
                           }
                         } else {
                           // Custom / unrecognised product — clear auto-filled fields
@@ -542,7 +705,13 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                           updateItem(idx, 'unit', '');
                         }
                       }}
-                      placeholder="Select product…"
+                      placeholder={
+                        poType === 'SUB'
+                          ? 'Select finished good…'
+                          : poType === 'PM'
+                            ? 'Select packaging material…'
+                            : 'Select raw material…'
+                      }
                       className="w-full"
                     />
                     {errors[`item_desc_${idx}`] && (
@@ -605,7 +774,9 @@ const CreatePOForm: React.FC<CreatePOFormProps> = ({
                             })}
                           </select>
                           {errors[`item_unit_${idx}`] && (
-                            <p className="text-xs text-red-500 mt-0.5">{errors[`item_unit_${idx}`]}</p>
+                            <p className="text-xs text-red-500 mt-0.5">
+                              {errors[`item_unit_${idx}`]}
+                            </p>
                           )}
                         </>
                       );
@@ -1025,7 +1196,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
             <td colspan="5" style="border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 6px; text-align: right; font-style: italic;">Sub Total</td>
             <td style="text-align: right; border-bottom: 1px solid #000; padding: 4px 6px;">${taxableAmount.toFixed(2)}</td>
           </tr>
-        `
+        `,
       ];
       Object.entries(taxGroups).forEach(([rateStr, amount]) => {
         const rate = Number(rateStr);

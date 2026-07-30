@@ -7,6 +7,7 @@ import { updateProductApi } from '../api';
 import UpdateConfirmationModal from './UpdateConfirmationModal';
 import EditableName from './EditableName';
 import { handleEnterKeyNavigation } from './EnterKeyNavigation';
+import CalculateMinStockButton from './CalculateMinStockButton';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -204,7 +205,20 @@ const PackagingMaterialTable = () => {
               <th className="px-4 py-3 font-medium">HSN Code</th>
               <th className="px-4 py-3 font-medium">GST (%)</th>
               <th className="px-4 py-3 font-medium">Purchase Cost</th>
-              <th className="px-4 py-3 font-medium">Min Stock</th>
+              <th className="px-4 py-3 font-medium">
+                <div className="flex flex-col items-start gap-0.5 leading-tight">
+                  <CalculateMinStockButton
+                    section="PM"
+                    products={(products?.data ?? []).map((p: any) => ({
+                      id: p.masterProductId,
+                    }))}
+                    onCompleted={() =>
+                      queryClient.invalidateQueries({ queryKey: ['update-products-pm'] })
+                    }
+                  />
+                  <span>Min Stock</span>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">

@@ -7,6 +7,7 @@ import { updateProductApi } from '../api';
 import UpdateConfirmationModal from './UpdateConfirmationModal';
 import EditableName from './EditableName';
 import { handleEnterKeyNavigation } from './EnterKeyNavigation';
+import CalculateMinStockButton from './CalculateMinStockButton';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -218,7 +219,20 @@ const RawMaterialTable = () => {
               <th className="px-4 py-3 font-medium">HSN Code</th>
               <th className="px-4 py-3 font-medium">GST (%)</th>
               <th className="px-4 py-3 font-medium">Purchase Cost</th>
-              <th className="px-4 py-3 font-medium">Min Stock</th>
+              <th className="px-4 py-3 font-medium">
+                <div className="flex flex-col items-start gap-0.5 leading-tight">
+                  <CalculateMinStockButton
+                    section="RM"
+                    products={(products?.data ?? []).map((p: any) => ({
+                      id: p.masterProductId,
+                    }))}
+                    onCompleted={() =>
+                      queryClient.invalidateQueries({ queryKey: ['update-products-rm'] })
+                    }
+                  />
+                  <span>Min Stock</span>
+                </div>
+              </th>
               <th className="px-4 py-3 font-medium">Density</th>
               <th className="px-4 py-3 font-medium">Solids %</th>
             </tr>
@@ -229,7 +243,8 @@ const RawMaterialTable = () => {
               const currentCost =
                 edits[product.masterProductId]?.purchaseCost ?? product.purchaseCost;
               const currentGst = edits[product.masterProductId]?.gst ?? product.gst ?? '';
-              const currentHsnCode = edits[product.masterProductId]?.hsnCode ?? product.hsnCode ?? '';
+              const currentHsnCode =
+                edits[product.masterProductId]?.hsnCode ?? product.hsnCode ?? '';
               const currentDensity = edits[product.masterProductId]?.density ?? product.density;
               const currentSolids = edits[product.masterProductId]?.solids ?? product.solids;
               const currentMinStock =

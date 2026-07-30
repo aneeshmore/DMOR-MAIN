@@ -900,6 +900,11 @@ export const routeRegistry: RouteNode[] = [
         label: 'CRM',
         icon: MapPin,
         component: CrmDashboard,
+        // Legacy CRM module. Already hidden from the Operations cards; hidden from
+        // the sidebar too so only one "CRM" entry (/operations/smart-crm) appears.
+        // Display-only: the route, component, permission and logic are untouched and
+        // the page remains reachable by URL.
+        showInSidebar: false,
         permission: { module: 'crm' },
         apis: [
           { route: '/crm/visits', method: 'GET', label: 'View Visits' },
@@ -920,7 +925,7 @@ export const routeRegistry: RouteNode[] = [
       {
         id: 'field-intelligence',
         path: '/operations/smart-crm',
-        label: 'SMART CRM',
+        label: 'CRM',
         icon: Cpu,
         component: FieldIntelligenceList,
         permission: { module: 'field_intelligence' },

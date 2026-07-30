@@ -60,6 +60,11 @@ const ProfitLossReport = () => {
   // Filter states
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(''); // '' means all months
+  // Custom date range. Applied only when BOTH dates are set, and then it takes
+  // precedence over Year/Month for that run. Leaving either blank falls back to the
+  // existing Year/Month behaviour, which is unchanged.
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   // Search & Sort & Pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,7 +101,13 @@ const ProfitLossReport = () => {
       let startDate = '';
       let endDate = '';
 
-      if (selectedMonth !== '') {
+      const hasCustomRange = customStartDate !== '' && customEndDate !== '';
+
+      if (hasCustomRange) {
+        // Custom range takes precedence over Year/Month for this run.
+        startDate = customStartDate;
+        endDate = customEndDate;
+      } else if (selectedMonth !== '') {
         // Specific Month
         const year = parseInt(selectedYear);
         const month = parseInt(selectedMonth);
@@ -124,9 +135,21 @@ const ProfitLossReport = () => {
   };
 
   useEffect(() => {
+    // Refetch on Year/Month as before. A custom range only triggers a refetch once
+    // both ends are set, so the report never reloads against a half-entered range.
+    if (customStartDate !== '' && customEndDate !== '' && customStartDate > customEndDate) {
+      return; // invalid range — keep the current results until it is corrected
+    }
     fetchReportData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, customStartDate, customEndDate]);
+
+  // Custom range states, used for filter hints and the period label.
+  const isCustomRangeActive =
+    customStartDate !== '' && customEndDate !== '' && customStartDate <= customEndDate;
+  const isPartialCustomRange = (customStartDate !== '') !== (customEndDate !== '');
+  const isInvalidCustomRange =
+    customStartDate !== '' && customEndDate !== '' && customStartDate > customEndDate;
 
   // Calculations
   const totalGrossProfit = useMemo(() => {
@@ -242,8 +265,12 @@ const ProfitLossReport = () => {
       // Meta info
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
-      const periodText =
-        selectedMonth !== ''
+      // Period label must describe the range the figures actually cover.
+      const periodText = isCustomRangeActive
+        ? `${new Date(customStartDate).toLocaleDateString('en-IN')} to ${new Date(
+            customEndDate
+          ).toLocaleDateString('en-IN')}`
+        : selectedMonth !== ''
           ? `${months[parseInt(selectedMonth)].label} ${selectedYear}`
           : `Year ${selectedYear}`;
 
@@ -579,7 +606,58 @@ const ProfitLossReport = () => {
               ))}
             </select>
           </div>
+
+          {/* Custom Date Range — overrides Year/Month when both dates are set */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+            <input
+              type="date"
+              value={customStartDate}
+              max={customEndDate || undefined}
+              onChange={e => setCustomStartDate(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all min-w-[150px]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+            <input
+              type="date"
+              value={customEndDate}
+              min={customStartDate || undefined}
+              onChange={e => setCustomEndDate(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all min-w-[150px]"
+            />
+          </div>
+
+          {isCustomRangeActive && (
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                }}
+                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
+              >
+                Clear Dates
+              </button>
+            </div>
+          )}
         </div>
+
+        {isCustomRangeActive && (
+          <p className="mt-3 text-xs text-gray-500">
+            Showing the custom date range. Year and Month are ignored until the dates are cleared.
+          </p>
+        )}
+        {isPartialCustomRange && (
+          <p className="mt-3 text-xs text-amber-600">
+            Select both From and To dates to apply the custom range.
+          </p>
+        )}
+        {isInvalidCustomRange && (
+          <p className="mt-3 text-xs text-red-600">From Date cannot be later than To Date.</p>
+        )}
       </div>
 
       {/* Loading & Empty States */}

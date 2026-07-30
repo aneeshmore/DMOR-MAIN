@@ -75,7 +75,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
       const payload = { ...data };
 
       await fieldIntelligenceApi.update(id, payload);
-      showToast.success('SMART CRM Visit Report updated successfully.');
+      showToast.success('CRM Visit Report updated successfully.');
       navigate('/operations/smart-crm');
     } catch (err: any) {
       console.error('Failed to update report', err);
@@ -96,7 +96,7 @@ export const FieldIntelligenceEditPage: React.FC = () => {
       const payload = { ...data, status: 'Draft' as const };
 
       await fieldIntelligenceApi.update(id, payload);
-      showToast.success('SMART CRM Visit Report draft saved successfully.');
+      showToast.success('CRM Visit Report draft saved successfully.');
       navigate('/operations/smart-crm');
     } catch (err: any) {
       console.error('Failed to update draft', err);

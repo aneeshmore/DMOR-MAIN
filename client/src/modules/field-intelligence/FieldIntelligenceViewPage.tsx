@@ -235,7 +235,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
     ) {
       try {
         await fieldIntelligenceApi.delete(report.id!);
-        showToast.success('SMART CRM Visit Report deleted successfully.');
+        showToast.success('CRM Visit Report deleted successfully.');
         navigate('/operations/smart-crm');
       } catch (err) {
         console.error('Failed to delete report', err);
@@ -1046,7 +1046,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
           </div>,
           document.body
         )}
-      {/* Smart CRM Sales Decision Support Console Modal.
+      {/* CRM Sales Decision Support Console Modal.
           Rendered via portal to document.body so it is anchored to the VIEWPORT —
           not clipped by the sidebar/header stacking contexts or any transformed
           ancestor inside the page layout. */}
@@ -1065,7 +1065,7 @@ export const FieldIntelligenceViewPage: React.FC = () => {
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-base sm:text-lg font-bold text-slate-800 truncate">
-                      Smart CRM Sales Decision Support Console
+                      CRM Sales Decision Support Console
                     </h2>
                     <p className="text-xs text-slate-500 font-medium hidden sm:block">
                       Evaluate strategic health, objections playbook and opportunity insights

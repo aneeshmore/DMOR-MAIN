@@ -23,8 +23,8 @@ const NAVIGABLE_PATHS = new Set(
 // Friendly labels for URL segments whose slug differs from the product name.
 // (Route folders/paths keep their internal slug; only the breadcrumb label changes.)
 const SEGMENT_LABELS: Record<string, string> = {
-  'smart-crm': 'Smart CRM',
-  'field-intelligence': 'Smart CRM',
+  'smart-crm': 'CRM',
+  'field-intelligence': 'CRM',
 };
 
 // Detect id-like segments (UUIDs or numeric ids) so breadcrumbs show a friendly

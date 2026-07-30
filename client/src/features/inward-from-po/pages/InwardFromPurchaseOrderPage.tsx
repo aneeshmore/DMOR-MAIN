@@ -41,6 +41,20 @@ interface ProductOption {
   gst?: number | null;
 }
 
+/**
+ * A SKU / variant row from Product Variants & SKU's. Sub-Product purchase orders
+ * reference these by name, and stock for them lives on the SKU row, so the inward
+ * payload must carry productId in addition to the parent masterProductId.
+ */
+interface SkuOption {
+  productId: number;
+  masterProductId: number;
+  productName: string;
+  productType: string;
+  unitId?: number;
+  gst?: number | null;
+}
+
 interface UnitOption {
   UnitID: number;
   UnitName: string;
@@ -50,6 +64,7 @@ interface UnitOption {
 interface CreateInwardPoFormProps {
   pos: PoOption[];
   products: ProductOption[];
+  skus: SkuOption[];
   units: UnitOption[];
   inwards: any[];
   onSuccess: () => void;
@@ -60,6 +75,7 @@ interface CreateInwardPoFormProps {
 const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
   pos,
   products,
+  skus,
   units,
   inwards,
   onSuccess,
@@ -74,12 +90,16 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
   const [loadingPo, setLoadingPo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Mapping state for PO items: itemId -> { masterProductId, receivedQuantity, unitId }
+  // Mapping state for PO items: itemId -> { masterProductId, productId, receivedQuantity, unitId }
+  // productId is set only when the line resolves to a SKU (Sub-Product); it is what
+  // lets the existing backend update stock on the products table.
   const [itemMappings, setItemMappings] = useState<
     Record<
       number,
       {
         masterProductId: number;
+        productId: number | null;
+        productType: string;
         receivedQuantity: number;
         unitId: number;
       }
@@ -134,10 +154,46 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                     item.unit.trim().toLowerCase().includes(u.UnitName.trim().toLowerCase()))
               );
 
+            // SKU resolution for Sub-Product lines. RM/PM are untouched: the SKU list
+            // is consulted only when nothing matched, or when the match is an FG master
+            // (a Sub-Product line can fuzzy-match its parent FG master first, which
+            // would otherwise hide the SKU that actually holds the stock).
+            const desc = item.itemDescription.trim().toLowerCase();
+            // Only ever resolves to an unambiguous SKU. Where more than one variant
+            // could match, it deliberately returns nothing so validation blocks the
+            // inward rather than guessing which variant receives the stock.
+            const findSku = () => {
+              const exact = skus.find(s => (s.productName || '').trim().toLowerCase() === desc);
+              if (exact) return exact;
+
+              const fuzzy = skus.filter(s => {
+                const n = (s.productName || '').trim().toLowerCase();
+                return n && (n.includes(desc) || desc.includes(n));
+              });
+              if (fuzzy.length === 1) return fuzzy[0];
+              if (fuzzy.length > 1) return undefined; // ambiguous — never guess
+
+              // Unambiguous parent link: exactly one variant under the matched master.
+              if (match) {
+                const owned = skus.filter(s => s.masterProductId === match.masterProductId);
+                if (owned.length === 1) return owned[0];
+              }
+              return undefined;
+            };
+            const skuMatch = !match || match.productType === 'FG' ? findSku() : undefined;
+
             initialMap[item.itemId!] = {
-              masterProductId: match ? match.masterProductId || 0 : 0,
+              // When a SKU resolved, its parent is authoritative so that productId and
+              // masterProductId always describe the same product for the backend.
+              masterProductId: skuMatch
+                ? skuMatch.masterProductId || 0
+                : match
+                  ? match.masterProductId || 0
+                  : 0,
+              productId: skuMatch ? skuMatch.productId : null,
+              productType: skuMatch ? skuMatch.productType : match ? match.productType : '',
               receivedQuantity: Number(remaining),
-              unitId: matchingUnit ? matchingUnit.UnitID : match?.unitId || 0,
+              unitId: matchingUnit ? matchingUnit.UnitID : match?.unitId || skuMatch?.unitId || 0,
             };
           });
           setItemMappings(initialMap);
@@ -148,7 +204,7 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
       setPoDetails(null);
       setItemMappings({});
     }
-  }, [selectedPoId, products, units]);
+  }, [selectedPoId, products, skus, units]);
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -168,10 +224,27 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
         if (!mapping || Number(mapping.receivedQuantity) <= 0) {
           errs[`qty_${item.itemId}`] = 'Qty must be > 0';
         }
+
+        // Sub-Product integrity check. Stock for a Sub-Product lives on its SKU row,
+        // so without a resolved SKU the inward would post no stock movement. Block the
+        // whole submission rather than record a half-complete inward.
+        if (mapping && mapping.productType === 'FG' && !mapping.productId) {
+          errs[`sku_${item.itemId}`] =
+            'No matching SKU found in Product Variants & SKU’s. Add or rename the variant to match this item before inwarding.';
+        }
       });
     }
 
     setErrors(errs);
+
+    // Surface the SKU integrity failure explicitly. Nothing is submitted, so no inward
+    // record, inventory transaction or stock change occurs for any line.
+    if (Object.keys(errs).some(k => k.startsWith('sku_'))) {
+      showToast.error(
+        'Inward blocked: one or more items are not linked to a valid SKU in Product Variants & SKU’s.'
+      );
+    }
+
     return Object.keys(errs).length === 0;
   };
 
@@ -194,6 +267,9 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
             const mapping = itemMappings[item.itemId!];
             const matchedProd = products.find(p => p.masterProductId === mapping.masterProductId);
             return {
+              // Sub-Product lines carry the SKU id so the existing backend
+              // (updateMasterProductStock) can update products.availableQuantity.
+              productId: mapping.productId ?? undefined,
               purchaseOrderItemId: item.itemId,
               itemDescription: item.itemDescription,
               receivedQuantity: Number(mapping.receivedQuantity),
@@ -346,6 +422,8 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                     .map(item => {
                       const mapVal = itemMappings[item.itemId!] || {
                         masterProductId: 0,
+                        productId: null,
+                        productType: '',
                         receivedQuantity: 0,
                         unitId: 0,
                       };
@@ -359,10 +437,19 @@ const CreateInwardPoForm: React.FC<CreateInwardPoFormProps> = ({
                           <td className="p-2 min-w-[180px]">
                             <input
                               type="text"
-                              className="w-full px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-secondary,var(--surface))] text-[var(--text-secondary)] text-sm focus:outline-none cursor-default"
+                              className={`w-full px-2 py-1 rounded border bg-[var(--surface-secondary,var(--surface))] text-[var(--text-secondary)] text-sm focus:outline-none cursor-default ${
+                                errors[`sku_${item.itemId}`]
+                                  ? 'border-red-500'
+                                  : 'border-[var(--border)]'
+                              }`}
                               value={item.itemDescription}
                               readOnly
                             />
+                            {errors[`sku_${item.itemId}`] && (
+                              <p className="text-xs text-red-500 mt-0.5">
+                                {errors[`sku_${item.itemId}`]}
+                              </p>
+                            )}
                           </td>
                           <td className="p-2 w-24">
                             <input
@@ -503,6 +590,7 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [poOptions, setPoOptions] = useState<PoOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
+  const [skus, setSkus] = useState<SkuOption[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [inwards, setInwards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -516,13 +604,18 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
   const loadPageData = useCallback(async () => {
     try {
       setLoading(true);
-      const [pos, prods, rawUnits, rawInwards] = await Promise.all([
+      const [pos, prods, skuRows, rawUnits, rawInwards] = await Promise.all([
         apiClient
           .get<{ success: boolean; data: any[] }>('/purchase-orders?limit=100')
           .then(res => res.data.data),
         apiClient
           .get<{ success: boolean; data: any[] }>('/catalog/master-products?limit=500')
           .then(res => res.data.data),
+        // Product Variants & SKU's — needed so Sub-Product PO lines resolve to a SKU.
+        apiClient
+          .get<{ success: boolean; data: any[] }>('/catalog/products')
+          .then(res => res.data.data)
+          .catch(() => []),
         unitApi.getAll().then(res => res.data),
         apiClient.get<{ success: boolean; data: any[] }>('/inward').then(res => res.data.data),
       ]);
@@ -540,6 +633,17 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
               return Number(remaining) > 0;
             })
         )
+      );
+
+      setSkus(
+        (skuRows || []).map((p: any) => ({
+          productId: p.ProductID ?? p.productId ?? 0,
+          masterProductId: p.MasterProductID ?? p.masterProductId ?? 0,
+          productName: p.ProductName ?? p.productName ?? '',
+          productType: p.ProductType ?? p.productType ?? 'FG',
+          unitId: p.UnitID ?? p.unitId ?? 0,
+          gst: p.gst !== undefined && p.gst !== null ? Number(p.gst) : null,
+        }))
       );
 
       setProducts(
@@ -709,6 +813,7 @@ const InwardFromPurchaseOrderPage: React.FC = () => {
         <CreateInwardPoForm
           pos={poOptions}
           products={products}
+          skus={skus}
           units={units}
           inwards={inwards}
           onSuccess={loadPageData}

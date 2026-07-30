@@ -22,7 +22,7 @@ export const FieldIntelligenceCreatePage: React.FC = () => {
         await fieldIntelligenceApi.create(payload);
       }
 
-      showToast.success('SMART CRM Visit Report submitted successfully.');
+      showToast.success('CRM Visit Report submitted successfully.');
 
       // Increment formKey to reset the entire form UI & state
       setFormKey(prev => prev + 1);
@@ -49,7 +49,7 @@ export const FieldIntelligenceCreatePage: React.FC = () => {
         await fieldIntelligenceApi.create(payload);
       }
 
-      showToast.success('SMART CRM Visit Report draft saved successfully.');
+      showToast.success('CRM Visit Report draft saved successfully.');
 
       // Increment formKey to reset the entire form UI & state
       setFormKey(prev => prev + 1);
