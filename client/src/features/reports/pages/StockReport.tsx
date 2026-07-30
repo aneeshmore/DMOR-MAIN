@@ -60,10 +60,32 @@ const generateColors = (count: number) => {
   return result;
 };
 
+/**
+ * Weight of the stock on hand, derived from maintained values so it can never drift:
+ *   FG -> packs on hand x package capacity (kg per pack)
+ *   RM -> already held in kilograms
+ *   PM -> counted in pieces, no weight applies
+ * Returns null when no meaningful weight exists, so callers can show a dash rather
+ * than a misleading zero.
+ */
+const getStockWeightKg = (item: StockReportItem): number | null => {
+  const qty = Number(item.availableQuantity || 0);
+  if (item.productType === 'PM') return null;
+  if (item.productType === 'RM') return qty;
+  const capacityKg = Number(item.packageCapacityKg || 0);
+  return capacityKg > 0 ? qty * capacityKg : null;
+};
+
+/** Free (unreserved) stock — one definition for every product type. */
+const getFreeStockQty = (item: StockReportItem): number =>
+  Math.max(Number(item.availableQuantity || 0) - Number(item.reservedQuantity || 0), 0);
+
 const StockReport = () => {
   const [data, setData] = useState<StockReportItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [productTypeFilter, setProductTypeFilter] = useState<string>('All');
+  // 'All' option removed from the UI; FG is the first (default) type.
+  // The internal 'All' code paths are intentionally left untouched.
+  const [productTypeFilter, setProductTypeFilter] = useState<string>('FG');
   const [productFilter, setProductFilter] = useState<string>('');
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
@@ -144,7 +166,8 @@ const StockReport = () => {
       'Product Name',
       'Type',
       'Total Available Qty',
-      'Available Weight (kg)',
+      // FG reports the weight of the stock it holds; RM and PM report free quantity.
+      productTypeFilter === 'FG' ? 'Available Weight (kg)' : 'Available Qty',
       ...(productTypeFilter !== 'FG' ? ['Reserved Qty'] : []),
       'Min Stock Level',
       'Selling Price',
@@ -152,15 +175,17 @@ const StockReport = () => {
     ];
 
     const tableRows = filteredData.map(item => {
-      const isRmOrPm = item.productType === 'RM' || item.productType === 'PM';
-      const availWtKg = isRmOrPm
-        ? Math.max(Number(item.availableQuantity) - Number(item.reservedQuantity), 0)
-        : Number(item.availableWeightKg);
+      const weightKg = getStockWeightKg(item);
       const row = [
         item.productName,
         item.productType,
         parseFloat(Number(item.availableQuantity).toFixed(2)).toString(),
-        parseFloat(availWtKg.toFixed(2)).toString(),
+        // FG reports weight; RM and PM report free quantity.
+        productTypeFilter === 'FG'
+          ? weightKg === null
+            ? '-'
+            : parseFloat(weightKg.toFixed(2)).toString()
+          : parseFloat(getFreeStockQty(item).toFixed(2)).toString(),
       ];
       if (productTypeFilter !== 'FG') {
         row.push(parseFloat(Number(item.reservedQuantity).toFixed(2)).toString());
@@ -197,7 +222,8 @@ const StockReport = () => {
       'Product Name',
       'Type',
       'Total Available Qty',
-      'Available Weight (kg)',
+      // FG reports the weight of the stock it holds; RM and PM report free quantity.
+      productTypeFilter === 'FG' ? 'Available Weight (kg)' : 'Available Qty',
       ...(productTypeFilter !== 'FG' ? ['Reserved Qty'] : []),
       'Min Stock Level',
       'Selling Price',
@@ -205,15 +231,17 @@ const StockReport = () => {
     ];
 
     const csvRows = filteredData.map(item => {
-      const isRmOrPm = item.productType === 'RM' || item.productType === 'PM';
-      const availWtKg = isRmOrPm
-        ? Math.max(Number(item.availableQuantity) - Number(item.reservedQuantity), 0)
-        : Number(item.availableWeightKg);
+      const weightKg = getStockWeightKg(item);
       const row = [
         item.productName,
         item.productType,
         parseFloat(Number(item.availableQuantity).toFixed(2)).toString(),
-        parseFloat(availWtKg.toFixed(2)).toString(),
+        // FG reports weight; RM and PM report free quantity.
+        productTypeFilter === 'FG'
+          ? weightKg === null
+            ? '-'
+            : parseFloat(weightKg.toFixed(2)).toString()
+          : parseFloat(getFreeStockQty(item).toFixed(2)).toString(),
       ];
       if (productTypeFilter !== 'FG') {
         row.push(parseFloat(Number(item.reservedQuantity).toFixed(2)).toString());
@@ -575,6 +603,7 @@ const StockReport = () => {
       },
       {
         accessorKey: 'availableQuantity',
+        // Gross stock on hand, before reservations. Same meaning for FG, RM and PM.
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Total Available Qty" />
         ),
@@ -593,27 +622,45 @@ const StockReport = () => {
           </div>
         ),
       },
-      {
-        id: 'availableWeightKg',
+    ];
+
+    if (productTypeFilter === 'FG') {
+      // FG is counted in packs, so the meaningful second figure is the weight it
+      // represents: packs on hand x package capacity (kg per pack). Derived rather than
+      // stored, from values that are actively maintained (quantity by every stock
+      // movement, package capacity by the product master), so it cannot drift out of
+      // step with the quantity beside it.
+      baseColumns.push({
+        id: 'stockWeightKg',
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Available Weight (kg)" />
         ),
         cell: ({ row }) => {
-          const isRmOrPm = row.original.productType === 'RM' || row.original.productType === 'PM';
-          const availWtKg = isRmOrPm
-            ? Math.max(
-                Number(row.original.availableQuantity) - Number(row.original.reservedQuantity),
-                0
-              )
-            : Number(row.original.availableWeightKg);
+          const weightKg = getStockWeightKg(row.original);
           return (
-            <div className="text-right text-[var(--text-secondary)]">{availWtKg.toFixed(2)}</div>
+            <div className="text-right text-[var(--text-secondary)]">
+              {weightKg === null ? '—' : weightKg.toFixed(2)}
+            </div>
           );
         },
-      },
-    ];
+      });
+    } else {
+      // RM and PM: free (unreserved) stock = on hand - reserved, floored at zero.
+      // RM reserves against open batch requirements; PM has no reservation concept,
+      // so its free quantity equals the quantity on hand.
+      baseColumns.push({
+        id: 'availableWeightKg',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Available Qty" />,
+        cell: ({ row }) => (
+          <div className="text-right text-[var(--text-secondary)]">
+            {getFreeStockQty(row.original).toFixed(2)}
+          </div>
+        ),
+      });
+    }
 
-    if (productTypeFilter !== 'FG') {
+    // WIP column is hidden for PM (display only — reservedQuantity data untouched)
+    if (productTypeFilter !== 'FG' && productTypeFilter !== 'PM') {
       baseColumns.push({
         accessorKey: 'reservedQuantity',
         header: ({ column }) => <DataTableColumnHeader column={column} title="WIP" />,
@@ -705,37 +752,21 @@ const StockReport = () => {
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500 ml-1">Type</label>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2">
-                {(['All', 'RM', 'PM'] as const).map(type => (
-                  <Button
-                    key={type}
-                    size="sm"
-                    variant={productTypeFilter === type ? 'primary' : 'secondary'}
-                    onClick={() => setProductTypeFilter(type)}
-                    className={`min-w-[4rem] px-4 transition-all duration-200 ${
-                      productTypeFilter === type
-                        ? 'bg-slate-800 text-white hover:bg-slate-900 border-none shadow-md'
-                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    {type}
-                  </Button>
-                ))}
-              </div>
-              <div className="h-6 w-px bg-gray-300 mx-1" />
-              <Button
-                key="FG"
-                size="sm"
-                variant={productTypeFilter === 'FG' ? 'primary' : 'secondary'}
-                onClick={() => setProductTypeFilter('FG')}
-                className={`min-w-[4rem] px-4 transition-all duration-200 ${
-                  productTypeFilter === 'FG'
-                    ? 'bg-slate-800 text-white hover:bg-slate-900 border-none shadow-md'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                FG
-              </Button>
+              {(['FG', 'RM', 'PM'] as const).map(type => (
+                <Button
+                  key={type}
+                  size="sm"
+                  variant={productTypeFilter === type ? 'primary' : 'secondary'}
+                  onClick={() => setProductTypeFilter(type)}
+                  className={`min-w-[4rem] px-4 transition-all duration-200 ${
+                    productTypeFilter === type
+                      ? 'bg-slate-800 text-white hover:bg-slate-900 border-none shadow-md'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {type}
+                </Button>
+              ))}
             </div>
           </div>
 

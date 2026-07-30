@@ -11,6 +11,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common';
 import { formatDate, formatDateTime } from '@/utils/dateUtils';
@@ -88,6 +91,41 @@ interface RawOrderSummary {
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/** How many prior active months feed a month's target. */
+const TARGET_HISTORY_MONTHS = 4;
+
+/**
+ * Target revenue for each month of a customer's year.
+ *
+ * The target for a given month is the average of that customer's most recent active
+ * months *before* it, where an active month is one with revenue > 0. Zero-revenue
+ * months are skipped entirely and never dilute the average. At most the last four
+ * active months are used; where fewer exist the divisor is the number available.
+ * Months with no prior active month return null, meaning "no target".
+ *
+ * Single pass over the twelve months, so the whole grid stays cheap to compute.
+ */
+const computeMonthlyTargets = (monthlyAmounts: number[]): (number | null)[] => {
+  const targets: (number | null)[] = [];
+  const recentActive: number[] = []; // most recent first, capped at TARGET_HISTORY_MONTHS
+
+  for (let i = 0; i < monthlyAmounts.length; i++) {
+    targets.push(
+      recentActive.length > 0
+        ? recentActive.reduce((sum, v) => sum + v, 0) / recentActive.length
+        : null
+    );
+
+    const amount = Number(monthlyAmounts[i] || 0);
+    if (amount > 0) {
+      recentActive.unshift(amount);
+      if (recentActive.length > TARGET_HISTORY_MONTHS) recentActive.pop();
+    }
+  }
+
+  return targets;
+};
 
 function computeTrendData(
   orders: RawOrderSummary[],
@@ -1226,6 +1264,23 @@ const CustomerReport: React.FC = () => {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedCustomers = processedCustomers.slice(startIndex, startIndex + rowsPerPage);
 
+  // Target and trend are shown for the current calendar month only, and only while
+  // the grid is showing the current year — a target against a past month's column
+  // would be reporting on a period that has already closed.
+  const currentMonthIdx = new Date().getMonth();
+  const isViewingCurrentYear = selectedYear === new Date().getFullYear().toString();
+
+  // Monthly targets for the rows currently on screen, keyed by customer. Only the
+  // visible page is computed and the result is memoised, so the grid stays fast even
+  // with thousands of customers and nothing is recalculated during render.
+  const monthlyTargetsByCustomer = useMemo(() => {
+    const map = new Map<number, (number | null)[]>();
+    for (const customer of processedCustomers.slice(startIndex, startIndex + rowsPerPage)) {
+      map.set(customer.customerId, computeMonthlyTargets(customer.monthlyAmounts));
+    }
+    return map;
+  }, [processedCustomers, startIndex, rowsPerPage]);
+
   // Expanded customer state and trends calculations have been moved into the ExpandedCustomerRow component for lazy rendering and encapsulation.
 
   // Calculate statistics
@@ -2342,7 +2397,58 @@ const CustomerReport: React.FC = () => {
                                 : 'text-[var(--text-secondary)]'
                             }`}
                           >
-                            {amount > 0 ? `₹${(amount / 1000).toFixed(1)}K` : '0'}
+                            {(() => {
+                              // Revenue display is untouched. Target and trend appear on
+                              // the current month whenever the customer has enough
+                              // history to derive a target — including when this month's
+                              // revenue is still zero, which is exactly the case worth
+                              // flagging (nothing booked yet against an expected figure).
+                              const isCurrentMonthCell =
+                                isViewingCurrentYear && monthIdx === currentMonthIdx;
+                              const target = isCurrentMonthCell
+                                ? (monthlyTargetsByCustomer.get(customer.customerId)?.[monthIdx] ??
+                                  null)
+                                : null;
+
+                              if (target === null) {
+                                return amount > 0 ? `₹${(amount / 1000).toFixed(1)}K` : '0';
+                              }
+
+                              const direction =
+                                amount > target ? 'up' : amount < target ? 'down' : 'stable';
+
+                              return (
+                                <div className="flex flex-col items-center leading-tight">
+                                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                    Target ₹{(target / 1000).toFixed(1)}K
+                                  </span>
+                                  <span>
+                                    {amount > 0 ? `₹${(amount / 1000).toFixed(1)}K` : '0'}
+                                  </span>
+                                  <div
+                                    className="mt-1.5 flex items-center justify-center"
+                                    aria-label="performance trend"
+                                    title={
+                                      direction === 'up'
+                                        ? 'Increasing'
+                                        : direction === 'down'
+                                          ? 'Decreasing'
+                                          : 'Stable'
+                                    }
+                                  >
+                                    {direction === 'up' && (
+                                      <TrendingUp className="h-4 w-4 text-green-500" />
+                                    )}
+                                    {direction === 'down' && (
+                                      <TrendingDown className="h-4 w-4 text-red-500" />
+                                    )}
+                                    {direction === 'stable' && (
+                                      <Minus className="h-4 w-4 text-gray-500" />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                         ))}
                         <td className="px-6 py-4 text-right font-bold text-[var(--primary)]">
