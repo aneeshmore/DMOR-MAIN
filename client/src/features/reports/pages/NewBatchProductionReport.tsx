@@ -438,7 +438,6 @@ const NewBatchProductionReport = () => {
 
         return [
           sp.productName,
-          formatNumber(sp.batchQty), // Planned Qty
           formatNumber(sp.actualQty), // Actual Qty
           capacity > 0 ? formatNumber(ltr) : '', // Blank if 0 in preview image
           capacity > 0 ? formatNumber(kg) : '', // Blank if 0 in preview image
@@ -562,7 +561,7 @@ const NewBatchProductionReport = () => {
       autoTable(doc, {
         startY: rightStackY,
         margin: { left: rightTableX, right: margin },
-        head: [['Packing', 'Qty', 'Filled', 'LTR', 'KG']],
+        head: [['Packing', 'Filled', 'LTR', 'KG']],
         body: subProductsBody,
         theme: 'grid',
         styles: {
@@ -582,21 +581,14 @@ const NewBatchProductionReport = () => {
           lineColor: [229, 231, 235],
         },
         columnStyles: {
-          0: { cellWidth: 38, halign: 'left' },
+          0: { cellWidth: 50, halign: 'left' },
           1: { cellWidth: 12, halign: 'right' },
           2: { cellWidth: 12, halign: 'right' },
           3: { cellWidth: 12, halign: 'right' },
-          4: { cellWidth: 12, halign: 'right' },
         },
         tableWidth: rightTableWidth,
         foot: [
-          [
-            'Total',
-            formatNumber(totalBatchQty),
-            formatNumber(totalSubActualQty),
-            formatNumber(totalLtr),
-            formatNumber(totalKg),
-          ],
+          ['Total', formatNumber(totalSubActualQty), formatNumber(totalLtr), formatNumber(totalKg)],
         ],
         footStyles: {
           fillColor: colorSuccess,
@@ -2151,8 +2143,7 @@ const NewBatchProductionReport = () => {
                   <thead className="bg-gray-100">
                     <tr>
                       <th className="border border-gray-300 px-2 py-1 text-left">Packing</th>
-                      <th className="border border-gray-300 px-2 py-1 text-right">QTY</th>
-                      <th className="border border-gray-300 px-2 py-1 text-right">ACT QTY</th>
+                      <th className="border border-gray-300 px-2 py-1 text-right">Filled</th>
                       <th className="border border-gray-300 px-2 py-1 text-center">LTR</th>
                       <th className="border border-gray-300 px-2 py-1 text-center">KG</th>
                     </tr>
@@ -2186,9 +2177,6 @@ const NewBatchProductionReport = () => {
                         .map((sp, idx) => (
                           <tr key={idx}>
                             <td className="border border-gray-300 px-2 py-1">{sp.productName}</td>
-                            <td className="border border-gray-300 px-2 py-1 text-right">
-                              {formatNumberForPreview(sp.batchQty)}
-                            </td>
                             <td className="border border-gray-300 px-2 py-1 text-right">
                               {formatNumberForPreview(sp.actualQty)}
                             </td>
@@ -2229,9 +2217,6 @@ const NewBatchProductionReport = () => {
                           {previewBatch.productName}
                         </td>
                         <td className="border border-gray-300 px-2 py-1 text-right">
-                          {formatNumberForPreview(previewBatch.plannedQuantity)}
-                        </td>
-                        <td className="border border-gray-300 px-2 py-1 text-right">
                           {formatNumberForPreview(previewBatch.actualQuantity)}
                         </td>
                         <td className="border border-gray-300 px-2 py-1 text-right">
@@ -2262,23 +2247,6 @@ const NewBatchProductionReport = () => {
                   <tfoot className="bg-[var(--color-success)] text-white font-bold">
                     <tr>
                       <td className="border border-gray-300 px-2 py-1">Total</td>
-                      <td className="border border-gray-300 px-2 py-1 text-right">
-                        {formatNumberForPreview(
-                          (previewBatch.subProducts || [])
-                            .filter(sp => {
-                              const actQty =
-                                typeof sp.actualQty === 'number'
-                                  ? sp.actualQty
-                                  : parseFloat(sp.actualQty || '0');
-                              const batchQty =
-                                typeof sp.batchQty === 'number'
-                                  ? sp.batchQty
-                                  : parseFloat(sp.batchQty || '0');
-                              return actQty > 0 || batchQty > 0;
-                            })
-                            .reduce((sum, sp) => sum + parseFloat(sp.batchQty || '0'), 0)
-                        )}
-                      </td>
                       <td className="border border-gray-300 px-2 py-1 text-right">
                         {formatNumberForPreview(
                           (previewBatch.subProducts || [])

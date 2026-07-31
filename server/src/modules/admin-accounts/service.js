@@ -4,6 +4,8 @@ import { AdminAccountOrderDTO } from './dto.js';
 import { BOMService } from '../bom/service.js';
 import { NotificationsService } from '../notifications/service.js';
 import { MasterProductsRepository } from '../master-products/repository.js';
+import { PaymentRepository } from '../payments/repository.js';
+import db from '../../db/index.js';
 
 export class AdminAccountsService {
   constructor() {
@@ -11,6 +13,60 @@ export class AdminAccountsService {
     this.bomService = new BOMService();
     this.notificationsService = new NotificationsService();
     this.productsRepository = new MasterProductsRepository();
+    this.paymentRepository = new PaymentRepository();
+  }
+
+  /**
+   * Post the customer ledger debit for an order's total amount.
+   *
+   * The receivable is only recorded once Accounts Approval actually bills the order (this
+   * is where billNo / paymentCleared get set) — an order still "Pending Accounts Approval"
+   * is not yet a finalized bill and must not affect the customer's balance. (Previously this
+   * was posted at order creation, in OrdersService.createOrder — moved here so Cancel Order
+   * and Split Order have a correct "nothing to reverse" state for orders that never reached
+   * approval; see PaymentRepository.reverseOrderInvoiceIfExists().)
+   *
+   * Idempotent: looks up any existing INVOICE transaction for this order before posting.
+   * acceptOrder() legitimately runs twice for the same order (Pending Accounts Approval ->
+   * Pending Factory Approval, then later Pending Factory Approval -> Factory Approved) and
+   * clearPayment() performs the same transition via its legacy path — in every case this
+   * guard ensures the debit is posted exactly once.
+   */
+  async postOrderDebitIfNeeded(order) {
+    if (!order) return;
+
+    const existingDebit = await this.paymentRepository.findTransactionByReference(
+      order.orderId,
+      'orders',
+      'INVOICE'
+    );
+    if (existingDebit) {
+      return; // Already posted for this order — never double-debit
+    }
+
+    await db.transaction(async tx => {
+      const updatedCustomer = await this.paymentRepository.updateCustomerBalance(
+        order.customerId,
+        order.totalAmount,
+        tx
+      );
+
+      if (updatedCustomer) {
+        await this.paymentRepository.createTransaction(
+          {
+            customerId: order.customerId,
+            type: 'INVOICE',
+            referenceId: order.orderId,
+            referenceType: 'orders',
+            description: `Order #${order.orderNumber}`,
+            debit: order.totalAmount,
+            credit: 0,
+            balance: updatedCustomer.currentBalance,
+          },
+          tx
+        );
+      }
+    });
   }
 
   async getPendingPaymentOrders() {
@@ -103,6 +159,10 @@ export class AdminAccountsService {
     await this.repository.updateAccount(orderId, accountData);
     await this.repository.updateOrder(orderId, orderData);
 
+    // Post the customer ledger debit now that the order has actually been billed
+    // (billNo assigned, payment cleared). Idempotent — see postOrderDebitIfNeeded().
+    await this.postOrderDebitIfNeeded(existing.orders);
+
     // Check for material shortages as soon as the order enters the production
     // pipeline (on every accounts approval, not only the final transition)
     await this.checkMaterialRequirements(orderId);
@@ -184,6 +244,10 @@ export class AdminAccountsService {
 
     await this.repository.updateAccount(orderId, accountData);
     await this.repository.updateOrder(orderId, orderData);
+
+    // Same debit posting as acceptOrder() — this legacy path performs the same
+    // accounts-approval transition. Idempotent.
+    await this.postOrderDebitIfNeeded(existing.orders);
 
     // Only perform Production checks/notifications if fully Factory Approved
     if (newStatus === 'Factory Approved') {

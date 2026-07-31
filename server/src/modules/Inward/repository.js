@@ -202,10 +202,11 @@ export class InwardRepository {
     quantity,
     purchaseCost,
     productId = null,
-    inwardId = null
+    inwardId = null,
+    skipCostUpdate = false
   ) {
     console.log(
-      `[Repo] Updating stock for MasterID: ${masterProductId}, SKU ID: ${productId}, Qty: ${quantity}, Cost: ${purchaseCost}`
+      `[Repo] Updating stock for MasterID: ${masterProductId}, SKU ID: ${productId}, Qty: ${quantity}, Cost: ${purchaseCost}, skipCostUpdate: ${skipCostUpdate}`
     );
 
     // First, get the product type
@@ -239,8 +240,10 @@ export class InwardRepository {
         );
       }
 
-      // Update FG purchase cost if a rate (unitPrice) was provided
-      if (purchaseCost > 0) {
+      // Update FG purchase cost only if a rate was provided AND the caller did not
+      // request to skip it (e.g. when the price was auto-filled from production cost
+      // and the user did not explicitly change it).
+      if (purchaseCost > 0 && !skipCostUpdate) {
         console.log(`[Repo] Updating FG Master Purchase Cost to ${purchaseCost}...`);
         await db
           .insert(masterProductFG)
@@ -249,6 +252,8 @@ export class InwardRepository {
             target: masterProductFG.masterProductId,
             set: { purchaseCost },
           });
+      } else if (skipCostUpdate) {
+        console.log(`[Repo] Skipping FG purchase cost update (skipCostUpdate=true).`);
       }
     } else if (productType === 'RM') {
       console.log(`[Repo] Upserting RM stock...`);
