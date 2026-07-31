@@ -30,6 +30,18 @@ type FormData = z.infer<typeof schema>;
 const formatINR = (value: number | string) =>
   Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// A cancelled/split order's INVOICE row is zeroed in place rather than replaced with a
+// new row (see PaymentRepository.reverseOrderInvoiceIfExists) - the original amount is
+// preserved as a "(was 1234.56)" marker appended to the description so it can still be
+// shown (struck through) next to the new 0.00, instead of silently vanishing.
+const VOIDED_AMOUNT_PATTERN = /\s*\(was ([\d.]+)\)\s*$/;
+const parseVoidedAmount = (description: string | undefined) => {
+  const match = VOIDED_AMOUNT_PATTERN.exec(description || '');
+  return match ? Number(match[1]) || 0 : null;
+};
+const stripVoidedAmountMarker = (description: string | undefined) =>
+  (description || '').replace(VOIDED_AMOUNT_PATTERN, '');
+
 const formatDate = (date: string) =>
   new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -337,14 +349,34 @@ export default function PaymentEntry() {
                           {formatDate(payment.transactionDate)}
                         </td>
                         <td className="px-4 py-3.5 text-[var(--text-primary)] border-r border-[var(--border)]">
-                          {payment.description}
+                          {stripVoidedAmountMarker(payment.description)}
                         </td>
                         <td className="px-4 py-3.5 text-right font-semibold text-red-600 border-r border-[var(--border)] whitespace-nowrap">
-                          {Number(payment.debit) > 0 ? (
-                            formatINR(payment.debit)
-                          ) : (
-                            <span className="text-green-600 font-normal">-</span>
-                          )}
+                          {(() => {
+                            const voidedAmount = parseVoidedAmount(payment.description);
+                            if (voidedAmount !== null) {
+                              return (
+                                <span className="inline-flex items-baseline gap-1.5">
+                                  <span className="line-through text-gray-400 font-normal">
+                                    {formatINR(voidedAmount)}
+                                  </span>
+                                  <span>{formatINR(payment.debit)}</span>
+                                </span>
+                              );
+                            }
+                            // INVOICE rows always carry a meaningful debit, including an
+                            // explicit 0 once voided (cancel/split) - show "0.00" there
+                            // rather than "-", same treatment as the Reports ledger.
+                            // Covers rows voided before the "(was X)" marker existed.
+                            if (payment.type === 'INVOICE') {
+                              return formatINR(payment.debit);
+                            }
+                            return Number(payment.debit) > 0 ? (
+                              formatINR(payment.debit)
+                            ) : (
+                              <span className="text-green-600 font-normal">-</span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3.5 text-right font-semibold text-green-600 border-r border-[var(--border)] whitespace-nowrap">
                           {Number(payment.credit) > 0 ? (

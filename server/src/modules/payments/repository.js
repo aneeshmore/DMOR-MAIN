@@ -130,4 +130,89 @@ export class PaymentRepository {
       .returning();
     return updatedTx;
   }
+
+  /**
+   * Look up an existing ledger entry by its polymorphic reference (and optionally its
+   * type). Used as an idempotency guard before posting a debit or reversal, so a retried
+   * or duplicate call never double-posts.
+   */
+  async findTransactionByReference(referenceId, referenceType, type, transaction) {
+    const tx = transaction || db;
+    const conditions = [
+      eq(customerTransactions.referenceId, referenceId),
+      eq(customerTransactions.referenceType, referenceType),
+    ];
+    if (type) conditions.push(eq(customerTransactions.type, type));
+    const [existingTx] = await tx
+      .select()
+      .from(customerTransactions)
+      .where(and(...conditions))
+      .limit(1);
+    return existingTx;
+  }
+
+  /**
+   * Reverse an order's posted INVOICE debit, if one exists and hasn't already been
+   * reversed. Shared by any business event that voids an order's financial obligation
+   * (order cancellation, order splitting).
+   *
+   * Zeroes out the order's own INVOICE row in place (debit -> 0, description updated to
+   * explain why) rather than posting a second "reversal" line — the customer's ledger
+   * shows one row per order, which flips to a zeroed debit the moment its obligation is
+   * voided, instead of the original invoice sitting alongside a separate credit entry.
+   *
+   * Idempotent by construction: if the INVOICE row's debit is already 0 (already
+   * reversed) or no INVOICE row exists at all (order never reached Accounts Approval, so
+   * it never had a financial obligation), this is a no-op — nothing is updated.
+   *
+   * Never touches `payments` rows or PAYMENT-type ledger entries — it only zeroes the
+   * order's own INVOICE debit, so customer payments already received are untouched.
+   *
+   * Note: this mutates a historical ledger row's stored running `balance` to the
+   * customer's current balance. For an order reversed shortly after it was billed (the
+   * common case), this is exactly correct. If other transactions were posted between the
+   * original invoice and this reversal, this row's balance snapshot moves to reflect
+   * "now" rather than its original position in the timeline — intervening rows keep
+   * their own already-correct snapshots, so only this row's snapshot changes.
+   *
+   * The original (pre-reversal) amount is appended to the description as a small
+   * "(was 1234.56)" marker — no schema change needed — so the ledger UI can show the
+   * original amount struck through next to the new 0.00, instead of the amount simply
+   * disappearing once the row is zeroed.
+   *
+   * @returns {Promise<number|null>} the amount reversed, or null if there was nothing to do
+   */
+  async reverseOrderInvoiceIfExists(orderId, customerId, description, transaction) {
+    const existingDebit = await this.findTransactionByReference(
+      orderId,
+      'orders',
+      'INVOICE',
+      transaction
+    );
+    const reversalAmount = existingDebit ? Number(existingDebit.debit) || 0 : 0;
+    if (reversalAmount <= 0) return null;
+
+    const postReversal = async tx => {
+      const updatedCustomer = await this.updateCustomerBalance(customerId, -reversalAmount, tx);
+      if (updatedCustomer) {
+        await tx
+          .update(customerTransactions)
+          .set({
+            debit: 0,
+            description: `${description} (was ${reversalAmount.toFixed(2)})`,
+            balance: updatedCustomer.currentBalance,
+            transactionDate: new Date(),
+          })
+          .where(eq(customerTransactions.transactionId, existingDebit.transactionId));
+      }
+    };
+
+    if (transaction) {
+      await postReversal(transaction);
+    } else {
+      await db.transaction(postReversal);
+    }
+
+    return reversalAmount;
+  }
 }
