@@ -24,6 +24,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -307,6 +308,11 @@ const SortableRouteCard: React.FC<SortableRouteCardProps> = ({ route, isEditing,
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? 'none' : transition,
     zIndex: isDragging ? 50 : undefined,
+    // Without this, a touchstart on the card is claimed by the browser as a
+    // page-scroll/pan gesture before dnd-kit's pointer listeners ever see the
+    // move, so dragging worked with a mouse but not with a finger. Only
+    // disabled while editing, so normal page scrolling is untouched otherwise.
+    touchAction: isEditing ? ('none' as const) : undefined,
   };
 
   const meta = ROUTE_METADATA[route.id] || {};
@@ -424,9 +430,23 @@ export const DynamicChildDashboard: React.FC<DynamicChildDashboardProps> = ({
     user?.Role?.toLowerCase() === 'admin' || user?.Role?.toLowerCase() === 'superadmin';
 
   const sensors = useSensors(
+    // Mouse/trackpad: starts dragging once the pointer has moved 8px, so a
+    // plain click still navigates instead of being swallowed as a drag.
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    // Touch: PointerSensor alone doesn't reliably win against the browser's
+    // native scroll/pan gesture on touchscreens. TouchSensor uses a short
+    // press-and-hold (rather than a movement distance) to decide "this is a
+    // drag, not a scroll" - a quick swipe still scrolls the page normally,
+    // and holding a card starts the drag, matching touch-action: 'none' set
+    // on the card above.
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor, {

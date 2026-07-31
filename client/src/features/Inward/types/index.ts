@@ -31,6 +31,7 @@ export interface InwardItemInput {
   unitId?: number;
   unitPrice?: number;
   totalCost?: number;
+  skipCostUpdate?: boolean; // If true, saves unitPrice in the inward record but does NOT update masterProductFG.purchaseCost
 }
 
 export interface CreateInwardInput {

@@ -336,7 +336,7 @@ const FinalGoodTable = () => {
                         </span>
                       ) : (
                         <span className="text-[10px] text-green-500 font-normal mt-0.5 leading-none absolute -bottom-3 whitespace-nowrap">
-                          (Material Inward)
+                          (FG Inward)
                         </span>
                       )}
                     </div>

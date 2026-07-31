@@ -624,51 +624,53 @@ const SplitOrderPage: React.FC = () => {
             ) : originalOrder ? (
               <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden shadow-lg">
                 {/* Form Header */}
-                <div className="px-6 py-4 bg-[var(--primary)] text-white flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <Split className="w-5 h-5" />
-                    <div>
-                      <h2 className="text-lg font-bold">Split Order #{originalOrder.orderId}</h2>
-                      <p className="text-white/80 text-sm">
+                <div className="px-4 sm:px-6 py-4 bg-[var(--primary)] text-white flex justify-between items-start sm:items-center gap-3">
+                  <div className="flex items-start sm:items-center gap-3 min-w-0">
+                    <Split className="w-5 h-5 shrink-0 mt-0.5 sm:mt-0" />
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-bold break-words">
+                        Split Order #{originalOrder.orderId}
+                      </h2>
+                      <p className="text-white/80 text-sm break-words">
                         {decodeHtml(originalOrder.companyName) || 'No Company'}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={handleCloseForm}
-                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors shrink-0"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Order Info Bar */}
-                <div className="px-6 py-3 bg-[var(--surface-secondary)] border-b border-[var(--border)] flex flex-wrap gap-4 text-sm">
+                <div className="px-4 sm:px-6 py-3 bg-[var(--surface-secondary)] border-b border-[var(--border)] flex flex-wrap gap-3 sm:gap-4 text-sm">
                   <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                    <FileText className="w-4 h-4" />
+                    <FileText className="w-4 h-4 shrink-0" />
                     <span>Bill: {originalOrder.billNo || '-'}</span>
                   </div>
                   <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                    <Calendar className="w-4 h-4" />
+                    <Calendar className="w-4 h-4 shrink-0" />
                     <span>
                       {originalOrder.expectedDeliveryDate
                         ? new Date(originalOrder.expectedDeliveryDate).toLocaleDateString()
                         : 'Not Scheduled'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                    <MapPin className="w-4 h-4" />
-                    <span className="truncate max-w-[200px]">
+                  <div className="flex items-center gap-2 text-[var(--text-secondary)] min-w-0 basis-full sm:basis-auto">
+                    <MapPin className="w-4 h-4 shrink-0" />
+                    <span className="break-words">
                       {decodeHtml(originalOrder.deliveryAddress) || 'No location'}
                     </span>
                   </div>
                 </div>
 
                 {/* Form Content */}
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   {/* Split Product Header */}
-                  <div className="mb-4 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[var(--primary)]" />
+                  <div className="mb-4 flex items-center gap-2 flex-wrap">
+                    <Layers className="w-4 h-4 text-[var(--primary)] shrink-0" />
                     <h3 className="font-semibold text-[var(--text-primary)]">Split Product</h3>
                     <span className="text-xs text-[var(--text-secondary)] font-normal">
                       — adjust quantities per item, or assign a whole product group at once
@@ -683,10 +685,10 @@ const SplitOrderPage: React.FC = () => {
                         className="bg-[var(--background)] rounded-lg border border-[var(--border)] overflow-hidden"
                       >
                         {/* Group Header */}
-                        <div className="flex items-center justify-between p-3">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3">
+                          <div className="flex items-center gap-2 min-w-0">
                             <div
-                              className={`p-1.5 rounded ${
+                              className={`p-1.5 rounded shrink-0 ${
                                 group.totalAvailable >= group.totalOrdered
                                   ? 'bg-[var(--success)]/10 text-[var(--success)]'
                                   : 'bg-[var(--warning)]/10 text-[var(--warning)]'
@@ -694,8 +696,8 @@ const SplitOrderPage: React.FC = () => {
                             >
                               <Package className="w-4 h-4" />
                             </div>
-                            <div>
-                              <h4 className="font-medium text-[var(--text-primary)] text-sm">
+                            <div className="min-w-0">
+                              <h4 className="font-medium text-[var(--text-primary)] text-sm break-words">
                                 {decodeHtml(group.masterProductName)}
                               </h4>
                               <p className="text-xs text-[var(--text-secondary)]">
@@ -713,11 +715,11 @@ const SplitOrderPage: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 shrink-0">
                             <button
                               onClick={() => handleAssignGroupToOrder(group, 1)}
                               title="Assign whole group to Dispatch Order"
-                              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${group.isFullyAssignedToOrder1
+                              className={`flex-1 sm:flex-initial flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${group.isFullyAssignedToOrder1
                                 ? 'bg-[var(--success)] text-white'
                                 : 'bg-[var(--success)]/10 text-[var(--success)] hover:bg-[var(--success)]/20'
                                 }`}
@@ -728,7 +730,7 @@ const SplitOrderPage: React.FC = () => {
                             <button
                               onClick={() => handleAssignGroupToOrder(group, 2)}
                               title="Assign whole group to Balance Order"
-                              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${group.isFullyAssignedToOrder2
+                              className={`flex-1 sm:flex-initial flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-all ${group.isFullyAssignedToOrder2
                                 ? 'bg-[var(--warning)] text-white'
                                 : 'bg-[var(--warning)]/10 text-[var(--warning)] hover:bg-[var(--warning)]/20'
                                 }`}
@@ -751,7 +753,7 @@ const SplitOrderPage: React.FC = () => {
                               return (
                                 <div
                                   key={product.productId}
-                                  className={`p-3 flex items-center gap-3 ${
+                                  className={`p-3 flex flex-col sm:flex-row sm:items-center gap-3 ${
                                     idx !== group.products.length - 1
                                       ? 'border-b border-[var(--border)]/50'
                                       : ''
@@ -759,19 +761,19 @@ const SplitOrderPage: React.FC = () => {
                                 >
                                   {/* Product Info */}
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium text-[var(--text-primary)] text-sm truncate">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-medium text-[var(--text-primary)] text-sm break-words sm:truncate">
                                         {decodeHtml(productInfo?.ProductName) ||
                                           `Product #${product.productId}`}
                                       </span>
                                       {product.isShort && (
-                                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-[var(--danger)]/10 text-[var(--danger)] text-xs rounded">
+                                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-[var(--danger)]/10 text-[var(--danger)] text-xs rounded shrink-0">
                                           <AlertTriangle className="w-2.5 h-2.5" />
                                           Low
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--text-secondary)]">
+                                    <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--text-secondary)] flex-wrap">
                                       <span>Ord: {orderedQty}</span>
                                       <span
                                         className={
@@ -786,57 +788,65 @@ const SplitOrderPage: React.FC = () => {
                                   </div>
 
                                   {/* Quantity Controls */}
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex flex-col items-center">
-                                      <span className="text-[10px] text-[var(--success)] font-medium mb-0.5">
-                                        Dispatch
-                                      </span>
-                                      <div className="flex items-center gap-0.5">
-                                        <button
-                                          onClick={() => adjustQty(product.productId, -1)}
-                                          className="p-1 rounded bg-[var(--surface-secondary)] hover:bg-[var(--border)] transition-colors"
-                                          disabled={q1 <= 0}
-                                        >
-                                          <Minus className="w-3 h-3 text-[var(--text-secondary)]" />
-                                        </button>
-                                        <input
-                                          type="text"
-                                          value={dist.q1}
-                                          onChange={e =>
-                                            handleRevisedQtyChange(
-                                              product.productId,
-                                              e.target.value,
-                                              'q1'
-                                            )
-                                          }
-                                          className={`w-12 px-1.5 py-1 text-center text-sm font-semibold rounded focus:outline-none focus:ring-1 ${
-                                            q1 > product.availableQty
-                                              ? 'bg-[var(--danger)]/10 border border-[var(--danger)]/30 text-[var(--danger)] focus:ring-[var(--danger)]/50'
-                                              : 'bg-[var(--success)]/10 border border-[var(--success)]/30 text-[var(--success)] focus:ring-[var(--success)]/50'
-                                          }`}
-                                        />
-                                        <button
-                                          onClick={() => adjustQty(product.productId, 1)}
-                                          className="p-1 rounded bg-[var(--surface-secondary)] hover:bg-[var(--border)] transition-colors"
-                                          disabled={q1 >= Math.min(orderedQty, product.availableQty)}
-                                        >
-                                          <Plus className="w-3 h-3 text-[var(--text-secondary)]" />
-                                        </button>
+                                  <div className="flex flex-wrap items-center justify-between sm:justify-start gap-x-2 gap-y-2 shrink-0">
+                                    {/* Dispatch stepper, arrow and Balance box stay together on one
+                                        line - only the Amt block below is allowed to drop to its own
+                                        row on narrow screens, instead of every element getting
+                                        squeezed (or pushed off-screen) to fit on a single line. */}
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex flex-col items-center">
+                                        <span className="text-[10px] text-[var(--success)] font-medium mb-0.5">
+                                          Dispatch
+                                        </span>
+                                        <div className="flex items-center gap-0.5">
+                                          <button
+                                            onClick={() => adjustQty(product.productId, -1)}
+                                            className="p-1.5 sm:p-1 rounded bg-[var(--surface-secondary)] hover:bg-[var(--border)] transition-colors"
+                                            disabled={q1 <= 0}
+                                          >
+                                            <Minus className="w-3 h-3 text-[var(--text-secondary)]" />
+                                          </button>
+                                          <input
+                                            type="text"
+                                            value={dist.q1}
+                                            onChange={e =>
+                                              handleRevisedQtyChange(
+                                                product.productId,
+                                                e.target.value,
+                                                'q1'
+                                              )
+                                            }
+                                            className={`w-12 px-1.5 py-1 text-center text-sm font-semibold rounded focus:outline-none focus:ring-1 ${
+                                              q1 > product.availableQty
+                                                ? 'bg-[var(--danger)]/10 border border-[var(--danger)]/30 text-[var(--danger)] focus:ring-[var(--danger)]/50'
+                                                : 'bg-[var(--success)]/10 border border-[var(--success)]/30 text-[var(--success)] focus:ring-[var(--success)]/50'
+                                            }`}
+                                          />
+                                          <button
+                                            onClick={() => adjustQty(product.productId, 1)}
+                                            className="p-1.5 sm:p-1 rounded bg-[var(--surface-secondary)] hover:bg-[var(--border)] transition-colors"
+                                            disabled={
+                                              q1 >= Math.min(orderedQty, product.availableQty)
+                                            }
+                                          >
+                                            <Plus className="w-3 h-3 text-[var(--text-secondary)]" />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <ArrowRight className="w-4 h-4 text-[var(--text-tertiary)] shrink-0" />
+
+                                      <div className="flex flex-col items-center">
+                                        <span className="text-[10px] text-[var(--warning)] font-medium mb-0.5">
+                                          Balance
+                                        </span>
+                                        <div className="w-12 px-1.5 py-1 text-center text-sm font-semibold bg-[var(--warning)]/10 border border-[var(--warning)]/30 rounded text-[var(--warning)]">
+                                          {q2}
+                                        </div>
                                       </div>
                                     </div>
 
-                                    <ArrowRight className="w-4 h-4 text-[var(--text-tertiary)]" />
-
-                                    <div className="flex flex-col items-center">
-                                      <span className="text-[10px] text-[var(--warning)] font-medium mb-0.5">
-                                        Balance
-                                      </span>
-                                      <div className="w-12 px-1.5 py-1 text-center text-sm font-semibold bg-[var(--warning)]/10 border border-[var(--warning)]/30 rounded text-[var(--warning)]">
-                                        {q2}
-                                      </div>
-                                    </div>
-
-                                    <div className="flex flex-col items-end ml-1 min-w-[60px]">
+                                    <div className="flex flex-col items-end basis-full sm:basis-auto sm:ml-1 min-w-[60px] pt-2 sm:pt-0 mt-1 sm:mt-0 border-t sm:border-t-0 border-[var(--border)]/40">
                                       <span className="text-[10px] text-[var(--text-tertiary)]">
                                         Amt
                                       </span>
@@ -854,7 +864,7 @@ const SplitOrderPage: React.FC = () => {
                   </div>
 
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                     <div className="p-4 bg-[var(--success)]/5 rounded-lg border border-[var(--success)]/20">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-6 h-6 rounded bg-[var(--success)] text-white flex items-center justify-center font-bold text-xs">
@@ -934,18 +944,18 @@ const SplitOrderPage: React.FC = () => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex justify-end gap-3">
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                     <button
                       onClick={handleCloseForm}
                       disabled={submitting}
-                      className="px-5 py-2 bg-[var(--surface-secondary)] text-[var(--text-primary)] font-medium hover:bg-[var(--border)] transition-all rounded-lg text-sm border border-[var(--border)]"
+                      className="w-full sm:w-auto px-5 py-2 bg-[var(--surface-secondary)] text-[var(--text-primary)] font-medium hover:bg-[var(--border)] transition-all rounded-lg text-sm border border-[var(--border)]"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSubmit}
                       disabled={submitting || orderSummaries.order1Items === 0}
-                      className="px-5 py-2 bg-[var(--primary)] text-white font-medium shadow hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all rounded-lg text-sm flex items-center gap-2"
+                      className="w-full sm:w-auto justify-center px-5 py-2 bg-[var(--primary)] text-white font-medium shadow hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all rounded-lg text-sm flex items-center gap-2"
                     >
                       {submitting ? (
                         <>

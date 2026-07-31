@@ -12,6 +12,7 @@ import { Unit } from '@/features/masters/types';
 import { Calendar, Plus, Trash2, Save, Edit2 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { confirmDialog } from '@/components/ui';
+import { updateProductApi } from '@/features/update-product/api';
 
 interface FGInwardFormProps {
   onSubmit: (data: CreateInwardInput) => Promise<void>;
@@ -28,6 +29,9 @@ interface CurrentItemState {
   unitId: number;
   totalPrice: string;
   unitPrice: number;
+  pricePerUnit: string;          // Purchase rate displayed/entered by the user
+  autoFilledCostPrice: number;   // The value that was auto-filled when the FG was selected
+  isProductionCostSource: boolean; // True if the auto-fill came from production cost (not a stored purchaseCost)
 }
 
 const getLocalDateString = () => {
@@ -60,6 +64,9 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
       unitId: 0,
       totalPrice: '',
       unitPrice: 0,
+      pricePerUnit: '',
+      autoFilledCostPrice: 0,
+      isProductionCostSource: false,
     });
 
     useEffect(() => {
@@ -141,7 +148,41 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
     const loadProducts = async () => {
       try {
         const productsData = await inventoryApi.getAllProducts();
-        setProducts(productsData.filter((p: Product) => p.productType === 'FG'));
+        const fgs = productsData.filter((p: Product) => p.productType === 'FG');
+
+        try {
+          // getFinalGoods returns { status, data: [...] } — extract .data array
+          const pricingResponse = await updateProductApi.getFinalGoods();
+          const pricingArray: any[] = Array.isArray(pricingResponse)
+            ? pricingResponse
+            : (pricingResponse?.data ?? []);
+
+          const costPriceMap = new Map<number, { cost: number; isProductionOnly: boolean }>();
+          pricingArray.forEach((fg: any) => {
+            // Same formula used by the Update Product page (FinalGoodTable):
+            // - costPrice    = masterProductFG.purchaseCost (stored per-unit cost; set via inward)
+            // - devCostPrice = masterProductFG.productionCost (per-kg production rate)
+            // - devUnitCost  = devCostPrice × pmCapacity + packingCost (computed production cost)
+            // Priority: stored purchase cost > computed production cost
+            const inwardCost = Number(fg.costPrice) || 0;
+            const packCapacity = Number(fg.pmCapacity) || 1;
+            const packingCost = Number(fg.packingCost) || 0;
+            const devUnitCost = (Number(fg.devCostPrice) || 0) * packCapacity + packingCost;
+            const isProductionOnly = inwardCost === 0; // no stored purchaseCost
+            const finalCost = inwardCost > 0 ? inwardCost : devUnitCost;
+            costPriceMap.set(Number(fg.productId), { cost: finalCost, isProductionOnly });
+          });
+
+          const enhancedFgs = fgs.map((p: Product) => ({
+            ...p,
+            costPrice: costPriceMap.get(p.productId)?.cost || 0,
+            isProductionCostSource: costPriceMap.get(p.productId)?.isProductionOnly ?? true,
+          }));
+          setProducts(enhancedFgs);
+        } catch (e) {
+          console.warn('Failed to load final goods pricing, skipping cost price auto-fill:', e);
+          setProducts(fgs);
+        }
       } catch (error) {
         console.error('Failed to load FG products', error);
         setProducts([]);
@@ -149,7 +190,16 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
     };
 
     const resetCurrentItem = () =>
-      setCurrentItem({ productId: 0, quantity: '', unitId: getDefaultUnitId(), totalPrice: '', unitPrice: 0 });
+      setCurrentItem({
+        productId: 0,
+        quantity: '',
+        unitId: getDefaultUnitId(),
+        totalPrice: '',
+        unitPrice: 0,
+        pricePerUnit: '',
+        autoFilledCostPrice: 0,
+        isProductionCostSource: false,
+      });
 
     const handleItemChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
@@ -184,6 +234,21 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
         }
         const finalUnitId = currentItem.unitId || getDefaultUnitId();
         const selectedProduct = products.find(p => p.productId === currentItem.productId);
+
+        const pricePerUnit = currentItem.pricePerUnit ? Number(currentItem.pricePerUnit) : 0;
+        if (currentItem.pricePerUnit && (isNaN(pricePerUnit) || pricePerUnit < 0)) {
+          showToast.error('Please enter a valid price per unit');
+          return;
+        }
+        // Business rule: if the price shown was auto-filled from *production cost* (not a
+        // stored purchaseCost) and the user did not change it, we still save the price in
+        // the inward record (so it shows in Recent Inward Entries), but set skipCostUpdate=true
+        // so the server does NOT overwrite masterProductFG.purchaseCost — keeping the label
+        // "Production Cost" on the Update Product page instead of switching to "Material Inward".
+        const priceWasChanged =
+          pricePerUnit > 0 && Math.abs(pricePerUnit - currentItem.autoFilledCostPrice) > 0.001;
+        const skipCostUpdate = currentItem.isProductionCostSource && !priceWasChanged;
+
         const newItem: InwardItemInput = {
           inwardId: currentItem.inwardId,
           masterProductId: selectedProduct?.masterProductId || currentItem.productId,
@@ -191,8 +256,9 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
           inwardDate: '',
           quantity: qty,
           unitId: finalUnitId,
-          unitPrice: 0,
-          totalCost: currentItem.totalPrice ? Number(currentItem.totalPrice) : 0,
+          unitPrice: pricePerUnit,
+          totalCost: pricePerUnit > 0 ? pricePerUnit * qty : 0,
+          skipCostUpdate,
         };
         if (editingItemIndex !== null) {
           const u = [...items];
@@ -216,9 +282,14 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
         inwardId: item.inwardId,
         productId: item.productId || 0,
         quantity: String(item.quantity),
-        unitId: item.unitId || 7,
+        unitId: item.unitId || getDefaultUnitId(),
         totalPrice: item.totalCost ? String(item.totalCost) : '',
         unitPrice: 0,
+        pricePerUnit: item.unitPrice ? String(item.unitPrice) : '',
+        // When editing a saved item, treat the stored price as a confirmed purchase cost
+        // (not production-only) so editing it always saves the new value.
+        autoFilledCostPrice: item.unitPrice || 0,
+        isProductionCostSource: false,
       });
       setEditingItemIndex(index);
     };
@@ -253,6 +324,13 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
           )
         ) {
           const selectedProduct = products.find(p => p.productId === currentItem.productId);
+          const pendingPricePerUnit = currentItem.pricePerUnit ? Number(currentItem.pricePerUnit) : 0;
+          // Same gate as handleAddItem — send actual price but flag skipCostUpdate when
+          // the auto-filled production cost was not changed by the user.
+          const pendingPriceWasChanged =
+            pendingPricePerUnit > 0 &&
+            Math.abs(pendingPricePerUnit - currentItem.autoFilledCostPrice) > 0.001;
+          const pendingSkipCostUpdate = currentItem.isProductionCostSource && !pendingPriceWasChanged;
           newItemToAdd = {
             inwardId: currentItem.inwardId,
             masterProductId: selectedProduct?.masterProductId || currentItem.productId,
@@ -260,8 +338,9 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
             inwardDate: '',
             quantity: qty,
             unitId: currentItem.unitId || getDefaultUnitId(),
-            unitPrice: 0,
-            totalCost: 0,
+            unitPrice: pendingPricePerUnit,
+            totalCost: pendingPricePerUnit > 0 ? pendingPricePerUnit * qty : 0,
+            skipCostUpdate: pendingSkipCostUpdate,
           };
         }
       }
@@ -270,7 +349,6 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
         return;
       }
       const finalItems = newItemToAdd ? [...items, newItemToAdd] : [...items];
-      const rate = billDetails.rate ? Number(billDetails.rate) : 0;
       const payload: CreateInwardInput = {
         billNo: billDetails.billNo || '',
         supplierId: billDetails.supplierId,
@@ -278,7 +356,6 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
         items: finalItems.map(item => ({
           ...item,
           inwardDate: new Date(billDetails.inwardDate).toISOString(),
-          unitPrice: rate,
         })),
       };
       try {
@@ -292,6 +369,7 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
           supplierId: undefined,
           rate: '',
         });
+        resetCurrentItem();
         setEditingItemIndex(null);
       } catch (error) {
         console.error('Submit failed:', error);
@@ -380,7 +458,22 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
                   )
                   .map(p => ({ id: p.productId, label: p.productName, value: p.productId }))}
                 value={currentItem.productId || undefined}
-                onChange={val => setCurrentItem(prev => ({ ...prev, productId: val ? Number(val) : 0 }))}
+                onChange={val => {
+                  const productId = val ? Number(val) : 0;
+                  const product = products.find(p => p.productId === productId);
+                  const fetchedCostPrice =
+                    product && (product as any).costPrice && (product as any).costPrice > 0
+                      ? Number((product as any).costPrice)
+                      : 0;
+                  setCurrentItem(prev => ({
+                    ...prev,
+                    productId,
+                    unitId: getDefaultUnitId() || product?.unitId || prev.unitId,
+                    pricePerUnit: fetchedCostPrice > 0 ? fetchedCostPrice.toFixed(2) : '',
+                    autoFilledCostPrice: fetchedCostPrice,
+                    isProductionCostSource: (product as any)?.isProductionCostSource ?? false,
+                  }));
+                }}
                 placeholder="Select Finished Good"
                 required={items.length === 0}
               />
@@ -410,13 +503,13 @@ export const FGInwardForm = React.forwardRef<HTMLFormElement, FGInwardFormProps>
             </div>
             <div className="md:col-span-2 space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Price Per Unit{' '}
+                Price Per Unit
               </label>
               <Input
                 type="number"
-                name="rate"
-                value={billDetails.rate}
-                onChange={handleBillChange}
+                name="pricePerUnit"
+                value={currentItem.pricePerUnit}
+                onChange={handleItemChange}
                 placeholder="0.00"
                 step="0.01"
                 min="0"

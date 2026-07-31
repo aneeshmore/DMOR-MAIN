@@ -1,4 +1,5 @@
 import { OrdersService } from '../orders/service.js';
+import { PaymentRepository } from '../payments/repository.js';
 import { AppError } from '../../utils/AppError.js';
 import logger from '../../config/logger.js';
 import db from '../../db/index.js';
@@ -8,6 +9,7 @@ import { eq } from 'drizzle-orm';
 export class SplitOrdersService {
   constructor() {
     this.ordersService = new OrdersService();
+    this.paymentRepository = new PaymentRepository();
   }
 
   /**
@@ -40,6 +42,27 @@ export class SplitOrdersService {
     // client is not authoritative — without this, a malformed or bypassed request could
     // silently create or lose stock-bearing quantity during the split.
     this._assertQuantitiesConserved(originalOrder, order1, order2);
+
+    // Reverse the parent's customer ledger debit, if one was ever posted. The debit is
+    // only posted at Accounts Approval (AdminAccountsService.postOrderDebitIfNeeded), so a
+    // parent still 'Pending Accounts Approval' never had one — reverseOrderInvoiceIfExists
+    // correctly no-ops in that case (nothing to reverse, no reversal entry created). The two
+    // child orders below get their own debit only once *they* pass their own Accounts
+    // Approval, via the normal createOrder -> approval flow, so the customer's outstanding
+    // balance never double-counts the split (Dispatch + Balance always reconciles back to
+    // the original parent amount, never parent + Dispatch + Balance).
+    //
+    // Deliberately runs BEFORE the parent status changes to 'Split' below: if this throws,
+    // nothing else has been touched yet, so the whole split can be safely retried from
+    // scratch. Once status does flip to 'Split', the guard above blocks any further
+    // split/retry attempts on this order, and reverseOrderInvoiceIfExists() is itself
+    // idempotent (checks for an existing reversal before posting one) as a second layer of
+    // protection against partial-failure retries.
+    await this.paymentRepository.reverseOrderInvoiceIfExists(
+      originalOrderId,
+      originalOrder.customerId,
+      `Order #${originalOrder.orderNumber || originalOrderId} Split — Reversal`
+    );
 
     // 2. Mark the original order as 'Split' — not 'Cancelled'. The order was not cancelled,
     // it was superseded by two child orders, and conflating the two put split parents into

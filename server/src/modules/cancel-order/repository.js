@@ -1,6 +1,7 @@
 import { eq, desc, and, ilike, or, sql, notInArray, inArray, gte, between } from 'drizzle-orm';
 import db from '../../db/index.js';
 import { orders, products, orderDetails, customers, accounts } from '../../db/schema/index.js';
+import { PaymentRepository } from '../payments/repository.js';
 
 // Statuses that can still be cancelled
 const CANCELLABLE_STATUSES = [
@@ -22,6 +23,10 @@ const CANCELLABLE_STATUSES = [
 ];
 
 export class CancelOrderRepository {
+  constructor() {
+    this.paymentRepository = new PaymentRepository();
+  }
+
   /**
    * Find all orders that can still be cancelled
    */
@@ -145,9 +150,11 @@ export class CancelOrderRepository {
       .from(orderDetails)
       .where(eq(orderDetails.orderId, orderId));
 
-    // 2. Check current order status to determine inventory handling
+    // 2. Check current order status to determine inventory handling. customerId and
+    // orderNumber are also fetched here (not just status) — needed below to reverse the
+    // customer ledger debit, if one was ever posted.
     const [order] = await db
-      .select({ status: orders.status })
+      .select({ status: orders.status, customerId: orders.customerId, orderNumber: orders.orderNumber })
       .from(orders)
       .where(eq(orders.orderId, orderId));
 
@@ -212,6 +219,26 @@ export class CancelOrderRepository {
         updatedAt: new Date(),
       })
       .where(eq(accounts.orderId, orderId));
+
+    // 6. Reverse the customer ledger debit, if one was ever posted. The debit is only
+    // posted at Accounts Approval (AdminAccountsService.postOrderDebitIfNeeded) — so an
+    // order cancelled before approval never had one, and this is correctly a no-op
+    // (customer balance is simply left untouched). Idempotent — reverseOrderInvoiceIfExists
+    // checks for an existing reversal before posting one, and is the same shared mechanism
+    // used by Split Order (see PaymentRepository). Isolated in its own try/catch so a
+    // ledger failure never blocks the cancellation itself from completing.
+    try {
+      await this.paymentRepository.reverseOrderInvoiceIfExists(
+        orderId,
+        order.customerId,
+        `Order #${order.orderNumber || orderId} Cancelled — Reversal`
+      );
+    } catch (ledgerError) {
+      console.error(
+        '[CancelOrderRepo] Error reversing customer ledger for cancelled order:',
+        ledgerError
+      );
+    }
 
     return result;
   }

@@ -28,6 +28,18 @@ interface LedgerItem {
   paymentMode?: string;
 }
 
+// A cancelled/split order's INVOICE row is zeroed in place rather than replaced with a
+// new row (see PaymentRepository.reverseOrderInvoiceIfExists) - the original amount is
+// preserved as a "(was 1234.56)" marker appended to the description so it can still be
+// shown (struck through) next to the new 0.00, instead of silently vanishing.
+const VOIDED_AMOUNT_PATTERN = /\s*\(was ([\d.]+)\)\s*$/;
+const parseVoidedAmount = (description: string | undefined) => {
+  const match = VOIDED_AMOUNT_PATTERN.exec(description || '');
+  return match ? Number(match[1]) || 0 : null;
+};
+const stripVoidedAmountMarker = (description: string | undefined) =>
+  (description || '').replace(VOIDED_AMOUNT_PATTERN, '');
+
 type InvoiceStatus = 'Paid' | 'Part Payment' | 'Pending' | '-';
 
 interface EnrichedLedgerItem extends LedgerItem {
@@ -216,18 +228,27 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
       'Status',
       'Days',
     ];
-    const tableRows = enrichedData.map(item => [
-      format(new Date(item.transactionDate), 'dd/MM/yyyy'),
-      item.type,
-      item.description,
-      item.referenceNo || '-',
-      Number(item.debit) > 0 ? Number(item.debit).toFixed(2) : '-',
-      item.pendingAmount !== null ? item.pendingAmount.toFixed(2) : '-',
-      Number(item.credit) > 0 ? Number(item.credit).toFixed(2) : '-',
-      Number(item.balance).toFixed(2),
-      item.status,
-      item.days !== null ? `${item.days} ${item.days === 1 ? 'day' : 'days'}` : '-',
-    ]);
+    const tableRows = enrichedData.map(item => {
+      const voidedAmount = parseVoidedAmount(item.description);
+      const debitCell =
+        voidedAmount !== null
+          ? `${voidedAmount.toFixed(2)} -> ${Number(item.debit).toFixed(2)}`
+          : item.type === 'INVOICE' || Number(item.debit) > 0
+            ? Number(item.debit).toFixed(2)
+            : '-';
+      return [
+        format(new Date(item.transactionDate), 'dd/MM/yyyy'),
+        item.type,
+        stripVoidedAmountMarker(item.description),
+        item.referenceNo || '-',
+        debitCell,
+        item.pendingAmount !== null ? item.pendingAmount.toFixed(2) : '-',
+        Number(item.credit) > 0 ? Number(item.credit).toFixed(2) : '-',
+        Number(item.balance).toFixed(2),
+        item.status,
+        item.days !== null ? `${item.days} ${item.days === 1 ? 'day' : 'days'}` : '-',
+      ];
+    });
 
     autoTable(doc, {
       head: [tableColumn],
@@ -277,7 +298,9 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
         accessorKey: 'description',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
         cell: ({ row }) => (
-          <div className="text-sm text-[var(--text-primary)]">{row.original.description}</div>
+          <div className="text-sm text-[var(--text-primary)]">
+            {stripVoidedAmountMarker(row.original.description)}
+          </div>
         ),
       },
       {
@@ -296,11 +319,33 @@ const CustomerTransactionHistory: React.FC<CustomerTransactionHistoryProps> = ({
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Debit" className="justify-center" />
         ),
-        cell: ({ row }) => (
-          <div className="font-medium text-orange-600 text-center whitespace-nowrap">
-            {Number(row.original.debit) > 0 ? Number(row.original.debit).toFixed(2) : '-'}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const debit = Number(row.original.debit) || 0;
+          const voidedAmount = parseVoidedAmount(row.original.description);
+          // A cancelled/split order's row is zeroed in place (see
+          // reverseOrderInvoiceIfExists) - show the original amount struck through next
+          // to the new 0.00, instead of the amount simply disappearing.
+          if (voidedAmount !== null) {
+            return (
+              <div className="font-medium text-center whitespace-nowrap">
+                <span className="line-through text-gray-400 mr-1.5">
+                  {voidedAmount.toFixed(2)}
+                </span>
+                <span className="text-orange-600">{debit.toFixed(2)}</span>
+              </div>
+            );
+          }
+          // INVOICE rows always carry a meaningful debit, including an explicit 0 when
+          // the order's obligation has been voided (cancelled/split) - show "0.00" there
+          // rather than "-", so a voided order reads as "zeroed" not "no debit ever
+          // existed". Other row types (PAYMENT, etc.) keep the original "-" for no debit.
+          const show = row.original.type === 'INVOICE' || debit > 0;
+          return (
+            <div className="font-medium text-orange-600 text-center whitespace-nowrap">
+              {show ? debit.toFixed(2) : '-'}
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'pendingAmount',

@@ -1,5 +1,4 @@
 import { OrdersRepository } from './repository.js';
-import { PaymentRepository } from '../payments/repository.js';
 import { NotificationsService } from '../notifications/service.js';
 import { OrderDTO, OrderWithDetailsDTO } from './dto.js';
 import { AppError } from '../../utils/AppError.js';
@@ -11,7 +10,6 @@ import { eq } from 'drizzle-orm';
 export class OrdersService {
   constructor() {
     this.repository = new OrdersRepository();
-    this.paymentRepository = new PaymentRepository();
     this.notificationsService = new NotificationsService();
   }
 
@@ -258,32 +256,16 @@ export class OrdersService {
       // Continue even if account creation fails
     }
 
-    // [NEW] Update Customer Balance & Create Ledger Entry (Debit)
-    try {
-      logger.info(`Updating customer balance for Order #${order.orderNumber}`);
-      const updatedCustomer = await this.paymentRepository.updateCustomerBalance(
-        order.customerId,
-        order.totalAmount
-      );
-
-      if (updatedCustomer) {
-        await this.paymentRepository.createTransaction({
-          customerId: order.customerId,
-          type: 'INVOICE',
-          referenceId: order.orderId,
-          referenceType: 'orders',
-          description: `Order #${order.orderNumber}`,
-          debit: order.totalAmount,
-          credit: 0,
-          balance: updatedCustomer.currentBalance,
-        });
-        logger.info('Ledger updated for new order');
-      }
-    } catch (ledgerError) {
-      logger.error('Failed to update ledger for new order:', ledgerError);
-      // We don't throw here to avoid failing the order creation, but in a strict financial system we should.
-      // For now, logging error.
-    }
+    // [MOVED TO ACCOUNTS APPROVAL] The customer ledger debit used to be posted right here,
+    // at creation — before the order had even been reviewed, billed, or approved. That meant
+    // every order inflated the customer's outstanding balance immediately, and cancelling or
+    // splitting an unapproved order had no correct "nothing to reverse" state to fall back on,
+    // since a debit always existed. The debit is now posted by
+    // AdminAccountsService.postOrderDebitIfNeeded(), called from acceptOrder()/clearPayment()
+    // once the order is actually billed — matching that an order still "Pending Accounts
+    // Approval" is not yet a finalized bill and must not affect the customer's balance. See
+    // PaymentRepository.reverseOrderInvoiceIfExists() for the matching reversal used by
+    // Cancel Order and Split Order.
 
     // Send Notification
     try {
