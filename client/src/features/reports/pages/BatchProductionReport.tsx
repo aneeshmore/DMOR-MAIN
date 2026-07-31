@@ -821,7 +821,7 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
         const costPerKg = totalActual > 0 ? totalAmount / totalActual : 0;
         return (
           <div className="mb-8 max-w-md">
-            <h3 className="font-bold text-sm mb-2">Raw Material Cost Per Ltr</h3>
+            <h3 className="font-bold text-sm mb-2">Raw Material Cost Per Unit</h3>
             <table className="w-full text-xs border-collapse border border-gray-300">
               <thead className="bg-gray-100">
                 <tr>
@@ -1471,7 +1471,7 @@ const BatchProductionReport = () => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
-        doc.text('Raw Material Cost Per Ltr', rightTableX, rightStackY - 2);
+        doc.text('Raw Material Cost Per Unit', rightTableX, rightStackY - 2);
         autoTable(doc, {
           startY: rightStackY,
           margin: { left: rightTableX, right: margin },
