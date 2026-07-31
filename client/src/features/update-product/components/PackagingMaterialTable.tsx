@@ -39,6 +39,41 @@ const PackagingMaterialTable = () => {
     }));
   };
 
+  // Ids whose Min Stock came from the calculator, so Revert can undo exactly those
+  // and leave any values the user typed by hand alone.
+  const [minStockPreviewIds, setMinStockPreviewIds] = useState<number[]>([]);
+
+  /**
+   * Loads calculated Min Stock values into the pending edits, exactly as if they had
+   * been typed. They appear in the column for review and are only written when the
+   * user presses Save; refreshing or leaving discards them.
+   */
+  const applyMinStockPreview = (values: { id: number; minStockLevel: number }[]) => {
+    setEdits(prev => {
+      const next = { ...prev };
+      values.forEach(({ id, minStockLevel }) => {
+        next[id] = { ...next[id], minStockLevel };
+      });
+      return next;
+    });
+    setMinStockPreviewIds(values.map(v => v.id));
+  };
+
+  /** Drops the calculated Min Stock values, keeping any other pending edits. */
+  const revertMinStockPreview = () => {
+    setEdits(prev => {
+      const next = { ...prev };
+      minStockPreviewIds.forEach(id => {
+        if (!next[id]) return;
+        const { minStockLevel, ...rest } = next[id];
+        if (Object.keys(rest).length > 0) next[id] = rest;
+        else delete next[id];
+      });
+      return next;
+    });
+    setMinStockPreviewIds([]);
+  };
+
   const handleSaveAll = () => {
     // Validate HSN codes before saving (blank allowed for legacy products)
     const invalidHsn = Object.values(edits).some(
@@ -120,6 +155,7 @@ const PackagingMaterialTable = () => {
       showToast.success('Packaging materials updated successfully');
       queryClient.invalidateQueries({ queryKey: ['update-products-pm'] });
       setEdits({});
+      setMinStockPreviewIds([]);
       setConfirmationOpen(false);
     } catch {
       showToast.error('Failed to update packaging materials');
@@ -212,9 +248,10 @@ const PackagingMaterialTable = () => {
                     products={(products?.data ?? []).map((p: any) => ({
                       id: p.masterProductId,
                     }))}
-                    onCompleted={() =>
-                      queryClient.invalidateQueries({ queryKey: ['update-products-pm'] })
-                    }
+                    onPreview={applyMinStockPreview}
+                    hasPreview={minStockPreviewIds.length > 0}
+                    onSave={handleSaveAll}
+                    onRevert={revertMinStockPreview}
                   />
                   <span>Min Stock</span>
                 </div>

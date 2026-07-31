@@ -599,7 +599,6 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
             <thead className="bg-gray-100">
               <tr>
                 <th className="border border-gray-300 px-3 py-2 text-left">Packing</th>
-                <th className="border border-gray-300 px-3 py-2 text-right">Qty</th>
                 <th className="border border-gray-300 px-3 py-2 text-right">Filled</th>
                 <th className="border border-gray-300 px-3 py-2 text-right">LTR</th>
                 <th className="border border-gray-300 px-3 py-2 text-right">KG</th>
@@ -631,9 +630,6 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                     <tr key={idx}>
                       <td className="border border-gray-300 px-3 py-2">{sp.productName}</td>
                       <td className="border border-gray-300 px-3 py-2 text-right">
-                        {formatNumberForPreview(sp.batchQty)}
-                      </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right">
                         {formatNumberForPreview(sp.actualQty)}
                       </td>
                       <td className="border border-gray-300 px-3 py-2 text-right">
@@ -657,9 +653,6 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
               ) : batch.productName ? (
                 <tr>
                   <td className="border border-gray-300 px-3 py-2">{batch.productName}</td>
-                  <td className="border border-gray-300 px-3 py-2 text-right">
-                    {formatNumberForPreview(batch.plannedQuantity)}
-                  </td>
                   <td className="border border-gray-300 px-3 py-2 text-right">
                     {formatNumberForPreview(batch.actualQuantity)}
                   </td>
@@ -689,23 +682,6 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
             <tfoot className="bg-[var(--color-success)] text-white font-bold">
               <tr>
                 <td className="border border-gray-300 px-3 py-2">Total</td>
-                <td className="border border-gray-300 px-3 py-2 text-right">
-                  {formatNumberForPreview(
-                    (batch.subProducts || [])
-                      .filter(sp => {
-                        const actQty =
-                          typeof sp.actualQty === 'number'
-                            ? sp.actualQty
-                            : parseFloat(sp.actualQty || '0');
-                        const batchQty =
-                          typeof sp.batchQty === 'number'
-                            ? sp.batchQty
-                            : parseFloat(sp.batchQty || '0');
-                        return actQty > 0 || batchQty > 0;
-                      })
-                      .reduce((sum, sp) => sum + parseFloat(sp.batchQty || '0'), 0)
-                  )}
-                </td>
                 <td className="border border-gray-300 px-3 py-2 text-right">
                   {formatNumberForPreview(
                     (batch.subProducts || [])
@@ -839,14 +815,20 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
           </div>
         )}
 
-      {/* Raw Material Cost Per Unit (Accounts) */}
+      {/* Raw Material Cost Per Ltr (Accounts) */}
       {(() => {
-        const { totalAmount, totalActual, actFillDensity, costPerUnit } =
-          computeAccountsCostData(batch);
+        const { totalAmount, totalActual, costPerUnit } = computeAccountsCostData(batch);
+        const costPerKg = totalActual > 0 ? totalAmount / totalActual : 0;
         return (
           <div className="mb-8 max-w-md">
             <h3 className="font-bold text-sm mb-2">Raw Material Cost Per Unit</h3>
             <table className="w-full text-xs border-collapse border border-gray-300">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="border border-gray-300 px-3 py-2 text-left">Description</th>
+                  <th className="border border-gray-300 px-3 py-2 text-right">Value</th>
+                </tr>
+              </thead>
               <tbody>
                 <tr>
                   <td className="border border-gray-300 px-3 py-2">Total Ingredients Amount</td>
@@ -860,16 +842,16 @@ const BatchReportPreviewContent = React.forwardRef<HTMLDivElement, BatchReportPr
                     {totalActual.toFixed(3)} Kg
                   </td>
                 </tr>
-                <tr>
-                  <td className="border border-gray-300 px-3 py-2">Actual Filling Density</td>
-                  <td className="border border-gray-300 px-3 py-2 text-right">
-                    {actFillDensity.toFixed(3)}
-                  </td>
-                </tr>
               </tbody>
               <tfoot className="bg-[var(--color-success)] text-white font-bold">
                 <tr>
-                  <td className="border border-gray-300 px-3 py-2">Raw Material Cost Per Unit</td>
+                  <td className="border border-gray-300 px-3 py-2">Raw Material Cost Per KG</td>
+                  <td className="border border-gray-300 px-3 py-2 text-right">
+                    ₹{formatCurrency2(costPerKg)} / Kg
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border border-gray-300 px-3 py-2">Raw Material Cost Per Ltr</td>
                   <td className="border border-gray-300 px-3 py-2 text-right">
                     ₹{formatCurrency2(costPerUnit)} / Ltr
                   </td>
@@ -1225,7 +1207,6 @@ const BatchProductionReport = () => {
 
         return [
           sp.productName,
-          formatNumber(sp.batchQty),
           formatNumber(sp.actualQty),
           capacity > 0 ? formatNumber(ltr) : '',
           capacity > 0 ? formatNumber(kg) : '',
@@ -1357,7 +1338,7 @@ const BatchProductionReport = () => {
       autoTable(doc, {
         startY: rightStackY,
         margin: { left: rightTableX, right: margin },
-        head: [['Packing', 'Qty', 'Filled', 'LTR', 'KG']],
+        head: [['Packing', 'Filled', 'LTR', 'KG']],
         body: subProductsBody,
         theme: 'grid',
         styles: {
@@ -1377,21 +1358,14 @@ const BatchProductionReport = () => {
           lineColor: [229, 231, 235],
         },
         columnStyles: {
-          0: { cellWidth: 38, halign: 'left' },
+          0: { cellWidth: 50, halign: 'left' },
           1: { cellWidth: 12, halign: 'right' },
           2: { cellWidth: 12, halign: 'right' },
           3: { cellWidth: 12, halign: 'right' },
-          4: { cellWidth: 12, halign: 'right' },
         },
         tableWidth: rightTableWidth,
         foot: [
-          [
-            'Total',
-            formatNumber(totalBatchQty),
-            formatNumber(totalSubActualQty),
-            formatNumber(totalLtr),
-            formatNumber(totalKg),
-          ],
+          ['Total', formatNumber(totalSubActualQty), formatNumber(totalLtr), formatNumber(totalKg)],
         ],
         footStyles: {
           fillColor: colorSuccess,
@@ -1488,9 +1462,10 @@ const BatchProductionReport = () => {
         rightStackY = (doc as any).lastAutoTable.finalY;
       }
 
-      // ── Raw Material Cost Per Unit — stacked below Packaging Materials Used (right column) ──
+      // ── Raw Material Cost Per Ltr — stacked below Packaging Materials Used (right column) ──
       {
         const rmCost = computeAccountsCostData(batch);
+        const costPerKg = rmCost.totalActual > 0 ? rmCost.totalAmount / rmCost.totalActual : 0;
         rightStackY += 8;
         doc.setPage(doc.getNumberOfPages());
         doc.setFont('helvetica', 'bold');
@@ -1500,13 +1475,14 @@ const BatchProductionReport = () => {
         autoTable(doc, {
           startY: rightStackY,
           margin: { left: rightTableX, right: margin },
+          head: [['Description', 'Value']],
           body: [
             ['Total Ingredients Amount', `Rs. ${formatCurrency2(rmCost.totalAmount)}`],
             ['Total Ingredients Actual', `${rmCost.totalActual.toFixed(3)} Kg`],
-            ['Actual Filling Density', rmCost.actFillDensity.toFixed(3)],
           ],
           foot: [
-            ['Raw Material Cost Per Unit', `Rs. ${formatCurrency2(rmCost.costPerUnit)} / Ltr`],
+            ['Raw Material Cost Per KG', `Rs. ${formatCurrency2(costPerKg)} / Kg`],
+            ['Raw Material Cost Per Ltr', `Rs. ${formatCurrency2(rmCost.costPerUnit)} / Ltr`],
           ],
           theme: 'grid',
           styles: {
@@ -1515,6 +1491,14 @@ const BatchProductionReport = () => {
             lineColor: [229, 231, 235],
             lineWidth: 0.1,
             textColor: colorGray700,
+          },
+          headStyles: {
+            fillColor: colorGray100,
+            textColor: [0, 0, 0],
+            fontStyle: 'bold',
+            fontSize: 10,
+            lineWidth: 0.1,
+            lineColor: [229, 231, 235],
           },
           columnStyles: {
             0: { cellWidth: 54, halign: 'left', fontStyle: 'bold' },
