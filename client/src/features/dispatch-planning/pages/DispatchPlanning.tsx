@@ -526,7 +526,7 @@ export default function DispatchPlanning() {
     );
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto p-6">
+    <div className="space-y-6 max-w-[1400px] mx-auto p-4 sm:p-6">
       <PageHeader
         metadataPath="/operations/dispatch-planning"
         title="Dispatch Planning"
@@ -534,7 +534,7 @@ export default function DispatchPlanning() {
       />
 
       {/* Vehicle Selection & Form Section */}
-      <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] shadow-sm p-6 space-y-6 animate-in fade-in duration-300">
+      <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] shadow-sm p-4 sm:p-6 space-y-6 animate-in fade-in duration-300">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column: Vehicle Selection and Form */}
           <div className="space-y-4">
@@ -543,7 +543,7 @@ export default function DispatchPlanning() {
               <label className="block text-sm font-medium text-[var(--text-primary)]">
                 Select Vehicle
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <SearchableSelect
                   className="flex-1"
                   options={vehicleOptions}
@@ -556,7 +556,7 @@ export default function DispatchPlanning() {
                   disabled={loadingVehicles}
                 />
                 <button
-                  className="px-4 py-2.5 border border-[var(--border)] rounded-lg flex items-center gap-2 text-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all font-medium"
+                  className="px-4 py-2.5 border border-[var(--border)] rounded-lg flex items-center justify-center gap-2 text-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all font-medium shrink-0"
                   onClick={() => setShowAddVehicleModal(true)}
                 >
                   <Plus className="w-4 h-4" />
@@ -781,19 +781,22 @@ export default function DispatchPlanning() {
           </div>
 
           {/* Search Bar */}
-          <div className="relative">
+          <div className="relative w-full md:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
             <input
               type="text"
               placeholder="Search orders..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] outline-none text-sm w-64"
+              className="w-full pl-10 pr-4 py-2 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] outline-none text-sm"
             />
           </div>
 
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-[var(--surface-secondary)] rounded-lg">
+          {/* Filter Tabs — flex-wrap prevents the row from overflowing the
+              viewport on narrow screens (previously ran off-screen requiring
+              horizontal scroll); unaffected at wider widths since 4 short tabs
+              already fit on one line there. */}
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-[var(--surface-secondary)] rounded-lg">
             <button
               onClick={() => setOrderFilter('all')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
@@ -892,7 +895,7 @@ export default function DispatchPlanning() {
 
       {/* Add Vehicle Modal */}
       {showAddVehicleModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100]">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] shadow-2xl p-6 w-full max-w-md animate-in zoom-in-95 duration-200">
             <h2 className="text-xl font-bold mb-6 text-[var(--text-primary)]">Add New Vehicle</h2>
             <form onSubmit={handleAddVehicle} className="space-y-4">
@@ -1042,155 +1045,170 @@ function OrderViewCard({
             : 'border-[var(--border)] hover:border-[var(--border-hover)]'
       }`}
     >
-      {/* Header Row */}
+      {/* Header Row
+          Mobile: two stacked groups (icon+circle+info, then item-count+action).
+          sm and up: `sm:contents` makes both wrapper divs disappear from layout,
+          so all five children become flat siblings of this flex row again —
+          reproducing the original single-row desktop layout exactly, since the
+          outer row keeps the same `items-center gap-4` and every child below
+          keeps its original classes untouched. */}
       <div
-        className="flex items-center gap-4 p-4 cursor-pointer hover:bg-[var(--surface-hover)] transition-colors"
+        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 cursor-pointer hover:bg-[var(--surface-hover)] transition-colors"
         onClick={onToggle}
       >
-        {/* Expand Icon */}
-        <button className="p-1 rounded hover:bg-[var(--surface-secondary)] transition-colors">
-          {isExpanded ? (
-            <ChevronDown className="w-5 h-5 text-[var(--text-secondary)]" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-[var(--text-secondary)]" />
-          )}
-        </button>
-
-        {/* Readiness Progress Circle */}
-        <div className="relative w-14 h-14 flex-shrink-0">
-          <svg className="w-full h-full transform -rotate-90">
-            <circle cx="28" cy="28" r="24" stroke="var(--border)" strokeWidth="4" fill="none" />
-            <circle
-              cx="28"
-              cy="28"
-              r="24"
-              stroke={`var(--${statusColor})`}
-              strokeWidth="4"
-              fill="none"
-              strokeDasharray={`${(order.readinessPercentage / 100) * 150.8} 150.8`}
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xs font-bold text-[var(--text-primary)]">
-              {order.readinessPercentage}%
-            </span>
-          </div>
-        </div>
-
-        {/* Order Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="font-semibold text-[var(--text-primary)]">
-              {order.billNo || order.orderNumber}
-            </h3>
-            {order.isFullyReady ? (
-              <span className="px-2 py-0.5 text-xs font-medium bg-[var(--success)]/10 text-[var(--success)] rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Ready For Dispatch
-              </span>
-            ) : order.readinessPercentage > 0 ? (
-              <span className="px-2 py-0.5 text-xs font-medium bg-[var(--warning)]/10 text-[var(--warning)] rounded-full flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> Partial Stock
-              </span>
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 sm:contents">
+          {/* Expand Icon */}
+          <button className="p-1 rounded hover:bg-[var(--surface-secondary)] transition-colors shrink-0">
+            {isExpanded ? (
+              <ChevronDown className="w-5 h-5 text-[var(--text-secondary)]" />
             ) : (
-              <span className="px-2 py-0.5 text-xs font-medium bg-[var(--danger)]/10 text-[var(--danger)] rounded-full flex items-center gap-1">
-                <XCircle className="w-3 h-3" /> Awaiting Stock
-              </span>
+              <ChevronRight className="w-5 h-5 text-[var(--text-secondary)]" />
             )}
-            <PriorityBadge priority={order.priorityLevel} />
-            {order.billNo && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-[var(--primary)]/10 text-[var(--primary)] rounded-full flex items-center gap-1">
-                <FileText className="w-3 h-3" /> Order: {order.orderNumber}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-4 mt-1 text-sm text-[var(--text-secondary)] flex-wrap">
-            <span className="flex items-center gap-1">
-              <User className="w-3.5 h-3.5" /> {order.customerName}
-            </span>
-            {order.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5" /> {order.location}
-              </span>
-            )}
-            <span className="flex items-center gap-1">
-              <Scale className="w-3.5 h-3.5" /> {order.totalWeightKg.toFixed(2)} kg
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" /> {formatDate(order.orderDate)}
-            </span>
-            {daysUntilDelivery !== null && (
-              <span
-                className={`flex items-center gap-1 ${
-                  daysUntilDelivery < 0
-                    ? 'text-[var(--danger)]'
-                    : daysUntilDelivery <= 2
-                      ? 'text-[var(--warning)]'
-                      : 'text-[var(--text-secondary)]'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                {daysUntilDelivery < 0
-                  ? `${Math.abs(daysUntilDelivery)} days overdue`
-                  : daysUntilDelivery === 0
-                    ? 'Due today'
-                    : `${daysUntilDelivery} days left`}
-              </span>
-            )}
-            {delayText && (
-              <span className="px-1.5 py-0.5 text-xs font-medium bg-orange-500/10 text-orange-500 rounded">
-                {delayText}
-              </span>
-            )}
-          </div>
-        </div>
+          </button>
 
-        {/* Item Count */}
-        <div className="text-center px-4 border-l border-[var(--border)]">
-          <p className="text-xs text-[var(--text-tertiary)] uppercase">Items</p>
-          <p className="text-lg font-bold text-[var(--text-primary)]">
-            <span className="text-[var(--success)]">{order.readyItems}</span>
-            <span className="text-[var(--text-tertiary)]">/</span>
-            {order.totalItems}
-          </p>
-        </div>
-
-        {/* Action Button */}
-        <div onClick={e => e.stopPropagation()} className="pl-4 border-l border-[var(--border)]">
-          {order.isFullyReady && canSelect ? (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={e => onSelectChange && onSelectChange(e.target.checked)}
-                className="w-5 h-5 rounded border-2 border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)] focus:ring-offset-0 cursor-pointer"
+          {/* Readiness Progress Circle */}
+          <div className="relative w-14 h-14 flex-shrink-0">
+            <svg className="w-full h-full transform -rotate-90">
+              <circle cx="28" cy="28" r="24" stroke="var(--border)" strokeWidth="4" fill="none" />
+              <circle
+                cx="28"
+                cy="28"
+                r="24"
+                stroke={`var(--${statusColor})`}
+                strokeWidth="4"
+                fill="none"
+                strokeDasharray={`${(order.readinessPercentage / 100) * 150.8} 150.8`}
+                strokeLinecap="round"
               />
-              <span className="text-xs text-[var(--text-secondary)]">Load</span>
-            </label>
-          ) : order.isFullyReady ? (
-            <div className="flex flex-col items-center gap-1">
-              <CheckCircle2 className="w-5 h-5 text-[var(--success)]" />
-              <span className="text-[10px] font-medium text-[var(--success)]">
-                Ready to Dispatch
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-xs font-bold text-[var(--text-primary)]">
+                {order.readinessPercentage}%
               </span>
             </div>
-          ) : (
-            <div className="flex flex-col items-center gap-1 opacity-50">
-              <AlertCircle className="w-5 h-5 text-[var(--text-tertiary)]" />
-              <span className="text-[10px] text-[var(--text-tertiary)]">Not Ready</span>
+          </div>
+
+          {/* Order Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h3 className="font-semibold text-[var(--text-primary)] break-words">
+                {order.billNo || order.orderNumber}
+              </h3>
+              {order.isFullyReady ? (
+                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--success)]/10 text-[var(--success)] rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <CheckCircle2 className="w-3 h-3" /> Ready For Dispatch
+                </span>
+              ) : order.readinessPercentage > 0 ? (
+                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--warning)]/10 text-[var(--warning)] rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <AlertTriangle className="w-3 h-3" /> Partial Stock
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 text-xs font-medium bg-[var(--danger)]/10 text-[var(--danger)] rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <XCircle className="w-3 h-3" /> Awaiting Stock
+                </span>
+              )}
+              <PriorityBadge priority={order.priorityLevel} />
+              {order.billNo && (
+                <span className="max-w-full px-2 py-0.5 text-xs font-medium bg-[var(--primary)]/10 text-[var(--primary)] rounded-full flex items-center gap-1">
+                  <FileText className="w-3 h-3 shrink-0" />
+                  <span className="break-words">Order: {order.orderNumber}</span>
+                </span>
+              )}
             </div>
-          )}
+            <div className="flex items-center gap-x-4 gap-y-1 mt-1 text-sm text-[var(--text-secondary)] flex-wrap">
+              <span className="flex items-center gap-1 break-words">
+                <User className="w-3.5 h-3.5 shrink-0" /> {order.customerName}
+              </span>
+              {order.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" /> {order.location}
+                </span>
+              )}
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Scale className="w-3.5 h-3.5 shrink-0" /> {order.totalWeightKg.toFixed(2)} kg
+              </span>
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Calendar className="w-3.5 h-3.5 shrink-0" /> {formatDate(order.orderDate)}
+              </span>
+              {daysUntilDelivery !== null && (
+                <span
+                  className={`flex items-center gap-1 whitespace-nowrap ${
+                    daysUntilDelivery < 0
+                      ? 'text-[var(--danger)]'
+                      : daysUntilDelivery <= 2
+                        ? 'text-[var(--warning)]'
+                        : 'text-[var(--text-secondary)]'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  {daysUntilDelivery < 0
+                    ? `${Math.abs(daysUntilDelivery)} days overdue`
+                    : daysUntilDelivery === 0
+                      ? 'Due today'
+                      : `${daysUntilDelivery} days left`}
+                </span>
+              )}
+              {delayText && (
+                <span className="px-1.5 py-0.5 text-xs font-medium bg-orange-500/10 text-orange-500 rounded whitespace-nowrap">
+                  {delayText}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-[var(--border)] sm:contents sm:pt-0 sm:mt-0 sm:border-t-0">
+          {/* Item Count */}
+          <div className="text-center px-4 border-l border-[var(--border)]">
+            <p className="text-xs text-[var(--text-tertiary)] uppercase">Items</p>
+            <p className="text-lg font-bold text-[var(--text-primary)]">
+              <span className="text-[var(--success)]">{order.readyItems}</span>
+              <span className="text-[var(--text-tertiary)]">/</span>
+              {order.totalItems}
+            </p>
+          </div>
+
+          {/* Action Button */}
+          <div onClick={e => e.stopPropagation()} className="pl-4 border-l border-[var(--border)]">
+            {order.isFullyReady && canSelect ? (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={e => onSelectChange && onSelectChange(e.target.checked)}
+                  className="w-5 h-5 rounded border-2 border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)] focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-xs text-[var(--text-secondary)]">Load</span>
+              </label>
+            ) : order.isFullyReady ? (
+              <div className="flex flex-col items-center gap-1">
+                <CheckCircle2 className="w-5 h-5 text-[var(--success)]" />
+                <span className="text-[10px] font-medium text-[var(--success)]">
+                  Ready to Dispatch
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-1 opacity-50">
+                <AlertCircle className="w-5 h-5 text-[var(--text-tertiary)]" />
+                <span className="text-[10px] text-[var(--text-tertiary)]">Not Ready</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {isExpanded && (
-        <div className={`border-t border-[var(--border)] ${bgColors[statusColor]} p-5`}>
+        <div className={`border-t border-[var(--border)] ${bgColors[statusColor]} p-3 sm:p-5`}>
           <h4 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] mb-4">
             <Package className="w-4 h-4 text-[var(--primary)]" />
             Order Items - Stock Comparison
           </h4>
 
-          <div className="grid grid-cols-12 gap-3 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase px-3 py-2 bg-[var(--surface)] rounded-t-lg border border-b-0 border-[var(--border)]">
+          {/* gap-1.5 on mobile vs gap-3 on desktop - unchanged column count/spans
+              (still a 12-col grid, nothing restructured), but 11 gaps at gap-3
+              (12px each) ate ~130px in pure spacing alone on a ~300px-wide
+              screen, leaving almost no room for the numbers themselves. */}
+          <div className="grid grid-cols-12 gap-1.5 sm:gap-3 text-[9px] sm:text-[10px] font-semibold text-[var(--text-tertiary)] uppercase px-2 sm:px-3 py-2 bg-[var(--surface)] rounded-t-lg border border-b-0 border-[var(--border)]">
             <div className="col-span-5">Product</div>
             <div className="col-span-2 text-right">Ordered</div>
             <div className="col-span-2 text-right">Available</div>
@@ -1204,31 +1222,31 @@ function OrderViewCard({
               return (
                 <div
                   key={product.productId}
-                  className={`grid grid-cols-12 gap-3 items-center px-3 py-3 ${
+                  className={`grid grid-cols-12 gap-1.5 sm:gap-3 items-center px-2 sm:px-3 py-3 ${
                     idx % 2 === 0 ? 'bg-[var(--surface)]' : 'bg-[var(--surface-secondary)]/50'
                   } ${idx !== order.products.length - 1 ? 'border-b border-[var(--border)]' : ''}`}
                 >
-                  <div className="col-span-5 font-medium text-sm text-[var(--text-primary)] truncate">
+                  <div className="col-span-5 font-medium text-xs sm:text-sm text-[var(--text-primary)] truncate">
                     {product.productName}
                   </div>
-                  <div className="col-span-2 text-right text-sm font-medium">
+                  <div className="col-span-2 text-right text-xs sm:text-sm font-medium">
                     {product.orderedQty}
                   </div>
                   <div
-                    className={`col-span-2 text-right text-sm font-medium ${
+                    className={`col-span-2 text-right text-xs sm:text-sm font-medium ${
                       product.isReady ? 'text-[var(--success)]' : 'text-[var(--danger)]'
                     }`}
                   >
                     {product.availableQty.toFixed(2)}
                   </div>
-                  <div className="col-span-2 text-right text-sm font-medium text-[var(--danger)]">
+                  <div className="col-span-2 text-right text-xs sm:text-sm font-medium text-[var(--danger)]">
                     {shortage > 0 ? `-${shortage.toFixed(2)}` : '-'}
                   </div>
                   <div className="col-span-1 flex justify-center">
                     {product.isReady ? (
-                      <CheckCircle2 className="w-5 h-5 text-[var(--success)]" />
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)]" />
                     ) : (
-                      <AlertCircle className="w-5 h-5 text-[var(--danger)]" />
+                      <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--danger)]" />
                     )}
                   </div>
                 </div>
@@ -1236,19 +1254,19 @@ function OrderViewCard({
             })}
           </div>
 
-          <div className="flex items-center justify-between mt-4 p-3 bg-[var(--surface)] rounded-lg border border-[var(--border)]">
-            <div className="flex items-center gap-4 text-sm">
-              <span className="flex items-center gap-1 text-[var(--success)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 p-3 bg-[var(--surface)] rounded-lg border border-[var(--border)]">
+            <div className="flex items-center gap-x-4 gap-y-1 text-sm flex-wrap">
+              <span className="flex items-center gap-1 text-[var(--success)] whitespace-nowrap">
                 <CheckCircle2 className="w-4 h-4" />
                 {order.readyItems} items ready
               </span>
               {order.totalItems - order.readyItems > 0 && (
-                <span className="flex items-center gap-1 text-[var(--danger)]">
+                <span className="flex items-center gap-1 text-[var(--danger)] whitespace-nowrap">
                   <AlertCircle className="w-4 h-4" />
                   {order.totalItems - order.readyItems} items pending
                 </span>
               )}
-              <span className="flex items-center gap-1 text-[var(--text-secondary)]">
+              <span className="flex items-center gap-1 text-[var(--text-secondary)] whitespace-nowrap">
                 <Scale className="w-4 h-4" />
                 Total: {order.totalWeightKg.toFixed(2)} kg
               </span>
