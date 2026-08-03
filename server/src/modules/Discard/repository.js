@@ -13,16 +13,17 @@ import { AppError } from '../../utils/AppError.js';
 
 export class DiscardRepository {
   async findAllDiscards(filters) {
-    // Get all discards, left-joined to the inventory transaction already logged for that
-    // specific discard event (referenceType='Discard', referenceId=discardId). That row's
-    // balanceAfter is the stock as it stood immediately after the discard, so the history
-    // can show a true point-in-time figure per event instead of the product's live stock —
-    // reusing data DMOR already writes, with no new column and no recalculation.
-    //
-    // The referenceType filter is essential: referenceId is only unique *within* a
-    // reference type, so without it a discard could match a Batch/Order/Dispatch row that
-    // happens to share the same numeric id.
-    const discards = await db
+    const conditions = [];
+
+    if (filters?.productType && filters.productType !== 'ALL') {
+      conditions.push(eq(materialDiscard.productType, filters.productType));
+    }
+
+    if (filters?.productId) {
+      conditions.push(eq(materialDiscard.productId, filters.productId));
+    }
+
+    let query = db
       .select({
         discardId: materialDiscard.discardId,
         productId: materialDiscard.productId,
@@ -41,8 +42,13 @@ export class DiscardRepository {
           eq(inventoryTransactions.referenceType, 'Discard'),
           eq(inventoryTransactions.referenceId, materialDiscard.discardId)
         )
-      )
-      .orderBy(desc(materialDiscard.discardDate));
+      );
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const discards = await query.orderBy(desc(materialDiscard.discardDate));
 
     // Enrich each discard with product name and stock based on type
     const enrichedDiscards = await Promise.all(
@@ -113,11 +119,6 @@ export class DiscardRepository {
         };
       })
     );
-
-    // Filter by productId if provided
-    if (filters.productId) {
-      return enrichedDiscards.filter(d => d.productId === filters.productId);
-    }
 
     return enrichedDiscards;
   }

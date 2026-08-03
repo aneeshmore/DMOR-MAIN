@@ -11,6 +11,7 @@ export class DiscardController {
     try {
       const filters = {
         productId: req.query.productId ? parseInt(req.query.productId) : undefined,
+        productType: req.query.productType ? String(req.query.productType) : undefined,
       };
       const discards = await this.service.getAllDiscards(filters);
       res.json({

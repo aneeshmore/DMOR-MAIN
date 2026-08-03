@@ -14,19 +14,24 @@ export const DiscardDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiscardEntry | null>(null);
-  const [activeTab, setActiveTab] = useState<'ALL' | 'RM' | 'PM' | 'FG'>('ALL');
-  // Client-side filter over the already-loaded history: no extra API call, and it composes
-  // with the RM/PM/FG tabs rather than replacing them.
+  const [activeTab, setActiveTab] = useState<'ALL' | 'RM' | 'PM' | 'FG'>('RM');
+  const [selectedProductId, setSelectedProductId] = useState<number | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    loadDiscards();
-  }, []);
+    loadDiscards(activeTab, selectedProductId);
+  }, [activeTab, selectedProductId]);
 
-  const loadDiscards = async () => {
+  const loadDiscards = async (
+    tab: 'ALL' | 'RM' | 'PM' | 'FG' = activeTab,
+    productId: number | undefined = selectedProductId
+  ) => {
     setIsLoading(true);
     try {
-      const data = await discardApi.getAllDiscards();
+      const data = await discardApi.getAllDiscards({
+        productType: tab === 'ALL' ? undefined : tab,
+        productId: productId || undefined,
+      });
       setDiscards(data);
     } catch (error) {
       console.error('Failed to load discards', error);
@@ -47,7 +52,7 @@ export const DiscardDashboard: React.FC = () => {
         await discardApi.createDiscard(data);
         showToast.success('Material discarded successfully');
       }
-      await loadDiscards();
+      await loadDiscards(activeTab, selectedProductId);
     } catch (error: any) {
       console.error('Failed to save discard entry', error);
       // Show the actual error message from server if available
@@ -81,7 +86,7 @@ export const DiscardDashboard: React.FC = () => {
       try {
         await discardApi.deleteDiscard(id);
         showToast.success('Record deleted');
-        await loadDiscards();
+        await loadDiscards(activeTab, selectedProductId);
       } catch (error) {
         console.error('Failed to delete discard entry', error);
         showToast.error('Failed to delete record');
@@ -103,6 +108,12 @@ export const DiscardDashboard: React.FC = () => {
         isLoading={isSubmitting}
         initialData={editingEntry}
         onCancel={handleCancelEdit}
+        materialType={activeTab === 'ALL' ? undefined : activeTab}
+        onMaterialTypeChange={type => {
+          setActiveTab(type);
+          setSelectedProductId(undefined);
+        }}
+        onProductChange={id => setSelectedProductId(id)}
       />
 
       <div className="space-y-4">
@@ -113,7 +124,12 @@ export const DiscardDashboard: React.FC = () => {
               <Button
                 key={tab}
                 variant={activeTab === tab ? 'primary' : 'secondary'}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  if (tab === 'ALL') {
+                    setSelectedProductId(undefined);
+                  }
+                }}
                 size="sm"
               >
                 {tab === 'ALL'
@@ -145,9 +161,8 @@ export const DiscardDashboard: React.FC = () => {
           <DiscardTable
             data={discards.filter(
               d =>
-                (activeTab === 'ALL' || d.productType === activeTab) &&
-                (searchQuery.trim() === '' ||
-                  (d.productName || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                searchQuery.trim() === '' ||
+                (d.productName || '').toLowerCase().includes(searchQuery.trim().toLowerCase())
             )}
           />
         )}
