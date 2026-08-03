@@ -2,9 +2,12 @@ import apiClient from '../../../api/client';
 import { DiscardEntry, CreateDiscardInput, UpdateDiscardInput } from '../types';
 
 export const discardApi = {
-  getAllDiscards: async (filters?: { productId?: number }) => {
+  getAllDiscards: async (filters?: { productId?: number; productType?: string }) => {
     const params = new URLSearchParams();
     if (filters?.productId) params.append('productId', String(filters.productId));
+    if (filters?.productType && filters.productType !== 'ALL') {
+      params.append('productType', filters.productType);
+    }
 
     const response = await apiClient.get<{ success: boolean; data: DiscardEntry[] }>(
       `/discard?${params.toString()}`

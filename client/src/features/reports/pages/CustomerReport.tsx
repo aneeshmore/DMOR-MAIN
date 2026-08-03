@@ -1558,7 +1558,7 @@ const CustomerReport: React.FC = () => {
     ],
   };
 
-  // Export to PDF function with improved table structure
+  // Export to PDF function with improved table structure, dynamic row heights, and word wrapping
   const exportToPDF = async () => {
     if (exportLoading) return;
 
@@ -1567,6 +1567,7 @@ const CustomerReport: React.FC = () => {
       console.log('Starting PDF export...');
 
       const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
 
       console.log('Creating PDF with table data...');
 
@@ -1588,17 +1589,17 @@ const CustomerReport: React.FC = () => {
         headerEndY + 5
       );
 
-      // Column definitions - optimized for better display
-      const columns = [
-        { header: 'Company Name', width: 30 },
-        { header: 'Contact Person', width: 22 },
-        { header: 'Contact No', width: 22 },
-        { header: 'District', width: 20 },
-        ...MONTHS.map(month => ({ header: month, width: 10 })),
-        { header: 'Total', width: 18 },
+      // Header labels
+      const headers = [
+        'Company Name',
+        'Contact Person',
+        'Contact No',
+        'District',
+        ...MONTHS,
+        'Total',
       ];
 
-      // Convert data
+      // Convert data rows
       const tableData = processedCustomers.map(customer => [
         decodeHtml(customer.companyName),
         decodeHtml(customer.contactPerson),
@@ -1611,134 +1612,51 @@ const CustomerReport: React.FC = () => {
       const pageHeight = pdf.internal.pageSize.getHeight();
       const pageWidth = pdf.internal.pageSize.getWidth();
       const margin = 8;
-      const contentWidth = pageWidth - 2 * margin;
-      const headerHeight = 7;
-      const rowHeight = 7;
-      const startX = margin;
-      const startY = 38;
 
-      // Calculate column widths based on content width
-      const totalColWidth = columns.reduce((sum, col) => sum + col.width, 0);
-      const colWidths = columns.map(col => (col.width / totalColWidth) * contentWidth);
-
-      // Draw header row - Blue background with white text
-      // First pass: Draw all blue rectangles
-      pdf.setFillColor(0, 102, 204); // Deep Blue background
-      pdf.setDrawColor(0, 51, 153); // Dark Blue border
-
-      let xPos = startX;
-      columns.forEach((col, index) => {
-        const colWidth = colWidths[index];
-        pdf.rect(xPos, startY, colWidth, headerHeight, 'FD');
-        xPos += colWidth;
-      });
-
-      // Second pass: Draw white text on top
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(7.5);
-      pdf.setTextColor(255, 255, 255); // Pure white text
-
-      xPos = startX;
-      columns.forEach((col, index) => {
-        const colWidth = colWidths[index];
-        const cellCenterX = xPos + colWidth / 2;
-        const cellCenterY = startY + headerHeight / 2 + 1.5;
-        pdf.text(col.header, cellCenterX, cellCenterY, {
-          align: 'center',
-        });
-        xPos += colWidth;
-      });
-
-      let currentY = startY + headerHeight;
-
-      // Draw data rows with proper structure
-      pdf.setTextColor(0, 0, 0); // Black
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-
-      tableData.forEach((row, rowIndex) => {
-        // Check if we need a new page
-        if (currentY + rowHeight > pageHeight - 10) {
-          pdf.addPage();
-          currentY = 15;
-
-          // Redraw header on new page - Blue background with white text
-          // First pass: Draw all blue rectangles
-          pdf.setFillColor(0, 102, 204);
-          pdf.setDrawColor(0, 51, 153);
-
-          xPos = startX;
-          columns.forEach((col, index) => {
-            const colWidth = colWidths[index];
-            pdf.rect(xPos, currentY, colWidth, headerHeight, 'FD');
-            xPos += colWidth;
-          });
-
-          // Second pass: Draw white text on top
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(7.5);
-          pdf.setTextColor(255, 255, 255); // Pure white text
-
-          xPos = startX;
-          columns.forEach((col, index) => {
-            const colWidth = colWidths[index];
-            const cellCenterX = xPos + colWidth / 2;
-            const cellCenterY = currentY + headerHeight / 2 + 1.5;
-            pdf.text(col.header, cellCenterX, cellCenterY, {
-              align: 'center',
-            });
-            xPos += colWidth;
-          });
-
-          currentY += headerHeight;
-          pdf.setTextColor(0, 0, 0);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(7);
-        }
-
-        // Draw cells for this row - first draw all backgrounds and borders
-        xPos = startX;
-        row.forEach((cellText, colIndex) => {
-          const colWidth = colWidths[colIndex];
-
-          // Determine background color for alternating rows
-          if (rowIndex % 2 === 0) {
-            pdf.setFillColor(240, 245, 250); // Light blue background
-          } else {
-            pdf.setFillColor(255, 255, 255); // White background
-          }
-
-          // Draw cell background rectangle
-          pdf.rect(xPos, currentY, colWidth, rowHeight, 'F');
-
-          // Draw cell border
-          pdf.setDrawColor(150, 150, 150);
-          pdf.setLineWidth(0.2);
-          pdf.rect(xPos, currentY, colWidth, rowHeight);
-
-          xPos += colWidth;
-        });
-
-        // Draw text for this row - after all backgrounds are drawn
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(7);
-
-        xPos = startX;
-        row.forEach((cellText, colIndex) => {
-          const colWidth = colWidths[colIndex];
-          const cellCenterX = xPos + colWidth / 2;
-          const cellCenterY = currentY + rowHeight / 2 + 1.3;
-
-          // Draw centered text in cell
-          pdf.text(decodeHtml(String(cellText)), cellCenterX, cellCenterY, {
-            align: 'center',
-          });
-
-          xPos += colWidth;
-        });
-
-        currentY += rowHeight;
+      // Render table with autoTable - handling word wrap, dynamic row height, and repeating headers
+      autoTable(pdf, {
+        head: [headers],
+        body: tableData,
+        startY: headerEndY + 10,
+        margin: { top: 35, left: margin, right: margin, bottom: 12 },
+        showHead: 'everyPage',
+        theme: 'grid',
+        headStyles: {
+          fillColor: [0, 102, 204],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7.5,
+          halign: 'center',
+          valign: 'middle',
+        },
+        styles: {
+          fontSize: 7,
+          cellPadding: 1.5,
+          overflow: 'linebreak',
+          valign: 'middle',
+        },
+        alternateRowStyles: {
+          fillColor: [240, 245, 250],
+        },
+        columnStyles: {
+          0: { cellWidth: 50, halign: 'left' },
+          1: { cellWidth: 34, halign: 'left' },
+          2: { cellWidth: 24, halign: 'center' },
+          3: { cellWidth: 22, halign: 'center' },
+          4: { cellWidth: 10.5, halign: 'right' },
+          5: { cellWidth: 10.5, halign: 'right' },
+          6: { cellWidth: 10.5, halign: 'right' },
+          7: { cellWidth: 10.5, halign: 'right' },
+          8: { cellWidth: 10.5, halign: 'right' },
+          9: { cellWidth: 10.5, halign: 'right' },
+          10: { cellWidth: 10.5, halign: 'right' },
+          11: { cellWidth: 10.5, halign: 'right' },
+          12: { cellWidth: 10.5, halign: 'right' },
+          13: { cellWidth: 10.5, halign: 'right' },
+          14: { cellWidth: 10.5, halign: 'right' },
+          15: { cellWidth: 10.5, halign: 'right' },
+          16: { cellWidth: 25, halign: 'right' },
+        },
       });
 
       // Add page numbers and download timestamp

@@ -14,6 +14,9 @@ interface DiscardFormProps {
   isLoading?: boolean;
   initialData?: DiscardEntry | null;
   onCancel?: () => void;
+  materialType?: 'RM' | 'PM' | 'FG';
+  onMaterialTypeChange?: (type: 'RM' | 'PM' | 'FG') => void;
+  onProductChange?: (productId?: number) => void;
 }
 
 interface DiscardFormState {
@@ -41,13 +44,18 @@ export const DiscardForm: React.FC<DiscardFormProps> = ({
   isLoading,
   initialData,
   onCancel,
+  materialType: propMaterialType,
+  onMaterialTypeChange,
+  onProductChange,
 }) => {
   // Separate states for different product types
   const [rmProducts, setRmProducts] = useState<Product[]>([]);
   const [pmProducts, setPmProducts] = useState<Product[]>([]);
   const [fgProducts, setFgProducts] = useState<Product[]>([]);
 
-  const [materialType, setMaterialType] = useState<'RM' | 'PM' | 'FG'>('RM');
+  const [internalMaterialType, setInternalMaterialType] = useState<'RM' | 'PM' | 'FG'>('RM');
+  const materialType = propMaterialType || internalMaterialType;
+
   const [formData, setFormData] = useState<DiscardFormState>({
     productId: 0,
     masterProductId: 0,
@@ -58,6 +66,12 @@ export const DiscardForm: React.FC<DiscardFormProps> = ({
     reason: '',
     notes: '',
   });
+
+  useEffect(() => {
+    if (propMaterialType && propMaterialType !== internalMaterialType) {
+      setInternalMaterialType(propMaterialType);
+    }
+  }, [propMaterialType]);
 
   useEffect(() => {
     loadProductsByType(materialType);
@@ -278,6 +292,10 @@ export const DiscardForm: React.FC<DiscardFormProps> = ({
         unitId: product?.unitId || 0,
       }));
     }
+
+    if (onProductChange) {
+      onProductChange(id !== 0 ? id : undefined);
+    }
   };
 
   const handleChange = (
@@ -291,7 +309,13 @@ export const DiscardForm: React.FC<DiscardFormProps> = ({
   };
 
   const handleTabChange = (type: 'RM' | 'PM' | 'FG') => {
-    setMaterialType(type);
+    setInternalMaterialType(type);
+    if (onMaterialTypeChange) {
+      onMaterialTypeChange(type);
+    }
+    if (onProductChange) {
+      onProductChange(undefined);
+    }
     setFormData(prev => ({
       ...prev,
       productId: 0,
@@ -326,30 +350,33 @@ export const DiscardForm: React.FC<DiscardFormProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('RM')}
-            className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 ${materialType === 'RM'
-              ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-              }`}
+            className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 ${
+              materialType === 'RM'
+                ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+            }`}
           >
             Raw Material
           </button>
           <button
             type="button"
             onClick={() => handleTabChange('PM')}
-            className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 ${materialType === 'PM'
-              ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-              }`}
+            className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 ${
+              materialType === 'PM'
+                ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+            }`}
           >
             Packaging Material
           </button>
           <button
             type="button"
             onClick={() => handleTabChange('FG')}
-            className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 ${materialType === 'FG'
-              ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-              }`}
+            className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 ${
+              materialType === 'FG'
+                ? 'bg-[var(--primary-light)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary-light)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+            }`}
           >
             Finished Good
           </button>
