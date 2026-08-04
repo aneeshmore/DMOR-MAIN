@@ -50,6 +50,17 @@ app.use(
   cors({
     origin: config.allowedOrigins,
     credentials: true,
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'X-Idempotency-Key',
+      'x-idempotency-key',
+    ],
+    exposedHeaders: ['X-Idempotency-Key', 'x-idempotency-key'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
 );
 

@@ -28,14 +28,20 @@ pool.on('error', err => {
   logger.error('Unexpected error on idle client', err);
 });
 
-// Verify connection
+// Verify connection & ensure missing columns
 pool
   .query('SELECT 1')
   .then(() => {
     logger.info('Database connection established with Drizzle ORM (PostgreSQL)');
+    return pool.query(
+      'ALTER TABLE app.product_development ADD COLUMN IF NOT EXISTS is_sync_with_density BOOLEAN DEFAULT true;'
+    );
+  })
+  .then(() => {
+    logger.info('Database schema verified: app.product_development.is_sync_with_density ensured');
   })
   .catch(err => {
-    logger.error('Failed to connect to database', err);
+    logger.error('Failed to connect or migrate database', err);
   });
 
 export default db;
