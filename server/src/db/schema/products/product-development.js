@@ -6,7 +6,16 @@
  * before they become part of the standard BOM.
  */
 
-import { serial, uuid, varchar, integer, numeric, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  serial,
+  uuid,
+  varchar,
+  integer,
+  numeric,
+  text,
+  timestamp,
+  boolean,
+} from 'drizzle-orm/pg-core';
 import { appSchema } from '../core/app-schema.js';
 import { products } from './products.js';
 import { masterProducts } from './master-products.js';
@@ -28,6 +37,7 @@ export const productDevelopment = appSchema.table('product_development', {
   productionHours: numeric('production_hours', { precision: 8, scale: 2 }),
   mixingRatioPart: numeric('mixing_ratio_part', { precision: 10, scale: 4 }), // Stores '2' or '1' ratio part
   calculationBasis: varchar('calculation_basis', { length: 10 }).default('Ltr'), // 'Ltr' or 'Kg'
+  isSyncWithDensity: boolean('is_sync_with_density').default(true),
 
   // Status
   status: varchar('status', { length: 20 }).default('Draft'),

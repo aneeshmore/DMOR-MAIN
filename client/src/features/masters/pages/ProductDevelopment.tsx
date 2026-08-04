@@ -107,6 +107,7 @@ const ProductDevelopment = () => {
   const [selectedMasterProductId, setSelectedMasterProductId] = useState<number | ''>('');
 
   const [density, setDensity] = useState<string>('');
+  const [isSyncWithDensity, setIsSyncWithDensity] = useState<boolean>(true);
   const [viscosity, setViscosity] = useState<string>('');
   const [productionCost, setProductionCost] = useState<string>(''); // Renamed from hours
   const [perPercent, setPerPercent] = useState<string>('');
@@ -212,8 +213,14 @@ const ProductDevelopment = () => {
   useEffect(() => {
     if (addedItems.length === 0) return;
 
-    // Update form density from theoretical density
-    if (theoreticalDensity > 0) {
+    const currentDensityNum = parseFloat(density);
+    const effectiveDensity =
+      !isSyncWithDensity && !isNaN(currentDensityNum) && currentDensityNum > 0
+        ? currentDensityNum
+        : theoreticalDensity;
+
+    // Update form density from theoretical density if synced
+    if (isSyncWithDensity && theoreticalDensity > 0) {
       setDensity(theoreticalDensity.toFixed(3));
     }
 
@@ -229,7 +236,7 @@ const ProductDevelopment = () => {
     // Calculate Production Cost / Ltr
     // Formula: (Total Cost Invested / 100) * FG Density
     // Using 100 as base divider for percentage sum normalization
-    if (theoreticalDensity > 0) {
+    if (effectiveDensity > 0) {
       let costBase = totalCostInvested / 100;
 
       // Adjust for Water Percentage if present
@@ -240,12 +247,20 @@ const ProductDevelopment = () => {
 
       let finalCost = costBase;
       if (calculationBasis === 'Ltr') {
-        finalCost = costBase * theoreticalDensity;
+        finalCost = costBase * effectiveDensity;
       }
 
       setProductionCost(finalCost.toFixed(2));
     }
-  }, [theoreticalDensity, addedItems, rmMasterProducts, perPercent, calculationBasis]);
+  }, [
+    theoreticalDensity,
+    addedItems,
+    rmMasterProducts,
+    perPercent,
+    calculationBasis,
+    isSyncWithDensity,
+    density,
+  ]);
 
   const loadData = async () => {
     try {
@@ -321,6 +336,18 @@ const ProductDevelopment = () => {
         setPerPercent(devData.percentageValue || '');
         setCalculationBasis(devData.calculationBasis || 'Ltr');
         setNotes(devData.notes || '');
+
+        const isSynced = devData.isSyncWithDensity !== false;
+        setIsSyncWithDensity(isSynced);
+        if (
+          !isSynced &&
+          devData.density !== null &&
+          devData.density !== undefined &&
+          devData.density !== ''
+        ) {
+          setDensity(String(devData.density));
+        }
+
         // Restore viscosity: prefer the dev record's value, else the master
         // product's saved (theoretical) viscosity, else empty.
         setViscosity(
@@ -649,6 +676,7 @@ const ProductDevelopment = () => {
     const payload = {
       masterProductId: selectedMasterProductId,
       density: parseFloat(density),
+      isSyncWithDensity,
       viscosity: parseFloat(viscosity) || 0,
       hours: parseFloat(productionCost), // Send cost as 'hours' to match backend schema repurposing
       perPercent: parseFloat(perPercent) || 0,
@@ -857,14 +885,43 @@ const ProductDevelopment = () => {
               />
             </div>
             <div className="min-w-0">
-              <Input
-                label="Density"
-                value={density}
-                onChange={e => setDensity(e.target.value)}
-                placeholder="Density"
-                type="number"
-                step="0.01"
-              />
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+                Density
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 max-w-[65%]">
+                  <Input
+                    value={density}
+                    onChange={e => setDensity(e.target.value)}
+                    placeholder="Density"
+                    type="number"
+                    step="0.01"
+                    disabled={isSyncWithDensity}
+                    className={
+                      isSyncWithDensity
+                        ? 'bg-[var(--surface-muted)] cursor-not-allowed opacity-75'
+                        : 'bg-[var(--surface)]'
+                    }
+                  />
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={isSyncWithDensity}
+                    onChange={e => {
+                      const isChecked = e.target.checked;
+                      setIsSyncWithDensity(isChecked);
+                      if (isChecked && theoreticalDensity > 0) {
+                        setDensity(theoreticalDensity.toFixed(3));
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                  />
+                  <span className="text-[var(--text-secondary)] whitespace-nowrap">
+                    Sync with Density
+                  </span>
+                </label>
+              </div>
             </div>
 
             <div className="space-y-4 min-w-0">

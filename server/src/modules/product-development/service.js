@@ -27,9 +27,10 @@ export class ProductDevelopmentService {
         ? String(data.mixingRatioPart)
         : null;
     const calculationBasis = data.calculationBasis || 'Ltr'; // Default to Ltr if not provided
+    const isSyncWithDensity = data.isSyncWithDensity !== false;
 
-    // Calculate density from materials if materials are provided (always override)
-    if (materials.length > 0) {
+    // Calculate density from materials if materials are provided and synced
+    if (isSyncWithDensity && materials.length > 0) {
       let totalWeight = 0;
       let totalVolume = 0;
 
@@ -67,8 +68,8 @@ export class ProductDevelopmentService {
     console.log('Creating Product Development:', {
       masterProductId,
       density,
+      isSyncWithDensity,
       materialsCount: materials.length,
-      status,
       status,
       mixingRatioPart,
       calculationBasis,
@@ -119,6 +120,7 @@ export class ProductDevelopmentService {
           percentageValue: perPercent,
           mixingRatioPart,
           calculationBasis,
+          isSyncWithDensity,
           status,
           notes,
           createdBy,
@@ -145,6 +147,7 @@ export class ProductDevelopmentService {
           percentageValue: perPercent,
           mixingRatioPart,
           calculationBasis,
+          isSyncWithDensity,
           status,
           notes,
           createdBy,

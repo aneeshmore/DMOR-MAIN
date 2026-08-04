@@ -185,7 +185,7 @@ export default function ScheduleBatchPage() {
   // Form state
   const [masterProductId, setMasterProductId] = useState<number>(0);
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
-  const [plannedQuantity, setPlannedQuantity] = useState<number>(0);
+  const [plannedQuantity, setPlannedQuantity] = useState<number | ''>(0);
   const [supervisorId, setSupervisorId] = useState<number>(0);
   const [laborName, setLaborName] = useState('');
   const [machineNo, setMachineNo] = useState('');
@@ -435,10 +435,11 @@ export default function ScheduleBatchPage() {
 
   // Recalculate BOM quantities when planned quantity changes
   useEffect(() => {
-    if (consolidatedBOM.length > 0 && plannedQuantity > 0) {
+    const numericQty = Number(plannedQuantity) || 0;
+    if (consolidatedBOM.length > 0 && numericQty > 0) {
       // Calculate water and net quantities, treating water% as relative to solids:
-      const netQuantityForRecipe = plannedQuantity / (1 + pdWaterPercentage / 100);
-      const waterQty = plannedQuantity - netQuantityForRecipe;
+      const netQuantityForRecipe = numericQty / (1 + pdWaterPercentage / 100);
+      const waterQty = numericQty - netQuantityForRecipe;
 
       setConsolidatedBOM(prev =>
         prev.map(m => {
@@ -886,7 +887,7 @@ export default function ScheduleBatchPage() {
           return {
             ...item,
             percentage: sanitizedValue,
-            requiredQuantity: (plannedQuantity * numericValue) / 100,
+            requiredQuantity: ((Number(plannedQuantity) || 0) * numericValue) / 100,
           };
         }
         return item;
@@ -933,7 +934,8 @@ export default function ScheduleBatchPage() {
       return;
     }
 
-    if (!plannedQuantity || plannedQuantity <= 0) {
+    const numPlannedQty = Number(plannedQuantity) || 0;
+    if (!numPlannedQty || numPlannedQty <= 0) {
       showToast.error('Please enter a valid Planned Quantity');
       return;
     }
@@ -960,8 +962,8 @@ export default function ScheduleBatchPage() {
           }
 
           // Calculate net quantity considering water % is relative to solids (water = solids * water%)
-          const netQuantityForRecipe = plannedQuantity / (1 + waterPercentageFromDev / 100);
-          const waterQty = plannedQuantity - netQuantityForRecipe;
+          const netQuantityForRecipe = numPlannedQty / (1 + waterPercentageFromDev / 100);
+          const waterQty = numPlannedQty - netQuantityForRecipe;
 
           const mappedBOM = devRes.data.materials
             .map((item: any) => {
@@ -1043,7 +1045,7 @@ export default function ScheduleBatchPage() {
       }
 
       // 2. Fallback to standard BOM
-      const response = await bomApi.calculateRequirements(masterProductId, plannedQuantity);
+      const response = await bomApi.calculateRequirements(masterProductId, numPlannedQty);
 
       if (!response || response.length === 0) {
         showToast.error('No recipe found for this Master Product');
@@ -1062,7 +1064,7 @@ export default function ScheduleBatchPage() {
             materialName: item.RawMaterialName,
             requiredQuantity: item.RequiredQty,
             availableQuantity: stockQty,
-            percentage: (item.RequiredQty / plannedQuantity) * 100,
+            percentage: (item.RequiredQty / numPlannedQty) * 100,
             unit: item.Unit,
             sequence: item.Sequence || 0,
             waitingTime: 0,
@@ -2699,7 +2701,26 @@ export default function ScheduleBatchPage() {
                           type="number"
                           step="0.01"
                           value={plannedQuantity}
-                          onChange={e => setPlannedQuantity(parseFloat(e.target.value))}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '') {
+                              setPlannedQuantity('');
+                            } else {
+                              const num = parseFloat(val);
+                              setPlannedQuantity(isNaN(num) ? '' : num);
+                            }
+                          }}
+                          onFocus={e => {
+                            if (Number(e.target.value) === 0 || plannedQuantity === 0) {
+                              e.target.select();
+                            }
+                          }}
+                          onMouseUp={e => {
+                            if (Number(e.currentTarget.value) === 0 || plannedQuantity === 0) {
+                              e.preventDefault();
+                              e.currentTarget.select();
+                            }
+                          }}
                           onWheel={e => e.preventDefault()}
                           onKeyDown={e => {
                             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
