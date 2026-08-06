@@ -34,6 +34,11 @@ import { ColumnDef } from '@tanstack/react-table';
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table';
 import { Button, Badge, Input, Modal } from '@/components/ui';
 import { addPdfFooter, addPdfHeader } from '@/utils/pdfUtils';
+import { ExportReportModal } from '../components/ExportReportModal';
+import {
+  exportBatchReportToExcel,
+  getBatchReportFileName,
+} from '../utils/exportBatchReportToExcel';
 import { CompanyInfo } from '@/features/company/types';
 import { companyApi } from '@/features/company/api/companyApi';
 import {
@@ -60,6 +65,8 @@ const NewBatchProductionReport = () => {
   const [isLoading, setIsLoading] = useState(true);
   // expandedBatchIds is handled by DataTable's state internally
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportTargetStatus, setExportTargetStatus] = useState<string>('All');
   const [previewBatch, setPreviewBatch] = useState<BatchProductionReportItem | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   // PM balances for the "Balance" column of Packaging Materials Used. Sourced from
@@ -753,71 +760,97 @@ const NewBatchProductionReport = () => {
     [companyInfo, pmBalanceMap]
   );
 
-  const handleExportAll = () => {
-    if (data.length === 0) {
+  const handleConfirmExport = async (format: 'pdf' | 'xlsx') => {
+    let targetData = data;
+    if (exportTargetStatus !== 'All') {
+      targetData = data.filter(item => item.status === exportTargetStatus);
+    }
+
+    if (targetData.length === 0) {
       showToast.error('No data to export');
       return;
     }
 
-    const doc = new jsPDF('landscape');
+    if (format === 'xlsx') {
+      await exportBatchReportToExcel({
+        data: targetData,
+        companyInfo,
+        statusFilter: exportTargetStatus,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      });
+      showToast.success('Excel report exported successfully');
+    } else {
+      const doc = new jsPDF('landscape');
 
-    // Add Header
-    const headerEndY = addPdfHeader(doc, companyInfo, 'Batch Production Report');
+      // Add Header
+      const headerEndY = addPdfHeader(doc, companyInfo, 'Batch Production Report');
 
-    // Add Filters Info
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    let subtitle = `Generated on: ${formatDateTime(new Date())}`;
-    if (statusFilter !== 'All') subtitle += ` | Status: ${statusFilter}`;
-    if (startDate) subtitle += ` | From: ${startDate}`;
-    if (endDate) subtitle += ` | To: ${endDate}`;
-    doc.text(subtitle, 14, headerEndY + 5);
+      // Add Filters Info
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      let subtitle = `Generated on: ${formatDateTime(new Date())}`;
+      if (exportTargetStatus !== 'All') subtitle += ` | Status: ${exportTargetStatus}`;
+      if (startDate) subtitle += ` | From: ${startDate}`;
+      if (endDate) subtitle += ` | To: ${endDate}`;
+      doc.text(subtitle, 14, headerEndY + 5);
 
-    // Define columns
-    const tableColumn = [
-      'Batch No',
-      'Type',
-      'Product',
-      'Status',
-      'Planned Qty',
-      'Actual Qty',
-      'Weight (kg)',
-      'Started',
-      'Completed',
-      'Time',
-      'Supervisor',
-      'Quality',
-    ];
+      // Define columns
+      const tableColumn = [
+        'Batch No',
+        'Type',
+        'Product',
+        'Status',
+        'Planned Qty',
+        'Actual Qty',
+        'Weight (kg)',
+        'Started',
+        'Completed',
+        'Time',
+        'Supervisor',
+        'Quality',
+      ];
 
-    // Define rows
-    const tableRows = data.map(item => [
-      item.batchNo,
-      item.productType || '-',
-      item.productName,
-      item.status,
-      formatNumber(item.plannedQuantity),
-      formatNumber(item.actualQuantity),
-      formatNumber(item.actualWeightKg),
-      formatDateTime(item.startedAt),
-      formatDateTime(item.completedAt),
-      item.timeRequired || '-',
-      item.supervisor || '-',
-      item.qualityStatus || 'Pending',
-    ]);
+      // Define rows
+      const tableRows = targetData.map(item => [
+        item.batchNo,
+        item.productType || '-',
+        item.productName,
+        item.status,
+        formatNumber(item.plannedQuantity),
+        formatNumber(item.actualQuantity),
+        formatNumber(item.actualWeightKg),
+        formatDateTime(item.startedAt),
+        formatDateTime(item.completedAt),
+        item.timeRequired || '-',
+        item.supervisor || '-',
+        item.qualityStatus || 'Pending',
+      ]);
 
-    // Generate Table
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: headerEndY + 12,
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [22, 163, 74] },
-    });
+      // Generate Table
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: headerEndY + 12,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [22, 163, 74] },
+      });
 
-    // Save PDF
-    addPdfFooter(doc);
-    doc.save(`batch_production_report_${new Date().toISOString().split('T')[0]}.pdf`);
-    showToast.success('Report exported successfully');
+      // Save PDF
+      addPdfFooter(doc);
+      const pdfFileName = getBatchReportFileName(exportTargetStatus, startDate, endDate, 'pdf');
+      doc.save(pdfFileName);
+      showToast.success('Report exported successfully');
+    }
+  };
+
+  const handleExportAll = () => {
+    if (filteredTableData.length === 0) {
+      showToast.error('No data to export');
+      return;
+    }
+    setExportTargetStatus(statusFilter);
+    setExportModalOpen(true);
   };
 
   // Calculate statistics
@@ -1382,9 +1415,27 @@ const NewBatchProductionReport = () => {
           >
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Total Batches
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Total Batches
+                  </p>
+                  <button
+                    type="button"
+                    title="Export Total Batches Report"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (stats.total === 0) {
+                        showToast.error('No data to export');
+                        return;
+                      }
+                      setExportTargetStatus('All');
+                      setExportModalOpen(true);
+                    }}
+                    className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
               </div>
               <div
@@ -1409,9 +1460,27 @@ const NewBatchProductionReport = () => {
           >
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
-                  In Progress
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
+                    In Progress
+                  </p>
+                  <button
+                    type="button"
+                    title="Export In Progress Batches Report"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (stats.inProgress === 0) {
+                        showToast.error('No In Progress batches to export');
+                        return;
+                      }
+                      setExportTargetStatus('In Progress');
+                      setExportModalOpen(true);
+                    }}
+                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 <p className="text-3xl font-bold text-blue-700 mt-2">{stats.inProgress}</p>
               </div>
               <div
@@ -1435,9 +1504,27 @@ const NewBatchProductionReport = () => {
           >
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-semibold text-green-600 uppercase tracking-wider">
-                  Completed
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-semibold text-green-600 uppercase tracking-wider">
+                    Completed
+                  </p>
+                  <button
+                    type="button"
+                    title="Export Completed Batches Report"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (stats.completed === 0) {
+                        showToast.error('No Completed batches to export');
+                        return;
+                      }
+                      setExportTargetStatus('Completed');
+                      setExportModalOpen(true);
+                    }}
+                    className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 <p className="text-3xl font-bold text-green-700 mt-2">{stats.completed}</p>
               </div>
               <div
@@ -1461,9 +1548,27 @@ const NewBatchProductionReport = () => {
           >
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">
-                  Cancelled
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">
+                    Cancelled
+                  </p>
+                  <button
+                    type="button"
+                    title="Export Cancelled Batches Report"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (stats.cancelled === 0) {
+                        showToast.error('No Cancelled batches to export');
+                        return;
+                      }
+                      setExportTargetStatus('Cancelled');
+                      setExportModalOpen(true);
+                    }}
+                    className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 <p className="text-3xl font-bold text-red-700 mt-2">{stats.cancelled}</p>
               </div>
               <div
@@ -2418,6 +2523,15 @@ const NewBatchProductionReport = () => {
           </div>
         </Modal>
       )}
+
+      {/* Export Format Modal */}
+      <ExportReportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        onConfirm={handleConfirmExport}
+        title="Export Report"
+        subtitle="Choose Format"
+      />
     </div>
   );
 };
